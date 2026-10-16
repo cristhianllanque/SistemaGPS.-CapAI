@@ -32,18 +32,42 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {filtered.map(v => {
           const u = v.ultima_lectura;
-          const isMoving = u && u.velocidad > 0;
-          const isStoppedWithIgnition = u && u.velocidad === 0 && u.ignicion;
-          const isOff = u && !u.ignicion;
-          const isPanic = u && u.boton_panico;
+          const readingDate = u?.timestamp ? new Date(u.timestamp) : null;
+          const isOnline = Boolean(
+            u && 
+            u.online !== false && 
+            readingDate && 
+            (Date.now() - readingDate.getTime() < 5 * 60 * 1000)
+          );
+
+          const isPanic = u && isOnline && Boolean(u.boton_panico);
+          const isMoving = u && isOnline && u.velocidad > 0;
+          const isStoppedWithIgnition = u && isOnline && u.velocidad === 0 && u.ignicion;
           const isSelected = selectedVehicleId === v.id;
 
-          let statusColor = 'bg-slate-100 border-slate-200';
+          let statusColor = 'bg-slate-50 border-slate-200';
           let statusDot = 'bg-slate-400';
-          if (isPanic) { statusColor = 'bg-red-50 border-red-300 ring-2 ring-red-400'; statusDot = 'bg-red-500 animate-pulse'; }
-          else if (isSelected) { statusColor = 'bg-blue-50 border-blue-300 ring-2 ring-blue-500'; statusDot = 'bg-blue-500'; }
-          else if (isMoving) { statusColor = 'bg-green-50 border-green-200'; statusDot = 'bg-green-500'; }
-          else if (isStoppedWithIgnition) { statusColor = 'bg-yellow-50 border-yellow-200'; statusDot = 'bg-yellow-500'; }
+          let statusLabel = 'Desconectado (Apagado)';
+
+          if (isPanic) { 
+            statusColor = 'bg-red-50 border-red-300 ring-2 ring-red-400'; 
+            statusDot = 'bg-red-500 animate-pulse'; 
+            statusLabel = '¡Pánico!';
+          } else if (isSelected) { 
+            statusColor = 'bg-blue-50 border-blue-300 ring-2 ring-blue-500'; 
+            statusDot = isOnline ? (isMoving ? 'bg-green-500' : (isStoppedWithIgnition ? 'bg-yellow-500' : 'bg-slate-400')) : 'bg-slate-400'; 
+            statusLabel = isOnline ? (isMoving ? 'En ruta' : (isStoppedWithIgnition ? 'Motor ON' : 'Detenido')) : 'Desconectado';
+          } else if (isMoving) { 
+            statusColor = 'bg-green-50 border-green-200'; 
+            statusDot = 'bg-green-500'; 
+            statusLabel = 'En movimiento';
+          } else if (isStoppedWithIgnition) { 
+            statusColor = 'bg-yellow-50 border-yellow-200'; 
+            statusDot = 'bg-yellow-500'; 
+            statusLabel = 'Motor encendido';
+          } else if (isOnline) {
+            statusLabel = 'Detenido';
+          }
 
           return (
             <div 
@@ -55,25 +79,28 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
                 <div>
                   <h3 className="font-bold text-slate-800 flex items-center gap-2">
                     {v.placa}
-                    <span className={`w-2 h-2 rounded-full ${statusDot}`}></span>
+                    <span className={`w-2 h-2 rounded-full ${statusDot}`} title={statusLabel}></span>
                   </h3>
                   <p className="text-xs text-slate-500">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
                 </div>
-                {isPanic && <AlertCircle size={16} className="text-red-500 animate-bounce" />}
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-semibold text-slate-400">{statusLabel}</span>
+                  {isPanic && <AlertCircle size={16} className="text-red-500 animate-bounce" />}
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
                 <div className="bg-white p-2 rounded flex flex-col items-center shadow-sm">
                   <span className="text-xs text-slate-400 mb-1">Velocidad</span>
-                  <span className="font-semibold text-slate-700">{u ? u.velocidad : 0} km/h</span>
+                  <span className="font-semibold text-slate-700">{isOnline && u ? u.velocidad : 0} km/h</span>
                 </div>
                 <div className="bg-white p-2 rounded flex flex-col items-center justify-center shadow-sm">
-                  {u && u.ignicion ? (
-                    <div className="flex items-center gap-1 text-green-600 font-medium">
+                  {isOnline && u && u.ignicion ? (
+                    <div className="flex items-center gap-1 text-green-600 font-medium text-xs">
                       <Power size={14} /> Motor ON
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 text-slate-400 font-medium">
+                    <div className="flex items-center gap-1 text-slate-400 font-medium text-xs">
                       <PowerOff size={14} /> Motor OFF
                     </div>
                   )}

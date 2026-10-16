@@ -38,6 +38,7 @@ def list_vehiculos(
     vehiculos = query.order_by(models.Vehiculo.created_at.desc()).all()
 
     result = []
+    now_utc = datetime.utcnow()
     for v in vehiculos:
         data = schemas.VehiculoOut.model_validate(v)
         if v.empresa:
@@ -47,7 +48,15 @@ def list_vehiculos(
             models.LecturaGPS.vehiculo_id == v.id
         ).order_by(desc(models.LecturaGPS.timestamp)).first()
         if ultima:
-            data.ultima_lectura = schemas.LecturaGPSBase.model_validate(ultima)
+            lect_out = schemas.LecturaGPSBase.model_validate(ultima)
+            diff_seconds = (now_utc - ultima.timestamp).total_seconds()
+            is_online = 0 <= diff_seconds <= 300  # Online if within last 5 minutes
+            lect_out.online = is_online
+            if not is_online:
+                # If device is disconnected or offline, motor is OFF
+                lect_out.ignicion = False
+                lect_out.velocidad = 0
+            data.ultima_lectura = lect_out
         result.append(data)
     return result
 
@@ -74,6 +83,20 @@ def get_vehiculo(
     data = schemas.VehiculoOut.model_validate(v)
     if v.empresa:
         data.empresa_nombre = v.empresa.nombre
+
+    ultima = db.query(models.LecturaGPS).filter(
+        models.LecturaGPS.vehiculo_id == v.id
+    ).order_by(desc(models.LecturaGPS.timestamp)).first()
+    if ultima:
+        lect_out = schemas.LecturaGPSBase.model_validate(ultima)
+        diff_seconds = (datetime.utcnow() - ultima.timestamp).total_seconds()
+        is_online = 0 <= diff_seconds <= 300
+        lect_out.online = is_online
+        if not is_online:
+            lect_out.ignicion = False
+            lect_out.velocidad = 0
+        data.ultima_lectura = lect_out
+
     return data
 
 

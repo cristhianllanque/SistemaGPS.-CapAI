@@ -15,7 +15,11 @@ def list_usuarios(
 ):
     query = db.query(models.Usuario)
     if current_user.rol != 'superadmin':
-        query = query.filter(models.Usuario.empresa_id == current_user.empresa_id)
+        # Client companies only see users of their own company, NEVER superadmin
+        query = query.filter(
+            models.Usuario.empresa_id == current_user.empresa_id,
+            models.Usuario.rol != 'superadmin'
+        )
     usuarios = query.all()
     
     result = []
@@ -31,18 +35,15 @@ def list_usuarios(
 def create_usuario(
     payload: schemas.UsuarioCreate,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(require_role(['admin', 'superadmin']))
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
 ):
     # Check if user already exists
     exists = db.query(models.Usuario).filter(models.Usuario.email == payload.email).first()
     if exists:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
 
-    # Determine empresa_id: Superadmin can assign to any company, client admin only to their own
-    if current_user.rol == 'superadmin' and payload.empresa_id:
-        empresa_id = payload.empresa_id
-    else:
-        empresa_id = current_user.empresa_id
+    # Superadmin assigns to company specified in payload or leaves platform-level
+    empresa_id = payload.empresa_id
 
     hashed_password = security.get_password_hash(payload.password)
     
@@ -68,13 +69,9 @@ def update_usuario(
     usuario_id: int,
     payload: schemas.UsuarioUpdate,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(require_role(['admin', 'superadmin']))
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
 ):
-    query = db.query(models.Usuario).filter(models.Usuario.id == usuario_id)
-    if current_user.rol != 'superadmin':
-        query = query.filter(models.Usuario.empresa_id == current_user.empresa_id)
-    
-    usuario = query.first()
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -93,27 +90,34 @@ def update_usuario(
 
     db.commit()
     db.refresh(usuario)
-    return usuario
+    
+    result = schemas.UsuarioOut.model_validate(usuario)
+    if usuario.empresa:
+        result.empresa_nombre = usuario.empresa.nombre
+    return result
 
 
 @router.put("/{usuario_id}/toggle-estado", response_model=schemas.UsuarioOut)
 def toggle_estado_usuario(
     usuario_id: int,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(require_role(['admin', 'superadmin']))
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
 ):
     if current_user.id == usuario_id:
         raise HTTPException(status_code=400, detail="No puedes desactivar tu propio usuario")
         
-    query = db.query(models.Usuario).filter(models.Usuario.id == usuario_id)
-    if current_user.rol != 'superadmin':
-        query = query.filter(models.Usuario.empresa_id == current_user.empresa_id)
-        
-    usuario = query.first()
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    if usuario.rol == 'superadmin':
+        raise HTTPException(status_code=400, detail="No se puede desactivar la cuenta del Administrador Principal")
 
     usuario.activo = not usuario.activo
     db.commit()
     db.refresh(usuario)
-    return usuario
+    
+    result = schemas.UsuarioOut.model_validate(usuario)
+    if usuario.empresa:
+        result.empresa_nombre = usuario.empresa.nombre
+    return result

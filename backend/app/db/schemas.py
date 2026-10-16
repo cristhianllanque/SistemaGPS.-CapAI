@@ -202,6 +202,7 @@ class LecturaGPSBase(BaseModel):
     ignicion: bool
     boton_panico: bool
     timestamp: datetime
+    online: Optional[bool] = False
     class Config:
         from_attributes = True
 

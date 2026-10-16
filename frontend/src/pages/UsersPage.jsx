@@ -130,11 +130,22 @@ export default function UsersPage() {
           </h1>
           <p className="text-slate-500 text-sm mt-1">Gestión de roles y permisos del sistema (RBAC)</p>
         </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
-          <Plus size={18} /> Crear Nuevo Usuario
-        </button>
+        {isSuperadmin && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
+            <Plus size={18} /> Crear Nuevo Usuario
+          </button>
+        )}
       </div>
+
+      {!isSuperadmin && (
+        <div className="mb-5 p-3.5 bg-indigo-50/80 border border-indigo-100 text-indigo-900 rounded-xl text-xs flex items-center gap-2.5 shadow-sm">
+          <Shield size={18} className="text-indigo-600 flex-shrink-0" />
+          <span>
+            <strong>Directorio de Usuarios de la Empresa:</strong> Modo de consulta. La creación, asignación y restablecimiento de credenciales es administrada por la administración central de Copay.
+          </span>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -148,13 +159,15 @@ export default function UsersPage() {
                 )}
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Rol</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Estado</th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
+                {isSuperadmin && (
+                  <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {usuarios.length === 0 ? (
                 <tr>
-                  <td colSpan={isSuperadmin ? "6" : "5"} className="text-center py-12 text-slate-400">
+                  <td colSpan={isSuperadmin ? "6" : "4"} className="text-center py-12 text-slate-400">
                     <User size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay usuarios registrados</p>
                   </td>
@@ -185,18 +198,26 @@ export default function UsersPage() {
                       <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Inactivo</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Editar">
-                        <Edit2 size={15} />
-                      </button>
-                      <button onClick={() => handleToggleEstado(u.id)} 
-                        className={`p-1.5 rounded transition-colors ${u.activo ? 'text-green-500 hover:bg-green-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
-                        title={u.activo ? 'Desactivar' : 'Activar'}>
-                        {u.activo ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                      </button>
-                    </div>
-                  </td>
+                  {isSuperadmin && (
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Editar">
+                          <Edit2 size={15} />
+                        </button>
+                        {u.rol !== 'superadmin' && u.id !== currentUser.id ? (
+                          <button onClick={() => handleToggleEstado(u.id)} 
+                            className={`p-1.5 rounded transition-colors ${u.activo ? 'text-green-500 hover:bg-green-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
+                            title={u.activo ? 'Desactivar' : 'Activar'}>
+                            {u.activo ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                          </button>
+                        ) : (
+                          <span className="p-1.5 text-slate-300 cursor-not-allowed" title="Superadmin no puede ser desactivado">
+                            <Shield size={16} />
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

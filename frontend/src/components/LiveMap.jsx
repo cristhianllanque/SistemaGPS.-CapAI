@@ -133,12 +133,20 @@ export default function LiveMap({
           if (!v.ultima_lectura) return null;
           
           const u = v.ultima_lectura;
-          const isThisEmergency = emergencyVehicleId === v.id || Boolean(u.boton_panico);
+          const readingDate = u?.timestamp ? new Date(u.timestamp) : null;
+          const isOnline = Boolean(
+            u && 
+            u.online !== false && 
+            readingDate && 
+            (Date.now() - readingDate.getTime() < 5 * 60 * 1000)
+          );
+
+          const isThisEmergency = isOnline && (emergencyVehicleId === v.id || Boolean(u.boton_panico));
           
-          let icon = icons.stopped_off;
+          let icon = icons.stopped_off; // Default is gray (offline / apagado)
           if (isThisEmergency) icon = icons.panic;
-          else if (u.velocidad > 0) icon = icons.moving;
-          else if (u.ignicion) icon = icons.stopped_on;
+          else if (isOnline && u.velocidad > 0) icon = icons.moving;
+          else if (isOnline && u.ignicion) icon = icons.stopped_on;
 
           return (
             <Marker 
@@ -150,25 +158,33 @@ export default function LiveMap({
               }}
             >
               <Popup>
-                <div className="p-1 min-w-[180px]">
+                <div className="p-1 min-w-[190px]">
                   <div className="flex items-center justify-between border-b pb-1 mb-1">
                     <h3 className="font-bold text-sm text-slate-800">{v.placa}</h3>
-                    {isThisEmergency && (
+                    {isThisEmergency ? (
                       <span className="text-[10px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded">
                         ¡PÁNICO!
+                      </span>
+                    ) : (
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isOnline ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {isOnline ? 'Conectado' : 'Desconectado'}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mb-2">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
-                    <span className="font-semibold text-slate-600">Velocidad:</span>
-                    <span className="font-bold text-slate-700">{u.velocidad} km/h</span>
-                    <span className="font-semibold text-slate-600">Motor:</span>
-                    <span className={u.ignicion ? "text-green-600 font-bold" : "text-slate-500"}>
-                      {u.ignicion ? 'ON' : 'OFF'}
+                    <span className="font-semibold text-slate-600">Estado:</span>
+                    <span className={isOnline ? "text-green-600 font-bold" : "text-slate-500 font-medium"}>
+                      {isOnline ? (u.velocidad > 0 ? 'En movimiento' : (u.ignicion ? 'Motor ON' : 'Detenido')) : 'Apagado'}
                     </span>
-                    <span className="font-semibold text-slate-600">Hora:</span>
-                    <span className="text-slate-600">{new Date(u.timestamp).toLocaleTimeString()}</span>
+                    <span className="font-semibold text-slate-600">Velocidad:</span>
+                    <span className="font-bold text-slate-700">{isOnline ? `${u.velocidad} km/h` : '0 km/h'}</span>
+                    <span className="font-semibold text-slate-600">Motor:</span>
+                    <span className={isOnline && u.ignicion ? "text-green-600 font-bold" : "text-slate-500 font-medium"}>
+                      {isOnline && u.ignicion ? 'ON' : 'OFF'}
+                    </span>
+                    <span className="font-semibold text-slate-600">Último reporte:</span>
+                    <span className="text-slate-600">{readingDate ? readingDate.toLocaleTimeString() : '—'}</span>
                   </div>
                 </div>
               </Popup>
