@@ -33,6 +33,7 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
     inserted_lecturas = []
     panic_alert_id = None
     speed_alert_info = None
+    sabotage_alert_info = None
     
     with SessionLocal() as db:
         # Obtain vehicle and company's speed limit
@@ -47,6 +48,11 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             if hasattr(ts, 'tzinfo') and ts.tzinfo is not None:
                 ts = ts.replace(tzinfo=None)
 
+            bateria_ext_v = r.get('bateria_ext')
+            bateria_int_v = r.get('bateria_int')
+            bateria_pct = r.get('bateria_porcentaje')
+            io_dict = r.get('io_dict', {})
+
             lectura = models.LecturaGPS(
                 vehiculo_id=vehiculo_id,
                 latitud=r['latitude'],
@@ -54,6 +60,9 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                 velocidad=r['speed'],
                 ignicion=r['ignicion'],
                 boton_panico=r['boton_panico'],
+                bateria_ext=bateria_ext_v,
+                bateria_int=bateria_int_v,
+                bateria_porcentaje=bateria_pct,
                 timestamp=ts
             )
             db.add(lectura)
@@ -88,7 +97,6 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             # 2. Speed limit excess check (> limite_velocidad km/h)
             curr_speed = r.get('speed') or 0
             if curr_speed > limite_velocidad:
-                # Deduplication: check if there's an ongoing pending speed alert for this vehicle
                 alerta_speed_existente = db.query(models.AlertaPanico).filter(
                     models.AlertaPanico.vehiculo_id == vehiculo_id,
                     models.AlertaPanico.estado == 'pendiente',
@@ -121,19 +129,75 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                         "velocidad": curr_speed,
                         "limite": limite_velocidad
                     }
+
+            # 3. Sabotage / Main battery disconnect check
+            # Vehicle battery is 12V / 24V. When thieves disconnect the battery (or switch off),
+            # external voltage drops to 0V (or < 6.0V), while the Teltonika internal backup battery powers the GPS.
+            ext_mv = io_dict.get(66)
+            is_sabotaje = False
+            if ext_mv is not None and ext_mv < 6000:
+                is_sabotaje = True
+            elif bateria_ext_v is not None and bateria_ext_v < 6.0:
+                is_sabotaje = True
+
+            if is_sabotaje:
+                alerta_sab_existente = db.query(models.AlertaPanico).filter(
+                    models.AlertaPanico.vehiculo_id == vehiculo_id,
+                    models.AlertaPanico.estado == 'pendiente',
+                    models.AlertaPanico.tipo == 'sabotaje'
+                ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
+
+                ext_val = bateria_ext_v if bateria_ext_v is not None else 0.0
+                int_val = bateria_int_v if bateria_int_v is not None else 0.0
+                obs = f"Corte de batería principal / Sabotaje. Voltaje ext: {ext_val}V. Bat interna: {int_val}V."
+
+                if not alerta_sab_existente:
+                    alerta_sab = models.AlertaPanico(
+                        vehiculo_id=vehiculo_id,
+                        latitud=r['latitude'],
+                        longitud=r['longitude'],
+                        estado='pendiente',
+                        tipo='sabotaje',
+                        velocidad=curr_speed,
+                        fecha_hora=ts,
+                        observaciones_atencion=obs
+                    )
+                    db.add(alerta_sab)
+                    db.flush()
+                    sabotage_alert_info = {
+                        "alerta_id": alerta_sab.id,
+                        "bateria_ext": ext_val,
+                        "bateria_int": int_val,
+                        "bateria_porcentaje": bateria_pct
+                    }
+                else:
+                    alerta_sab_existente.latitud = r['latitude']
+                    alerta_sab_existente.longitud = r['longitude']
+                    alerta_sab_existente.velocidad = curr_speed
+                    sabotage_alert_info = {
+                        "alerta_id": alerta_sab_existente.id,
+                        "bateria_ext": ext_val,
+                        "bateria_int": int_val,
+                        "bateria_porcentaje": bateria_pct
+                    }
                 
         db.commit()
         
         lecturas_dicts = [{
             'latitud': l.latitud,
             'longitud': l.longitud,
-            'velocidad': l.velocidad,
-            'ignicion': l.ignicion,
-            'boton_panico': l.boton_panico,
-            'timestamp': l.timestamp.isoformat() if l.timestamp else None
+            'velocidad': l.velocidad or 0,
+            'ignicion': bool(l.ignicion),
+            'boton_panico': bool(l.boton_panico),
+            'bateria_ext': l.bateria_ext,
+            'bateria_int': l.bateria_int,
+            'bateria_porcentaje': l.bateria_porcentaje,
+            'sabotaje': bool(l.bateria_ext is not None and l.bateria_ext < 6.0),
+            'online': True,
+            'timestamp': (l.timestamp.isoformat() + 'Z') if l.timestamp else None
         } for l in inserted_lecturas]
         
-    return lecturas_dicts, panic_alert_id, speed_alert_info, limite_velocidad
+    return lecturas_dicts, panic_alert_id, speed_alert_info, sabotage_alert_info, limite_velocidad
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info('peername')
@@ -221,7 +285,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     
                     if records:
                         print(f"[TCP] Recibidos {len(records)} registros AVL válidos del IMEI {imei}", flush=True)
-                        lecturas_dicts, panic_alert_id, speed_alert_info, limite_velocidad = await run_in_thread(save_records_to_db, vehiculo_id, records)
+                        lecturas_dicts, panic_alert_id, speed_alert_info, sabotage_alert_info, limite_velocidad = await run_in_thread(save_records_to_db, vehiculo_id, records)
                         
                         latest_record = lecturas_dicts[-1]
                         broadcast_msg = {
@@ -261,6 +325,22 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "message": f"¡Exceso de velocidad: {speed_alert_info['velocidad']} km/h! (Límite configurado: {speed_alert_info['limite']} km/h)"
                             }
                             await manager.broadcast_all(speed_msg)
+
+                        if sabotage_alert_info:
+                            sabotage_msg = {
+                                "type": "sabotage_alert",
+                                "alerta_id": sabotage_alert_info['alerta_id'],
+                                "vehiculo_id": vehiculo_id,
+                                "placa": placa,
+                                "conductor": conductor,
+                                "bateria_ext": sabotage_alert_info['bateria_ext'],
+                                "bateria_int": sabotage_alert_info['bateria_int'],
+                                "bateria_porcentaje": sabotage_alert_info.get('bateria_porcentaje'),
+                                "latitud": latest_record['latitud'],
+                                "longitud": latest_record['longitud'],
+                                "message": f"¡ALERTA DE SABOTAJE! Corte de energía / Batería principal desconectada en vehículo {placa} ({sabotage_alert_info['bateria_ext']}V)"
+                            }
+                            await manager.broadcast_all(sabotage_msg)
                     
                     # Respond with AVL ACK: 4 bytes big endian count of records
                     ack_response = TeltonikaCodec8Parser.generate_ack(len(records))

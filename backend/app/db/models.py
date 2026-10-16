@@ -108,6 +108,9 @@ class LecturaGPS(Base):
     velocidad = Column(SmallInteger)
     ignicion = Column(Boolean)
     boton_panico = Column(Boolean)
+    bateria_ext = Column(Float, nullable=True)
+    bateria_int = Column(Float, nullable=True)
+    bateria_porcentaje = Column(SmallInteger, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
 
     __table_args__ = (

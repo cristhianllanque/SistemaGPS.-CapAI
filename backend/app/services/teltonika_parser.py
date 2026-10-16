@@ -172,9 +172,11 @@ class TeltonikaCodec8Parser:
                 'angle': angle,
                 'satellites': satellites,
                 'speed': speed,
-                'ignicion': bool(io_dict.get(239, 0)) or bool(io_dict.get(1, 0)) or (io_event_id in (1, 239)),
-                'boton_panico': bool(io_dict.get(2, 0)) or bool(io_dict.get(252, 0)) or (io_event_id in (2, 252)),
-                'bateria_ext': io_dict.get(66, 0) / 1000.0, # Convert mV to V
+                'ignicion': bool(io_dict[239]) if 239 in io_dict else (bool(io_dict[1]) if 1 in io_dict else (True if io_event_id in (1, 239) else False)),
+                'boton_panico': bool(io_dict[2]) if 2 in io_dict else (bool(io_dict[252]) if 252 in io_dict else (True if io_event_id in (2, 252) else False)),
+                'bateria_ext': round(io_dict[66] / 1000.0, 2) if 66 in io_dict else None,
+                'bateria_int': round(io_dict[67] / 1000.0, 2) if 67 in io_dict else None,
+                'bateria_porcentaje': int(io_dict[113]) if 113 in io_dict else (max(0, min(100, int((io_dict[67] - 3400) / (4100 - 3400) * 100))) if 67 in io_dict and io_dict[67] > 0 else None),
                 'io_dict': io_dict
             }
             print(f"DEBUG IO DICT: {io_dict}", flush=True)

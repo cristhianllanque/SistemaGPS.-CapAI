@@ -61,6 +61,14 @@ export default function AlertsPage() {
   };
 
   const getTipoBadge = (alerta) => {
+    if (alerta.tipo === 'sabotaje') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full border border-rose-300">
+          <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+          🔌 Sabotaje / Batería Desconectada
+        </span>
+      );
+    }
     if (alerta.tipo === 'exceso_velocidad') {
       return (
         <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-300">
@@ -78,7 +86,8 @@ export default function AlertsPage() {
   };
 
   const filteredAlertas = alertas.filter(a => {
-    if (filterTipo === 'panico') return a.tipo !== 'exceso_velocidad';
+    if (filterTipo === 'panico') return a.tipo === 'panico';
+    if (filterTipo === 'sabotaje') return a.tipo === 'sabotaje';
     if (filterTipo === 'velocidad') return a.tipo === 'exceso_velocidad';
     return true;
   });
@@ -101,12 +110,12 @@ export default function AlertsPage() {
             <AlertTriangle size={26} className="text-red-600" /> Historial de Alertas de Seguridad y Flota
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            Registro, auditoría y despacho de eventos de pánico y excesos de velocidad en tiempo real.
+            Registro, auditoría y despacho de eventos de pánico, sabotaje de batería y excesos de velocidad.
           </p>
         </div>
 
         {/* Filter Buttons */}
-        <div className="flex bg-slate-200/70 p-1 rounded-xl text-xs font-semibold gap-1 self-start">
+        <div className="flex bg-slate-200/70 p-1 rounded-xl text-xs font-semibold gap-1 self-start flex-wrap">
           <button
             onClick={() => setFilterTipo('todos')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${filterTipo === 'todos' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
@@ -117,7 +126,13 @@ export default function AlertsPage() {
             onClick={() => setFilterTipo('panico')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${filterTipo === 'panico' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            Pánico ({alertas.filter(a => a.tipo !== 'exceso_velocidad').length})
+            Pánico ({alertas.filter(a => a.tipo === 'panico').length})
+          </button>
+          <button
+            onClick={() => setFilterTipo('sabotaje')}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${filterTipo === 'sabotaje' ? 'bg-white text-rose-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            🔌 Sabotaje ({alertas.filter(a => a.tipo === 'sabotaje').length})
           </button>
           <button
             onClick={() => setFilterTipo('velocidad')}

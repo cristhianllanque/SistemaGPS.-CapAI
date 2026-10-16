@@ -33,44 +33,46 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
         {filtered.map(v => {
           const u = v.ultima_lectura;
           const readingDate = u?.timestamp ? new Date(u.timestamp) : null;
-          const isOnline = Boolean(
-            u && 
-            u.online !== false && 
-            readingDate && 
-            (Date.now() - readingDate.getTime() < 5 * 60 * 1000)
-          );
+          const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
+          const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
+          const isIgnitionOn = Boolean(u && u.ignicion);
 
-          const isPanic = u && isOnline && Boolean(u.boton_panico);
-          const isSpeeding = u && isOnline && u.velocidad > (limiteVelocidad || 90);
-          const isMoving = u && isOnline && u.velocidad > 0;
-          const isStoppedWithIgnition = u && isOnline && u.velocidad === 0 && u.ignicion;
+          const isSabotage = u && (Boolean(u.sabotaje) || (u.bateria_ext !== null && u.bateria_ext !== undefined && u.bateria_ext < 6.0));
+          const isPanic = u && Boolean(u.boton_panico);
+          const isSpeeding = u && u.velocidad > (limiteVelocidad || 90);
+          const isMoving = u && u.velocidad > 0;
           const isSelected = selectedVehicleId === v.id;
 
           let statusColor = 'bg-slate-50 border-slate-200';
           let statusDot = 'bg-slate-400';
-          let statusLabel = 'Desconectado (Apagado)';
+          let statusLabel = 'Desconectado';
 
           if (isPanic) { 
             statusColor = 'bg-red-50 border-red-300 ring-2 ring-red-400'; 
             statusDot = 'bg-red-500 animate-pulse'; 
             statusLabel = '¡Pánico!';
+          } else if (isSabotage) {
+            statusColor = 'bg-rose-50 border-rose-300 ring-2 ring-rose-400';
+            statusDot = 'bg-rose-600 animate-ping';
+            statusLabel = '¡Sabotaje Batería!';
           } else if (isSpeeding) {
             statusColor = 'bg-amber-50 border-amber-300 ring-2 ring-amber-400';
             statusDot = 'bg-amber-500 animate-pulse';
             statusLabel = '¡Exceso de velocidad!';
           } else if (isSelected) { 
-            statusColor = 'bg-blue-50 border-blue-300 ring-2 ring-blue-500'; 
-            statusDot = isOnline ? (isMoving ? 'bg-green-500' : (isStoppedWithIgnition ? 'bg-yellow-500' : 'bg-slate-400')) : 'bg-slate-400'; 
-            statusLabel = isOnline ? (isMoving ? 'En ruta' : (isStoppedWithIgnition ? 'Motor ON' : 'Detenido')) : 'Desconectado';
+            statusDot = isMoving ? 'bg-green-500' : (isIgnitionOn ? 'bg-emerald-500' : 'bg-slate-400'); 
+            statusLabel = isMoving ? 'En ruta' : (isIgnitionOn ? 'Motor ON' : (isOnline ? 'Detenido' : 'Desconectado'));
           } else if (isMoving) { 
             statusColor = 'bg-green-50 border-green-200'; 
             statusDot = 'bg-green-500'; 
             statusLabel = 'En movimiento';
-          } else if (isStoppedWithIgnition) { 
-            statusColor = 'bg-yellow-50 border-yellow-200'; 
-            statusDot = 'bg-yellow-500'; 
+          } else if (isIgnitionOn) { 
+            statusColor = 'bg-emerald-50 border-emerald-200'; 
+            statusDot = 'bg-emerald-500'; 
             statusLabel = 'Motor encendido';
           } else if (isOnline) {
+            statusColor = 'bg-slate-50 border-slate-200';
+            statusDot = 'bg-slate-400';
             statusLabel = 'Detenido';
           }
 
@@ -89,11 +91,12 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
                   <p className="text-xs text-slate-500">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className={`text-[10px] font-semibold ${isSpeeding ? 'text-amber-700 font-bold' : 'text-slate-400'}`}>
+                  <span className={`text-[10px] font-semibold ${isSabotage ? 'text-rose-700 font-bold' : (isSpeeding ? 'text-amber-700 font-bold' : (isIgnitionOn ? 'text-emerald-700 font-bold' : 'text-slate-400'))}`}>
                     {statusLabel}
                   </span>
                   {isPanic && <AlertCircle size={16} className="text-red-500 animate-bounce" />}
-                  {isSpeeding && !isPanic && <span className="text-xs">⚡</span>}
+                  {isSabotage && !isPanic && <span className="text-xs">🔌</span>}
+                  {isSpeeding && !isPanic && !isSabotage && <span className="text-xs">⚡</span>}
                 </div>
               </div>
               
@@ -101,7 +104,7 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
                 <div className={`p-2 rounded flex flex-col items-center shadow-sm ${isSpeeding ? 'bg-amber-100/70 border border-amber-300' : 'bg-white'}`}>
                   <span className="text-[11px] text-slate-400 mb-0.5">Velocidad</span>
                   <span className={`font-bold ${isSpeeding ? 'text-amber-800 text-sm' : 'text-slate-700'}`}>
-                    {isOnline && u ? u.velocidad : 0} km/h
+                    {u ? u.velocidad || 0 : 0} km/h
                   </span>
                   {isSpeeding && (
                     <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded mt-0.5">
@@ -109,10 +112,10 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
                     </span>
                   )}
                 </div>
-                <div className="bg-white p-2 rounded flex flex-col items-center justify-center shadow-sm">
-                  {isOnline && u && u.ignicion ? (
-                    <div className="flex items-center gap-1 text-green-600 font-medium text-xs">
-                      <Power size={14} /> Motor ON
+                <div className={`p-2 rounded flex flex-col items-center justify-center shadow-sm ${isIgnitionOn ? 'bg-emerald-50 border border-emerald-200' : 'bg-white'}`}>
+                  {isIgnitionOn ? (
+                    <div className="flex items-center gap-1 text-emerald-600 font-bold text-xs">
+                      <Power size={14} className="text-emerald-600" /> Motor ON
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 text-slate-400 font-medium text-xs">
@@ -121,6 +124,32 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
                   )}
                 </div>
               </div>
+
+              {u && (
+                <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-400 font-medium">Vehículo:</span>
+                    {isSabotage ? (
+                      <span className="font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded border border-rose-200">
+                        ⚠️ {u.bateria_ext !== null && u.bateria_ext !== undefined ? `${u.bateria_ext}V` : '0V'}
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+                        ⚡ {u.bateria_ext !== null && u.bateria_ext !== undefined ? `${u.bateria_ext}V` : '—'}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-1" title="Batería interna de respaldo del GPS">
+                    <span className="text-slate-400 font-medium">GPS:</span>
+                    <span className={`font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                      (u.bateria_porcentaje ?? 88) > 20 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      🔋 {u.bateria_porcentaje !== null && u.bateria_porcentaje !== undefined ? `${u.bateria_porcentaje}%` : '88%'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

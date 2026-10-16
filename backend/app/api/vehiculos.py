@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
@@ -46,16 +46,20 @@ def list_vehiculos(
         # Attach last GPS reading
         ultima = db.query(models.LecturaGPS).filter(
             models.LecturaGPS.vehiculo_id == v.id
-        ).order_by(desc(models.LecturaGPS.timestamp)).first()
+        ).order_by(desc(models.LecturaGPS.id)).first()
         if ultima:
             lect_out = schemas.LecturaGPSBase.model_validate(ultima)
-            diff_seconds = (now_utc - ultima.timestamp).total_seconds()
-            is_online = 0 <= diff_seconds <= 300  # Online if within last 5 minutes
+            # Use abs to prevent micro clock skews from failing
+            diff_seconds = abs((now_utc - ultima.timestamp).total_seconds())
+            is_online = diff_seconds <= 900  # Online if reported within 15 minutes
             lect_out.online = is_online
-            if not is_online:
-                # If device is disconnected or offline, motor is OFF
-                lect_out.ignicion = False
-                lect_out.velocidad = 0
+            # Preserve true hardware sensor data: never overwrite real ignition
+            lect_out.ignicion = bool(ultima.ignicion)
+            lect_out.velocidad = ultima.velocidad or 0
+            lect_out.bateria_ext = ultima.bateria_ext
+            lect_out.bateria_int = ultima.bateria_int
+            lect_out.bateria_porcentaje = ultima.bateria_porcentaje
+            lect_out.sabotaje = bool(ultima.bateria_ext is not None and ultima.bateria_ext < 6.0)
             data.ultima_lectura = lect_out
         result.append(data)
     return result
@@ -86,15 +90,18 @@ def get_vehiculo(
 
     ultima = db.query(models.LecturaGPS).filter(
         models.LecturaGPS.vehiculo_id == v.id
-    ).order_by(desc(models.LecturaGPS.timestamp)).first()
+    ).order_by(desc(models.LecturaGPS.id)).first()
     if ultima:
         lect_out = schemas.LecturaGPSBase.model_validate(ultima)
-        diff_seconds = (datetime.utcnow() - ultima.timestamp).total_seconds()
-        is_online = 0 <= diff_seconds <= 300
+        diff_seconds = abs((datetime.utcnow() - ultima.timestamp).total_seconds())
+        is_online = diff_seconds <= 900
         lect_out.online = is_online
-        if not is_online:
-            lect_out.ignicion = False
-            lect_out.velocidad = 0
+        lect_out.ignicion = bool(ultima.ignicion)
+        lect_out.velocidad = ultima.velocidad or 0
+        lect_out.bateria_ext = ultima.bateria_ext
+        lect_out.bateria_int = ultima.bateria_int
+        lect_out.bateria_porcentaje = ultima.bateria_porcentaje
+        lect_out.sabotaje = bool(ultima.bateria_ext is not None and ultima.bateria_ext < 6.0)
         data.ultima_lectura = lect_out
 
     return data
@@ -389,10 +396,12 @@ def get_historial(
     if not vehiculo:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
-    # The frontend might pass datetime with Z, so handle it
+    # The frontend might pass datetime with Z or local offset, normalize to naive UTC
     try:
-        inicio = datetime.fromisoformat(fecha_inicio.replace('Z', '+00:00'))
-        fin = datetime.fromisoformat(fecha_fin.replace('Z', '+00:00'))
+        dt_inicio = datetime.fromisoformat(fecha_inicio.replace('Z', '+00:00'))
+        inicio = dt_inicio.astimezone(timezone.utc).replace(tzinfo=None) if dt_inicio.tzinfo else dt_inicio
+        dt_fin = datetime.fromisoformat(fecha_fin.replace('Z', '+00:00'))
+        fin = dt_fin.astimezone(timezone.utc).replace(tzinfo=None) if dt_fin.tzinfo else dt_fin
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido")
 
@@ -421,7 +430,9 @@ def get_historial(
                 "distancia_km": 0.0,
                 "velocidad_maxima": 0,
                 "velocidad_promedio": 0.0,
-                "tiempo_encendido_minutos": 0.0
+                "tiempo_encendido_minutos": 0.0,
+                "tiempo_detenido_minutos": 0.0,
+                "total_paradas": 0
             },
             "paradas": []
         }
@@ -430,8 +441,11 @@ def get_historial(
         coordenadas.append({
             "latitud": lec.latitud,
             "longitud": lec.longitud,
-            "velocidad": lec.velocidad,
-            "ignicion": lec.ignicion,
+            "velocidad": lec.velocidad or 0,
+            "ignicion": bool(lec.ignicion),
+            "bateria_ext": lec.bateria_ext,
+            "bateria_int": lec.bateria_int,
+            "bateria_porcentaje": lec.bateria_porcentaje,
             "timestamp": lec.timestamp
         })
         
@@ -487,6 +501,7 @@ def get_historial(
     # Average speed
     total_time_hours = (lecturas[-1].timestamp - lecturas[0].timestamp).total_seconds() / 3600.0
     velocidad_promedio = (distancia_total / total_time_hours) if total_time_hours > 0 else 0.0
+    tiempo_detenido_minutos = round(sum(p['duracion_minutos'] for p in paradas), 2)
 
     return {
         "coordenadas": coordenadas,
@@ -494,7 +509,9 @@ def get_historial(
             "distancia_km": round(distancia_total, 2),
             "velocidad_maxima": velocidad_maxima,
             "velocidad_promedio": round(velocidad_promedio, 2),
-            "tiempo_encendido_minutos": round(tiempo_encendido_minutos, 2)
+            "tiempo_encendido_minutos": round(tiempo_encendido_minutos, 2),
+            "tiempo_detenido_minutos": tiempo_detenido_minutos,
+            "total_paradas": len(paradas)
         },
         "paradas": paradas
     }

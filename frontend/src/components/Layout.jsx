@@ -79,6 +79,21 @@ export default function Layout() {
         limite: lastJsonMessage.limite,
         fecha_hora: new Date().toISOString()
       });
+    } else if (lastJsonMessage.type === 'sabotage_alert') {
+      // Trigger emergency siren sound for battery sabotage
+      siren.start();
+      setActiveAlert({
+        id: lastJsonMessage.alerta_id,
+        vehiculo_id: lastJsonMessage.vehiculo_id,
+        placa: lastJsonMessage.placa,
+        conductor_nombre: lastJsonMessage.conductor,
+        latitud: lastJsonMessage.latitud,
+        longitud: lastJsonMessage.longitud,
+        bateria_ext: lastJsonMessage.bateria_ext,
+        bateria_int: lastJsonMessage.bateria_int,
+        tipo: 'sabotaje',
+        fecha_hora: new Date().toISOString()
+      });
     }
   }, [lastJsonMessage]);
 

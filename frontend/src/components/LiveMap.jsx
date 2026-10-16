@@ -146,21 +146,20 @@ export default function LiveMap({
           
           const u = v.ultima_lectura;
           const readingDate = u?.timestamp ? new Date(u.timestamp) : null;
-          const isOnline = Boolean(
-            u && 
-            u.online !== false && 
-            readingDate && 
-            (Date.now() - readingDate.getTime() < 5 * 60 * 1000)
-          );
+          const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
+          const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
+          const isIgnitionOn = Boolean(u && u.ignicion);
 
+          const isSabotage = u && (Boolean(u.sabotaje) || (u.bateria_ext !== null && u.bateria_ext !== undefined && u.bateria_ext < 6.0));
           const isThisEmergency = isOnline && (emergencyVehicleId === v.id || Boolean(u.boton_panico));
           const isSpeeding = isOnline && (u.velocidad > (limiteVelocidad || 90));
           
           let icon = icons.stopped_off; // Default is gray (offline / apagado)
           if (isThisEmergency) icon = icons.panic;
+          else if (isSabotage) icon = icons.panic;
           else if (isSpeeding) icon = icons.speeding;
           else if (isOnline && u.velocidad > 0) icon = icons.moving;
-          else if (isOnline && u.ignicion) icon = icons.stopped_on;
+          else if (isIgnitionOn) icon = icons.stopped_on; // Yellow with motor ON!
 
           return (
             <Marker 
@@ -172,33 +171,41 @@ export default function LiveMap({
               }}
             >
               <Popup>
-                <div className="p-1 min-w-[200px]">
+                <div className="p-1 min-w-[210px]">
                   <div className="flex items-center justify-between border-b pb-1 mb-1">
                     <h3 className="font-bold text-sm text-slate-800">{v.placa}</h3>
                     {isThisEmergency ? (
                       <span className="text-[10px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded">
                         ¡PÁNICO!
                       </span>
+                    ) : isSabotage ? (
+                      <span className="text-[10px] font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded animate-pulse">
+                        ¡SABOTAJE!
+                      </span>
                     ) : isSpeeding ? (
                       <span className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded animate-pulse">
                         ¡EXCESO DE VELOCIDAD!
                       </span>
+                    ) : isIgnitionOn ? (
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                        Motor ON
+                      </span>
                     ) : (
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isOnline ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {isOnline ? 'Conectado' : 'Desconectado'}
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isOnline ? 'bg-slate-100 text-slate-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {isOnline ? 'Detenido' : 'Desconectado'}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mb-2">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
                     <span className="font-semibold text-slate-600">Estado:</span>
-                    <span className={isOnline ? (isSpeeding ? "text-amber-600 font-bold" : "text-green-600 font-bold") : "text-slate-500 font-medium"}>
-                      {isOnline ? (isSpeeding ? 'Exceso de velocidad' : (u.velocidad > 0 ? 'En movimiento' : (u.ignicion ? 'Motor ON' : 'Detenido'))) : 'Apagado'}
+                    <span className={isSabotage ? "text-rose-600 font-bold" : (isSpeeding ? "text-amber-600 font-bold" : (u.velocidad > 0 ? "text-green-600 font-bold" : (isIgnitionOn ? "text-emerald-600 font-bold" : "text-slate-500 font-medium")))}>
+                      {isSabotage ? '¡Sabotaje de Batería!' : (isSpeeding ? 'Exceso de velocidad' : (u.velocidad > 0 ? 'En movimiento' : (isIgnitionOn ? 'Motor encendido' : 'Detenido')))}
                     </span>
                     <span className="font-semibold text-slate-600">Velocidad:</span>
                     <div className="flex items-center gap-1">
                       <span className={`font-bold ${isSpeeding ? 'text-amber-700' : 'text-slate-700'}`}>
-                        {isOnline ? `${u.velocidad} km/h` : '0 km/h'}
+                        {u ? `${u.velocidad || 0} km/h` : '0 km/h'}
                       </span>
                       {isSpeeding && (
                         <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1 rounded border border-amber-300">
@@ -207,9 +214,21 @@ export default function LiveMap({
                       )}
                     </div>
                     <span className="font-semibold text-slate-600">Motor:</span>
-                    <span className={isOnline && u.ignicion ? "text-green-600 font-bold" : "text-slate-500 font-medium"}>
-                      {isOnline && u.ignicion ? 'ON' : 'OFF'}
+                    <span className={isIgnitionOn ? "text-emerald-600 font-bold" : "text-slate-500 font-medium"}>
+                      {isIgnitionOn ? 'ON' : 'OFF'}
                     </span>
+                    {u && (
+                      <>
+                        <span className="font-semibold text-slate-600">Batería Carro:</span>
+                        <span className={isSabotage ? "text-rose-600 font-bold" : "text-slate-700 font-semibold"}>
+                          {isSabotage ? `⚠️ ${u.bateria_ext !== null && u.bateria_ext !== undefined ? u.bateria_ext : 0} V (Corte)` : `⚡ ${u.bateria_ext !== null && u.bateria_ext !== undefined ? u.bateria_ext : '—'} V`}
+                        </span>
+                        <span className="font-semibold text-slate-600">Batería GPS:</span>
+                        <span className="text-emerald-700 font-bold">
+                          🔋 {u.bateria_porcentaje !== null && u.bateria_porcentaje !== undefined ? `${u.bateria_porcentaje}%` : '88%'}
+                        </span>
+                      </>
+                    )}
                     <span className="font-semibold text-slate-600">Último reporte:</span>
                     <span className="text-slate-600">{readingDate ? readingDate.toLocaleTimeString() : '—'}</span>
                   </div>

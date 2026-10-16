@@ -210,6 +210,10 @@ class LecturaGPSBase(BaseModel):
     velocidad: int
     ignicion: bool
     boton_panico: bool
+    bateria_ext: Optional[float] = None
+    bateria_int: Optional[float] = None
+    bateria_porcentaje: Optional[int] = None
+    sabotaje: Optional[bool] = False
     timestamp: datetime
     online: Optional[bool] = False
     class Config:
@@ -285,6 +289,9 @@ class CoordenadaHistorial(BaseModel):
     longitud: float
     velocidad: int
     ignicion: bool
+    bateria_ext: Optional[float] = None
+    bateria_int: Optional[float] = None
+    bateria_porcentaje: Optional[int] = None
     timestamp: datetime
 
 class EstadisticasHistorial(BaseModel):
@@ -292,6 +299,8 @@ class EstadisticasHistorial(BaseModel):
     velocidad_maxima: int
     velocidad_promedio: float
     tiempo_encendido_minutos: float
+    tiempo_detenido_minutos: Optional[float] = 0.0
+    total_paradas: Optional[int] = 0
 
 class ParadaHistorial(BaseModel):
     latitud: float

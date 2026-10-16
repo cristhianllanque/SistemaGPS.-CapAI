@@ -11,8 +11,11 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
   const navigate = useNavigate();
 
   const isSpeed = alertData?.tipo === 'exceso_velocidad';
+  const isSabotage = alertData?.tipo === 'sabotaje';
   const velocidad = alertData?.velocidad || alertData?.data?.velocidad;
   const limite = alertData?.limite || alertData?.limite_velocidad || 90;
+  const batExt = alertData?.bateria_ext !== undefined ? alertData.bateria_ext : 0.0;
+  const batInt = alertData?.bateria_int !== undefined ? alertData.bateria_int : null;
 
   const handleGoToMap = () => {
     siren.stop();
@@ -46,24 +49,33 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
 
   if (!alertData) return null;
 
+  const headerBg = isSabotage ? 'bg-rose-700' : (isSpeed ? 'bg-amber-600' : 'bg-red-600');
+  const borderClass = isSabotage 
+    ? 'border-rose-600 animate-pulse-border' 
+    : (isSpeed ? 'border-amber-500 animate-pulse-border-amber' : 'border-red-600 animate-pulse-border');
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border-4 ${isSpeed ? 'border-amber-500 animate-pulse-border-amber' : 'border-red-600 animate-pulse-border'}`}>
+      <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border-4 ${borderClass}`}>
         
         {/* Header */}
-        <div className={`${isSpeed ? 'bg-amber-600' : 'bg-red-600'} text-white p-4 flex justify-between items-start`}>
+        <div className={`${headerBg} text-white p-4 flex justify-between items-start`}>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-full animate-pulse">
-              {isSpeed ? <Zap size={32} /> : <AlertTriangle size={32} />}
+              {isSabotage ? <ShieldAlert size={32} /> : (isSpeed ? <Zap size={32} /> : <AlertTriangle size={32} />)}
             </div>
             <div>
               <h2 className="text-xl font-bold uppercase tracking-wider">
-                {isSpeed ? '¡ALERTA DE EXCESO DE VELOCIDAD!' : '¡ALERTA DE PÁNICO!'}
+                {isSabotage 
+                  ? '¡ALERTA DE SABOTAJE / CORTE DE BATERÍA!' 
+                  : (isSpeed ? '¡ALERTA DE EXCESO DE VELOCIDAD!' : '¡ALERTA DE PÁNICO!')}
               </h2>
-              <p className={isSpeed ? 'text-amber-100 text-sm' : 'text-red-100 text-sm'}>
-                {isSpeed 
-                  ? 'Unidad sobrepasó la velocidad máxima permitida' 
-                  : 'Evento crítico detectado en tiempo real'}
+              <p className={isSabotage ? 'text-rose-100 text-sm' : (isSpeed ? 'text-amber-100 text-sm' : 'text-red-100 text-sm')}>
+                {isSabotage
+                  ? 'Batería principal desconectada (0.0 V). Posible intento de robo.'
+                  : (isSpeed 
+                    ? 'Unidad sobrepasó la velocidad máxima permitida' 
+                    : 'Evento crítico detectado en tiempo real')}
               </p>
             </div>
           </div>
@@ -85,6 +97,26 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
                 {alertData.fecha_hora ? new Date(alertData.fecha_hora).toLocaleTimeString() : new Date().toLocaleTimeString()}
               </p>
             </div>
+
+            {isSabotage && (
+              <div className="col-span-2 bg-rose-50 p-3 rounded-lg border border-rose-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-rose-700 font-bold uppercase">Batería Principal (Vehículo)</p>
+                    <p className="text-xl font-black text-rose-900">{batExt} V</p>
+                  </div>
+                  <span className="text-xs font-bold bg-rose-200 text-rose-800 px-2.5 py-1 rounded-full">
+                    ⚠️ Corte / Desconectada
+                  </span>
+                </div>
+                <div className="text-xs text-rose-800 flex items-center justify-between pt-1 border-t border-rose-200/60">
+                  <span>Batería interna de respaldo GPS:</span>
+                  <span className="font-bold text-emerald-700">
+                    🔋 {alertData.bateria_porcentaje !== undefined && alertData.bateria_porcentaje !== null ? `${alertData.bateria_porcentaje}%` : '88%'} (Operativa y transmitiendo)
+                  </span>
+                </div>
+              </div>
+            )}
 
             {isSpeed ? (
               <div className="col-span-2 bg-amber-50 p-3 rounded-lg border border-amber-200 flex items-center justify-between">
@@ -125,11 +157,16 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Resolución</label>
               <select 
-                className={`w-full p-2.5 border border-slate-300 rounded-lg outline-none font-medium focus:ring-2 ${isSpeed ? 'focus:ring-amber-500' : 'focus:ring-red-500'}`}
+                className={`w-full p-2.5 border border-slate-300 rounded-lg outline-none font-medium focus:ring-2 ${isSabotage ? 'focus:ring-rose-500' : (isSpeed ? 'focus:ring-amber-500' : 'focus:ring-red-500')}`}
                 value={estado}
                 onChange={(e) => setEstado(e.target.value)}
               >
-                {isSpeed ? (
+                {isSabotage ? (
+                  <>
+                    <option value="atendida">Atendida / Verificación del Vehículo y Batería Realizada</option>
+                    <option value="falsa_alarma">Falsa Alarma / Mantenimiento Programado de Batería</option>
+                  </>
+                ) : isSpeed ? (
                   <>
                     <option value="atendida">Atendida / Conductor Notificado / Llamada de Advertencia</option>
                     <option value="falsa_alarma">Falsa Alarma / Error de Medición GPS</option>
@@ -146,9 +183,9 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Observaciones / Detalles</label>
               <textarea 
-                className={`w-full p-3 border border-slate-300 rounded-lg outline-none resize-none focus:ring-2 ${isSpeed ? 'focus:ring-amber-500' : 'focus:ring-red-500'}`}
+                className={`w-full p-3 border border-slate-300 rounded-lg outline-none resize-none focus:ring-2 ${isSabotage ? 'focus:ring-rose-500' : (isSpeed ? 'focus:ring-amber-500' : 'focus:ring-red-500')}`}
                 rows="3"
-                placeholder={isSpeed ? "Escriba la acción correctiva realizada con el chofer..." : "Escriba los detalles de la comunicación con el chofer o las acciones tomadas..."}
+                placeholder={isSabotage ? "Detalles de la inspección de batería o corte de cables..." : (isSpeed ? "Escriba la acción correctiva realizada con el chofer..." : "Escriba los detalles de la comunicación con el chofer...")}
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
                 required
@@ -167,7 +204,7 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
               <button 
                 type="submit" 
                 disabled={loading}
-                className={`flex-1 ${isSpeed ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/30' : 'bg-red-600 hover:bg-red-700 shadow-red-500/30'} text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg flex justify-center items-center gap-2`}
+                className={`flex-1 ${isSabotage ? 'bg-rose-700 hover:bg-rose-800 shadow-rose-500/30' : (isSpeed ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/30' : 'bg-red-600 hover:bg-red-700 shadow-red-500/30')} text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg flex justify-center items-center gap-2`}
               >
                 {loading ? 'Registrando...' : 'Registrar Atención'}
               </button>
