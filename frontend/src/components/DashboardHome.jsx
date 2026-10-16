@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Radio, Truck, Users, AlertTriangle, Link2, TrendingUp, Package, ShieldCheck, Building2 } from 'lucide-react';
 
 const API = 'http://localhost:8000';
 
 export default function DashboardHome() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [empresas, setEmpresas] = useState([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState('');
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem('token');
-  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const empresa = JSON.parse(localStorage.getItem('empresa') || '{}');
-  const isSuperAdmin = usuario.rol === 'superadmin';
-  const primaryColor = empresa.color_primario || '#1E40AF';
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
+  const isSuperAdmin = usuario?.rol === 'superadmin';
+  const rawEmpresa = localStorage.getItem('empresa');
+  const empresa = (rawEmpresa && rawEmpresa !== 'null' && rawEmpresa !== 'undefined')
+    ? (JSON.parse(rawEmpresa) || {})
+    : {};
+  const primaryColor = empresa?.color_primario || '#4F46E5';
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -47,15 +52,23 @@ export default function DashboardHome() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-8 h-8 border-4 border-slate-300 border-t-blue-600 rounded-full"></div>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="animate-spin w-8 h-8 border-4 border-slate-300 border-t-indigo-600 rounded-full"></div>
       </div>
     );
   }
 
   const cards = [
+    ...(isSuperAdmin && !selectedEmpresa ? [{
+      title: 'Empresas Clientes',
+      value: empresas.length,
+      icon: Building2,
+      color: '#4F46E5',
+      bg: 'bg-indigo-50',
+      sub: `${empresas.filter(e => e.activo !== false).length} empresas activas`
+    }] : []),
     {
-      title: 'Dispositivos Registrados',
+      title: 'Dispositivos GPS',
       value: stats?.total_dispositivos || 0,
       icon: Radio,
       color: '#3B82F6',
@@ -76,7 +89,7 @@ export default function DashboardHome() {
       icon: Users,
       color: '#8B5CF6',
       bg: 'bg-violet-50',
-      sub: 'Conductores registrados'
+      sub: 'Conductores en sistema'
     },
     {
       title: 'Alertas Pendientes',
@@ -84,27 +97,29 @@ export default function DashboardHome() {
       icon: AlertTriangle,
       color: stats?.alertas_pendientes > 0 ? '#EF4444' : '#6B7280',
       bg: stats?.alertas_pendientes > 0 ? 'bg-red-50' : 'bg-slate-50',
-      sub: stats?.alertas_pendientes > 0 ? '¡Requieren atención!' : 'Sin alertas pendientes'
+      sub: stats?.alertas_pendientes > 0 ? '¡Requieren atención!' : 'Sin emergencias activas'
     },
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Panel de Control</h1>
+          <h1 className="text-2xl font-bold text-slate-800">
+            {isSuperAdmin ? 'Centro de Control Copay' : 'Panel de Control'}
+          </h1>
           <p className="text-slate-500 mt-1">
             {isSuperAdmin
-              ? (selectedEmpresa ? `Métricas filtradas por empresa` : `Visión global de todas las empresas cliente`)
-              : `Resumen general de ${empresa.nombre}`}
+              ? (selectedEmpresa ? `Vista filtrada por empresa` : `Gestión global de todas las flotas y clientes`)
+              : `Resumen operativo de ${empresa?.nombre || 'su empresa'}`}
           </p>
         </div>
 
         {isSuperAdmin && (
-          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm">
             <Building2 size={18} className="text-indigo-600" />
-            <span className="text-xs font-semibold text-slate-600">Empresa:</span>
+            <span className="text-xs font-semibold text-slate-600">Filtrar Empresa:</span>
             <select
               value={selectedEmpresa}
               onChange={(e) => setSelectedEmpresa(e.target.value)}
@@ -120,7 +135,7 @@ export default function DashboardHome() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin && !selectedEmpresa ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-4`}>
         {cards.map((card, i) => (
           <div key={i} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-3">
@@ -135,27 +150,90 @@ export default function DashboardHome() {
         ))}
       </div>
 
+      {/* Superadmin Directory of Companies */}
+      {isSuperAdmin && !selectedEmpresa && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Building2 size={20} className="text-indigo-600" />
+              <h2 className="text-lg font-bold text-slate-800">Directorio de Empresas de Transporte</h2>
+            </div>
+            <button 
+              onClick={() => navigate('/empresas')}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
+              Ver Todas las Empresas →
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-500 text-xs">
+                  <th className="text-left py-2.5 font-semibold">Empresa</th>
+                  <th className="text-left py-2.5 font-semibold">Identidad Visual</th>
+                  <th className="text-center py-2.5 font-semibold">Vehículos</th>
+                  <th className="text-center py-2.5 font-semibold">Dispositivos GPS</th>
+                  <th className="text-center py-2.5 font-semibold">Usuarios</th>
+                  <th className="text-right py-2.5 font-semibold">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {empresas.map(emp => (
+                  <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 font-semibold text-slate-800">{emp.nombre}</td>
+                    <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 rounded-full border border-slate-200" style={{ backgroundColor: emp.color_primario || '#4F46E5' }}></span>
+                        <span className="text-xs text-slate-500 font-mono">{emp.color_primario || '#4F46E5'}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 text-center font-medium text-slate-700">{emp.total_vehiculos || 0}</td>
+                    <td className="py-3 text-center font-medium text-slate-700">{emp.total_dispositivos || 0}</td>
+                    <td className="py-3 text-center font-medium text-slate-700">{emp.total_usuarios || 0}</td>
+                    <td className="py-3 text-right">
+                      <button 
+                        onClick={() => setSelectedEmpresa(String(emp.id))}
+                        className="text-xs font-medium text-indigo-600 hover:underline mr-3"
+                      >
+                        Filtrar Métricas
+                      </button>
+                      <button 
+                        onClick={() => navigate('/empresas')}
+                        className="text-xs font-medium text-slate-500 hover:text-slate-800"
+                      >
+                        Configurar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Quick Guide */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
           <ShieldCheck size={20} style={{ color: primaryColor }} />
-          Flujo de Registro
+          {isSuperAdmin ? 'Accesos Rápidos de Administración' : 'Módulos Disponibles'}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { step: '1', title: 'Registrar Dispositivo', desc: 'Ingrese el dispositivo Teltonika FMC130 al inventario con su IMEI, SIM y datos.', icon: Radio, path: '/dispositivos' },
-            { step: '2', title: 'Registrar Conductor', desc: 'Registre al conductor con su DNI, licencia de conducir y datos de contacto.', icon: Users, path: '/conductores' },
-            { step: '3', title: 'Registrar Vehículo', desc: 'Registre la minivan con su placa, marca, modelo y datos del vehículo.', icon: Truck, path: '/vehiculos' },
-            { step: '4', title: 'Vincular Todo', desc: 'Asigne el dispositivo GPS y conductor al vehículo para activar el monitoreo.', icon: Link2, path: '/vinculacion' },
+            ...(isSuperAdmin ? [{ step: '1', title: 'Empresas Clientes', desc: 'Registre y personalice el branding y usuarios de cada empresa de transporte.', icon: Building2, path: '/empresas' }] : []),
+            ...(isSuperAdmin ? [{ step: '2', title: 'Dispositivos GPS', desc: 'Gestione el inventario de equipos Teltonika FMC130.', icon: Radio, path: '/dispositivos' }] : []),
+            { step: isSuperAdmin ? '3' : '1', title: 'Flota de Vehículos', desc: 'Consulte las unidades registradas y su información técnica.', icon: Truck, path: '/vehiculos' },
+            { step: isSuperAdmin ? '4' : '2', title: 'Monitoreo GPS en Vivo', desc: 'Rastree en tiempo real la ubicación y telemetría de las minivans.', icon: Link2, path: '/monitoreo' },
           ].map((s, i) => (
-            <div key={i} className="relative p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer group"
-              onClick={() => window.location.href = s.path}
+            <div key={i} className="relative p-4 rounded-lg border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all cursor-pointer group"
+              onClick={() => navigate(s.path)}
             >
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
                   {s.step}
                 </span>
-                <s.icon size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                <s.icon size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
               </div>
               <h3 className="text-sm font-semibold text-slate-700 mb-1">{s.title}</h3>
               <p className="text-xs text-slate-400 leading-relaxed">{s.desc}</p>

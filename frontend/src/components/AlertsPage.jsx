@@ -33,6 +33,8 @@ export default function AlertsPage() {
     setSelectedAlert(alerta);
   };
 
+  const [filterTipo, setFilterTipo] = useState('todos');
+
   const getStatusBadge = (estado) => {
     switch (estado) {
       case 'pendiente':
@@ -58,8 +60,31 @@ export default function AlertsPage() {
     }
   };
 
+  const getTipoBadge = (alerta) => {
+    if (alerta.tipo === 'exceso_velocidad') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-300">
+          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          ⚡ Exceso Velocidad: {alerta.velocidad ? `${alerta.velocidad} km/h` : 'Registrado'}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-red-100 text-red-700 px-2.5 py-1 rounded-full border border-red-300">
+        <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
+        🚨 Botón de Pánico
+      </span>
+    );
+  };
+
+  const filteredAlertas = alertas.filter(a => {
+    if (filterTipo === 'panico') return a.tipo !== 'exceso_velocidad';
+    if (filterTipo === 'velocidad') return a.tipo === 'exceso_velocidad';
+    return true;
+  });
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       {selectedAlert && (
         <AlertaPanicoModal 
           alertData={selectedAlert}
@@ -70,11 +95,37 @@ export default function AlertsPage() {
         />
       )}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <AlertTriangle size={24} className="text-red-600" /> Historial de Alertas
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">Registro y auditoría de eventos de pánico generados por la flota</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <AlertTriangle size={26} className="text-red-600" /> Historial de Alertas de Seguridad y Flota
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Registro, auditoría y despacho de eventos de pánico y excesos de velocidad en tiempo real.
+          </p>
+        </div>
+
+        {/* Filter Buttons */}
+        <div className="flex bg-slate-200/70 p-1 rounded-xl text-xs font-semibold gap-1 self-start">
+          <button
+            onClick={() => setFilterTipo('todos')}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${filterTipo === 'todos' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            Todas ({alertas.length})
+          </button>
+          <button
+            onClick={() => setFilterTipo('panico')}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${filterTipo === 'panico' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            Pánico ({alertas.filter(a => a.tipo !== 'exceso_velocidad').length})
+          </button>
+          <button
+            onClick={() => setFilterTipo('velocidad')}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${filterTipo === 'velocidad' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            Exceso Velocidad ({alertas.filter(a => a.tipo === 'exceso_velocidad').length})
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -83,6 +134,7 @@ export default function AlertsPage() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Fecha y Hora</th>
+                <th className="text-left px-6 py-4 font-semibold text-slate-600">Tipo de Evento</th>
                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Vehículo</th>
                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Estado</th>
                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Detalles de Atención</th>
@@ -90,20 +142,23 @@ export default function AlertsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {alertas.length === 0 ? (
+              {filteredAlertas.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-12 text-slate-400">
+                  <td colSpan="6" className="text-center py-12 text-slate-400">
                     <CheckCircle size={40} className="mx-auto mb-3 text-emerald-400 opacity-50" />
-                    <p className="font-medium text-slate-600">No hay alertas registradas</p>
+                    <p className="font-medium text-slate-600">No hay alertas registradas en esta vista</p>
                   </td>
                 </tr>
-              ) : alertas.map(a => (
-                <tr key={a.id} className={`hover:bg-slate-50 transition-colors ${a.estado === 'pendiente' ? 'bg-red-50/30' : ''}`}>
+              ) : filteredAlertas.map(a => (
+                <tr key={a.id} className={`hover:bg-slate-50 transition-colors ${a.estado === 'pendiente' ? (a.tipo === 'exceso_velocidad' ? 'bg-amber-50/40' : 'bg-red-50/30') : ''}`}>
                   <td className="px-6 py-4 text-slate-700 whitespace-nowrap align-top">
                     <div className="flex items-center gap-2 font-medium">
                       <Clock size={16} className="text-slate-400" />
                       {format(new Date(a.fecha_hora), 'dd/MM/yyyy HH:mm')}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 align-top">
+                    {getTipoBadge(a)}
                   </td>
                   <td className="px-6 py-4 align-top">
                     <div className="font-bold text-slate-800">{a.placa || 'Desconocido'}</div>
@@ -141,7 +196,7 @@ export default function AlertsPage() {
                     {a.estado === 'pendiente' && (
                       <button 
                         onClick={() => handleAtenderClick(a)}
-                        className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg shadow-sm shadow-red-600/20 transition-all active:scale-95"
+                        className={`text-xs ${a.tipo === 'exceso_velocidad' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20' : 'bg-red-600 hover:bg-red-700 shadow-red-600/20'} text-white font-bold px-4 py-2 rounded-lg shadow-sm transition-all active:scale-95`}
                       >
                         Atender Ahora
                       </button>

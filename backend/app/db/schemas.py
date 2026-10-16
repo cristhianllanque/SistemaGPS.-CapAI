@@ -9,12 +9,14 @@ class EmpresaBase(BaseModel):
     slug: str
     logo_url: Optional[str] = None
     color_primario: Optional[str] = "#1E40AF"
+    limite_velocidad: Optional[int] = 90
 
 class EmpresaCreate(BaseModel):
     nombre: str
     slug: Optional[str] = None
     logo_url: Optional[str] = None
     color_primario: Optional[str] = "#1E40AF"
+    limite_velocidad: Optional[int] = 90
     # Optional initial Gerente user creation
     gerente_nombre: Optional[str] = None
     gerente_email: Optional[EmailStr] = None
@@ -25,7 +27,11 @@ class EmpresaUpdate(BaseModel):
     slug: Optional[str] = None
     logo_url: Optional[str] = None
     color_primario: Optional[str] = None
+    limite_velocidad: Optional[int] = None
     activo: Optional[bool] = None
+
+class LimiteVelocidadUpdate(BaseModel):
+    limite_velocidad: int
 
 class Empresa(EmpresaBase):
     id: int
@@ -134,6 +140,7 @@ class DispositivoOut(BaseModel):
 
 # ============ CONDUCTOR ============
 class ConductorCreate(BaseModel):
+    empresa_id: Optional[int] = None
     nombre: str
     dni: str
     licencia_conducir: Optional[str] = None
@@ -142,6 +149,7 @@ class ConductorCreate(BaseModel):
     foto_url: Optional[str] = None
 
 class ConductorUpdate(BaseModel):
+    empresa_id: Optional[int] = None
     nombre: Optional[str] = None
     dni: Optional[str] = None
     licencia_conducir: Optional[str] = None
@@ -152,6 +160,7 @@ class ConductorUpdate(BaseModel):
 class ConductorOut(BaseModel):
     id: int
     empresa_id: int
+    empresa_nombre: Optional[str] = None
     nombre: str
     dni: str
     licencia_conducir: Optional[str] = None
@@ -253,6 +262,8 @@ class AlertaPanicoOut(BaseModel):
     latitud: float
     longitud: float
     estado: str
+    tipo: Optional[str] = 'panico'
+    velocidad: Optional[int] = None
     fecha_hora: datetime
     placa: Optional[str] = None
     conductor_nombre: Optional[str] = None

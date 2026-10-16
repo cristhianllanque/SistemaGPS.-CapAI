@@ -31,9 +31,16 @@ def verify_imei_in_db(imei: str):
 
 def save_records_to_db(vehiculo_id: int, records: list[dict]):
     inserted_lecturas = []
-    alertas_generadas = []
+    panic_alert_id = None
+    speed_alert_info = None
     
     with SessionLocal() as db:
+        # Obtain vehicle and company's speed limit
+        vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id).first()
+        limite_velocidad = 90
+        if vehiculo and vehiculo.empresa and vehiculo.empresa.limite_velocidad:
+            limite_velocidad = vehiculo.empresa.limite_velocidad
+
         for r in records:
             # Normalize timestamp to naive UTC for MySQL compatibility
             ts = r['timestamp']
@@ -52,11 +59,13 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             db.add(lectura)
             inserted_lecturas.append(lectura)
             
+            # 1. Panic button check
             if r['boton_panico']:
-                # Deduplication: check if there's already an active 'pendiente' alert for this vehicle
+                # Deduplication: check if there's already an active 'pendiente' panic alert for this vehicle
                 alerta_existente = db.query(models.AlertaPanico).filter(
                     models.AlertaPanico.vehiculo_id == vehiculo_id,
-                    models.AlertaPanico.estado == 'pendiente'
+                    models.AlertaPanico.estado == 'pendiente',
+                    models.AlertaPanico.tipo == 'panico'
                 ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
 
                 if not alerta_existente:
@@ -65,15 +74,53 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                         latitud=r['latitude'],
                         longitud=r['longitude'],
                         estado='pendiente',
+                        tipo='panico',
                         fecha_hora=ts
                     )
                     db.add(alerta)
-                    alertas_generadas.append(alerta)
+                    db.flush()
+                    panic_alert_id = alerta.id
                 else:
-                    # Update coordinate on the ongoing alert to track vehicle during the emergency
                     alerta_existente.latitud = r['latitude']
                     alerta_existente.longitud = r['longitude']
-                    alertas_generadas.append(alerta_existente)
+                    panic_alert_id = alerta_existente.id
+
+            # 2. Speed limit excess check (> limite_velocidad km/h)
+            curr_speed = r.get('speed') or 0
+            if curr_speed > limite_velocidad:
+                # Deduplication: check if there's an ongoing pending speed alert for this vehicle
+                alerta_speed_existente = db.query(models.AlertaPanico).filter(
+                    models.AlertaPanico.vehiculo_id == vehiculo_id,
+                    models.AlertaPanico.estado == 'pendiente',
+                    models.AlertaPanico.tipo == 'exceso_velocidad'
+                ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
+
+                if not alerta_speed_existente:
+                    alerta_speed = models.AlertaPanico(
+                        vehiculo_id=vehiculo_id,
+                        latitud=r['latitude'],
+                        longitud=r['longitude'],
+                        estado='pendiente',
+                        tipo='exceso_velocidad',
+                        velocidad=curr_speed,
+                        fecha_hora=ts
+                    )
+                    db.add(alerta_speed)
+                    db.flush()
+                    speed_alert_info = {
+                        "alerta_id": alerta_speed.id,
+                        "velocidad": curr_speed,
+                        "limite": limite_velocidad
+                    }
+                else:
+                    alerta_speed_existente.latitud = r['latitude']
+                    alerta_speed_existente.longitud = r['longitude']
+                    alerta_speed_existente.velocidad = curr_speed
+                    speed_alert_info = {
+                        "alerta_id": alerta_speed_existente.id,
+                        "velocidad": curr_speed,
+                        "limite": limite_velocidad
+                    }
                 
         db.commit()
         
@@ -86,9 +133,7 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             'timestamp': l.timestamp.isoformat() if l.timestamp else None
         } for l in inserted_lecturas]
         
-        alerta_id = alertas_generadas[-1].id if alertas_generadas else None
-        
-    return lecturas_dicts, alerta_id
+    return lecturas_dicts, panic_alert_id, speed_alert_info, limite_velocidad
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info('peername')
@@ -176,7 +221,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     
                     if records:
                         print(f"[TCP] Recibidos {len(records)} registros AVL válidos del IMEI {imei}", flush=True)
-                        lecturas_dicts, alerta_id = await run_in_thread(save_records_to_db, vehiculo_id, records)
+                        lecturas_dicts, panic_alert_id, speed_alert_info, limite_velocidad = await run_in_thread(save_records_to_db, vehiculo_id, records)
                         
                         latest_record = lecturas_dicts[-1]
                         broadcast_msg = {
@@ -184,14 +229,15 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                             "vehiculo_id": vehiculo_id,
                             "placa": placa,
                             "conductor": conductor,
+                            "limite_velocidad": limite_velocidad,
                             "data": latest_record
                         }
-                        await manager.broadcast_to_empresa(empresa_id, broadcast_msg)
+                        await manager.broadcast_all(broadcast_msg)
                         
-                        if alerta_id:
+                        if panic_alert_id:
                             panic_msg = {
                                 "type": "panic_alert",
-                                "alerta_id": alerta_id,
+                                "alerta_id": panic_alert_id,
                                 "vehiculo_id": vehiculo_id,
                                 "placa": placa,
                                 "conductor": conductor,
@@ -199,7 +245,22 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "longitud": latest_record['longitud'],
                                 "message": "¡Alerta de pánico recibida!"
                             }
-                            await manager.broadcast_to_empresa(empresa_id, panic_msg)
+                            await manager.broadcast_all(panic_msg)
+
+                        if speed_alert_info:
+                            speed_msg = {
+                                "type": "speed_alert",
+                                "alerta_id": speed_alert_info['alerta_id'],
+                                "vehiculo_id": vehiculo_id,
+                                "placa": placa,
+                                "conductor": conductor,
+                                "velocidad": speed_alert_info['velocidad'],
+                                "limite": speed_alert_info['limite'],
+                                "latitud": latest_record['latitud'],
+                                "longitud": latest_record['longitud'],
+                                "message": f"¡Exceso de velocidad: {speed_alert_info['velocidad']} km/h! (Límite configurado: {speed_alert_info['limite']} km/h)"
+                            }
+                            await manager.broadcast_all(speed_msg)
                     
                     # Respond with AVL ACK: 4 bytes big endian count of records
                     ack_response = TeltonikaCodec8Parser.generate_ack(len(records))

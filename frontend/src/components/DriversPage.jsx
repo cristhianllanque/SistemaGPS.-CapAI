@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Phone, CreditCard } from 'lucide-react';
+import { Users, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Phone, CreditCard, Shield, Building2 } from 'lucide-react';
 
 const API = 'http://localhost:8000';
 
 const emptyForm = {
   nombre: '', dni: '', licencia_conducir: '', categoria_licencia: '',
-  telefono: '', foto_url: ''
+  telefono: '', foto_url: '', empresa_id: ''
 };
 
 export default function DriversPage() {
   const [conductores, setConductores] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState('');
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -18,22 +20,48 @@ export default function DriversPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
   const token = localStorage.getItem('token');
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
+  const isSuperAdmin = usuario?.rol === 'superadmin';
   const headers = { Authorization: `Bearer ${token}` };
+
+  const fetchEmpresas = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const res = await axios.get(`${API}/api/empresas/`, { headers });
+      setEmpresas(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchData = async () => {
     try {
       const params = {};
       if (searchTerm) params.search = searchTerm;
+      if (isSuperAdmin && selectedEmpresa) params.empresa_id = selectedEmpresa;
       const res = await axios.get(`${API}/api/conductores/`, { headers, params });
       setConductores(res.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, [searchTerm]);
+  useEffect(() => {
+    fetchEmpresas();
+  }, []);
 
-  const openCreate = () => { setEditingId(null); setForm({ ...emptyForm }); setError(''); setShowModal(true); };
+  useEffect(() => { fetchData(); }, [searchTerm, selectedEmpresa]);
+
+  const openCreate = () => { 
+    setEditingId(null); 
+    setForm({ 
+      ...emptyForm, 
+      empresa_id: empresas.length > 0 ? empresas[0].id : '' 
+    }); 
+    setError(''); 
+    setShowModal(true); 
+  };
 
   const openEdit = (c) => {
     setEditingId(c.id);
@@ -41,7 +69,8 @@ export default function DriversPage() {
       nombre: c.nombre, dni: c.dni,
       licencia_conducir: c.licencia_conducir || '',
       categoria_licencia: c.categoria_licencia || '',
-      telefono: c.telefono || '', foto_url: c.foto_url || ''
+      telefono: c.telefono || '', foto_url: c.foto_url || '',
+      empresa_id: c.empresa_id || ''
     });
     setError(''); setShowModal(true);
   };
@@ -55,6 +84,11 @@ export default function DriversPage() {
       if (!payload.categoria_licencia) delete payload.categoria_licencia;
       if (!payload.telefono) delete payload.telefono;
       if (!payload.foto_url) delete payload.foto_url;
+      if (isSuperAdmin && payload.empresa_id) {
+        payload.empresa_id = parseInt(payload.empresa_id, 10);
+      } else {
+        delete payload.empresa_id;
+      }
 
       if (editingId) {
         await axios.put(`${API}/api/conductores/${editingId}`, payload, { headers });
@@ -82,19 +116,55 @@ export default function DriversPage() {
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Users size={24} className="text-violet-600" /> Conductores
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Registro y gestión de conductores</p>
+          <p className="text-slate-500 text-sm mt-1">
+            {isSuperAdmin
+              ? 'Registro y gestión técnica de conductores autorizados'
+              : 'Padrón oficial de conductores asignados a su flota de transporte'}
+          </p>
         </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
-          <Plus size={18} /> Registrar Conductor
-        </button>
+        {isSuperAdmin && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
+            <Plus size={18} /> Registrar Conductor
+          </button>
+        )}
       </div>
 
-      <div className="relative max-w-sm mb-5">
-        <Search size={16} className="absolute left-3 top-3 text-slate-400" />
-        <input type="text" placeholder="Buscar por nombre o DNI..."
-          value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+      {!isSuperAdmin && (
+        <div className="mb-5 p-4 bg-violet-50 border border-violet-200 text-violet-900 rounded-xl text-sm flex items-center gap-3 shadow-sm">
+          <Users size={22} className="text-violet-600 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-violet-950">Padrón Oficial de Conductores</p>
+            <p className="text-xs text-violet-700 mt-0.5">
+              Modo de solo lectura. Visualizando el padrón de conductores autorizados. Las altas, modificaciones y bajas son administradas por Copay Telematics (Central).
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+          <input type="text" placeholder="Buscar por nombre o DNI..."
+            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+        </div>
+
+        {isSuperAdmin && (
+          <div className="flex items-center gap-2">
+            <Building2 size={18} className="text-slate-400" />
+            <select
+              value={selectedEmpresa}
+              onChange={(e) => setSelectedEmpresa(e.target.value)}
+              className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium text-slate-700"
+            >
+              <option value="">Todas las empresas</option>
+              {empresas.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -108,16 +178,20 @@ export default function DriversPage() {
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Categoría</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Teléfono</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Vehículo Asignado</th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
+                {isSuperAdmin && (
+                  <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {conductores.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-12 text-slate-400">
+                  <td colSpan={isSuperAdmin ? "7" : "6"} className="text-center py-12 text-slate-400">
                     <Users size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay conductores registrados</p>
-                    <p className="text-xs mt-1">Registre su primer conductor</p>
+                    <p className="text-xs mt-1">
+                      {isSuperAdmin ? 'Registre su primer conductor' : 'Comuníquese con Copay para dar de alta conductores'}
+                    </p>
                   </td>
                 </tr>
               ) : conductores.map(c => (
@@ -145,14 +219,16 @@ export default function DriversPage() {
                       <span className="text-xs text-slate-400">No asignado</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(c)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded transition-colors"><Edit2 size={15} /></button>
-                      {!c.vehiculo_placa && (
-                        <button onClick={() => handleDelete(c.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"><Trash2 size={15} /></button>
-                      )}
-                    </div>
-                  </td>
+                  {isSuperAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(c)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded transition-colors"><Edit2 size={15} /></button>
+                        {!c.vehiculo_placa && (
+                          <button onClick={() => handleDelete(c.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"><Trash2 size={15} /></button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -160,8 +236,8 @@ export default function DriversPage() {
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
+      {/* Modal - Exclusively for Superadmin */}
+      {isSuperAdmin && showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-slate-200">
@@ -171,6 +247,21 @@ export default function DriversPage() {
             <div className="p-5 space-y-4">
               {error && <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm"><AlertCircle size={16} /> {error}</div>}
               <div className="grid grid-cols-2 gap-4">
+                {isSuperAdmin && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Empresa de Transporte *</label>
+                    <select 
+                      value={form.empresa_id} 
+                      onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+                    >
+                      <option value="">Seleccione empresa...</option>
+                      {empresas.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo *</label>
                   <input type="text" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}

@@ -138,18 +138,36 @@ export default function VehiclesPage() {
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Truck size={24} className="text-emerald-600" /> Vehículos
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Registro y gestión de unidades de transporte</p>
+          <p className="text-slate-500 text-sm mt-1">
+            {isSuperAdmin 
+              ? 'Registro y gestión técnica de unidades de transporte' 
+              : 'Relación de vehículos registrados y autorizados para su flota'}
+          </p>
         </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
-          <Plus size={18} /> Registrar Vehículo
-        </button>
+        {isSuperAdmin && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
+            <Plus size={18} /> Registrar Vehículo
+          </button>
+        )}
       </div>
+
+      {!isSuperAdmin && (
+        <div className="mb-5 p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-sm flex items-center gap-3 shadow-sm">
+          <Truck size={22} className="text-emerald-600 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-emerald-950">Flota Oficial Asignada</p>
+            <p className="text-xs text-emerald-700 mt-0.5">
+              Modo de solo lectura. Visualizando las unidades autorizadas para su empresa. Las altas, bajas y modificaciones de flota son gestionadas exclusivamente por Copay Telematics (Central).
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search size={16} className="absolute left-3 top-3 text-slate-400" />
-          <input type="text" placeholder="Buscar por placa..." value={searchTerm}
+          <input type="text" placeholder="Buscar por placa o padrón..." value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
         </div>
@@ -187,16 +205,20 @@ export default function VehiclesPage() {
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Dispositivo GPS</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Conductor</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Estado</th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
+                {isSuperAdmin && (
+                  <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {vehiculos.length === 0 ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? "10" : "9"} className="text-center py-12 text-slate-400">
+                  <td colSpan={isSuperAdmin ? "10" : "8"} className="text-center py-12 text-slate-400">
                     <Truck size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay vehículos registrados</p>
-                    <p className="text-xs mt-1">Registre su primer vehículo</p>
+                    <p className="text-xs mt-1">
+                      {isSuperAdmin ? 'Registre su primer vehículo' : 'Comuníquese con Copay para dar de alta unidades'}
+                    </p>
                   </td>
                 </tr>
               ) : vehiculos.map(v => (
@@ -239,12 +261,14 @@ export default function VehiclesPage() {
                       {v.estado}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(v)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"><Edit2 size={15} /></button>
-                      <button onClick={() => handleDelete(v.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"><Trash2 size={15} /></button>
-                    </div>
-                  </td>
+                  {isSuperAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(v)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Editar"><Edit2 size={15} /></button>
+                        <button onClick={() => handleDelete(v.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar"><Trash2 size={15} /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -252,8 +276,8 @@ export default function VehiclesPage() {
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
+      {/* Modal - Exclusively for Superadmin */}
+      {isSuperAdmin && showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-slate-200">

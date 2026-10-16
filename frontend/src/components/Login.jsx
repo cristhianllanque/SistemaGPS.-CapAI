@@ -24,7 +24,7 @@ export default function Login() {
 
       const { access_token, empresa, usuario } = response.data;
       localStorage.setItem('token', access_token);
-      localStorage.setItem('empresa', JSON.stringify(empresa));
+      localStorage.setItem('empresa', JSON.stringify(empresa || { id: 0, nombre: 'Copay Central', color_primario: '#4F46E5' }));
       localStorage.setItem('usuario', JSON.stringify(usuario));
       
       // Navigate to dashboard and reload to apply global themes if needed

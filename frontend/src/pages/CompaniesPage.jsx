@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Building2, Plus, Edit3, Users, Truck, Radio, Search, Check, X, 
-  ExternalLink, ShieldCheck, Mail, Key, Sparkles, RefreshCw
+  ExternalLink, ShieldCheck, Mail, Key, Sparkles, RefreshCw, UploadCloud, Gauge, Image as ImageIcon
 } from 'lucide-react';
 
 const API = 'http://localhost:8000';
@@ -35,6 +35,7 @@ export default function CompaniesPage() {
     slug: '',
     logo_url: '',
     color_primario: '#1E40AF',
+    limite_velocidad: 90,
     gerente_nombre: '',
     gerente_email: '',
     gerente_password: ''
@@ -44,6 +45,7 @@ export default function CompaniesPage() {
     nombre: '',
     logo_url: '',
     color_primario: '#1E40AF',
+    limite_velocidad: 90,
     activo: true
   });
 
@@ -54,6 +56,7 @@ export default function CompaniesPage() {
     rol: 'admin'
   });
 
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successToast, setSuccessToast] = useState('');
@@ -89,10 +92,47 @@ export default function CompaniesPage() {
       nombre: emp.nombre,
       logo_url: emp.logo_url || '',
       color_primario: emp.color_primario || '#1E40AF',
+      limite_velocidad: emp.limite_velocidad || 90,
       activo: emp.activo
     });
     setErrorMsg('');
     setShowEditModal(true);
+  };
+
+  // Upload Logo file directly from desktop/computer (PNG only)
+  const handleLogoUpload = async (e, formType) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.png') && file.type !== 'image/png') {
+      setErrorMsg('Formato de imagen inválido: Solo se permiten archivos PNG (.png).');
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      setErrorMsg('');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await axios.post(`${API}/api/empresas/upload-logo`, formData, {
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (formType === 'create') {
+        setCreateForm(prev => ({ ...prev, logo_url: res.data.logo_url }));
+      } else {
+        setEditForm(prev => ({ ...prev, logo_url: res.data.logo_url }));
+      }
+      showToast('Logotipo PNG cargado exitosamente.');
+    } catch (err) {
+      setErrorMsg(err.response?.data?.detail || 'Error al subir el logotipo PNG');
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   // Open Quick Gerente Modal
@@ -126,6 +166,7 @@ export default function CompaniesPage() {
         slug: '',
         logo_url: '',
         color_primario: '#1E40AF',
+        limite_velocidad: 90,
         gerente_nombre: '',
         gerente_email: '',
         gerente_password: ''
@@ -333,26 +374,33 @@ export default function CompaniesPage() {
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-100 mb-4 bg-slate-50/50 rounded-xl px-2">
+                  <div className="grid grid-cols-4 gap-1.5 py-3 border-y border-slate-100 mb-4 bg-slate-50/50 rounded-xl px-2">
                     <div className="text-center">
                       <p className="text-[10px] text-slate-400 uppercase font-semibold">Flota</p>
-                      <p className="text-base font-bold text-slate-800 flex items-center justify-center gap-1 mt-0.5">
-                        <Truck size={14} className="text-slate-500" />
+                      <p className="text-sm font-bold text-slate-800 flex items-center justify-center gap-1 mt-0.5">
+                        <Truck size={13} className="text-slate-500" />
                         {emp.total_vehiculos || 0}
                       </p>
                     </div>
-                    <div className="text-center border-x border-slate-200/60">
+                    <div className="text-center border-l border-slate-200/60">
                       <p className="text-[10px] text-slate-400 uppercase font-semibold">GPS</p>
-                      <p className="text-base font-bold text-slate-800 flex items-center justify-center gap-1 mt-0.5">
-                        <Radio size={14} className="text-slate-500" />
+                      <p className="text-sm font-bold text-slate-800 flex items-center justify-center gap-1 mt-0.5">
+                        <Radio size={13} className="text-slate-500" />
                         {emp.total_dispositivos || 0}
                       </p>
                     </div>
-                    <div className="text-center">
+                    <div className="text-center border-l border-slate-200/60">
                       <p className="text-[10px] text-slate-400 uppercase font-semibold">Usuarios</p>
-                      <p className="text-base font-bold text-slate-800 flex items-center justify-center gap-1 mt-0.5">
-                        <Users size={14} className="text-slate-500" />
+                      <p className="text-sm font-bold text-slate-800 flex items-center justify-center gap-1 mt-0.5">
+                        <Users size={13} className="text-slate-500" />
                         {emp.total_usuarios || 0}
+                      </p>
+                    </div>
+                    <div className="text-center border-l border-slate-200/60">
+                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Límite</p>
+                      <p className="text-sm font-bold text-amber-700 flex items-center justify-center gap-0.5 mt-0.5" title="Límite de velocidad configurado">
+                        <Gauge size={13} className="text-amber-600" />
+                        {emp.limite_velocidad || 90}k
                       </p>
                     </div>
                   </div>
@@ -419,25 +467,110 @@ export default function CompaniesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Logo URL (Opcional)</label>
-                  <input
-                    type="url"
-                    placeholder="https://ejemplo.com/logo.png"
-                    value={createForm.logo_url}
-                    onChange={(e) => setCreateForm({ ...createForm, logo_url: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  {createForm.logo_url && (
-                    <div className="mt-2 flex items-center gap-3 p-2 bg-slate-100 rounded-lg">
-                      <img 
-                        src={createForm.logo_url} 
-                        alt="Preview" 
-                        className="w-8 h-8 object-contain rounded"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                      <span className="text-xs text-slate-500">Vista previa del logotipo</span>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Logotipo Oficial de la Empresa</span>
+                    <span className="text-[11px] text-indigo-600 font-normal">Formato obligatorio: PNG</span>
+                  </label>
+                  
+                  {createForm.logo_url ? (
+                    <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div className="w-14 h-14 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-sm">
+                        <img 
+                          src={createForm.logo_url} 
+                          alt="Logo" 
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate">Logotipo PNG cargado</p>
+                        <p className="text-[11px] text-emerald-600 font-medium">✓ Listo para identidad visual</p>
+                      </div>
+                      <label className="cursor-pointer px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-medium rounded-lg transition-colors">
+                        Cambiar PNG
+                        <input 
+                          type="file" 
+                          accept=".png,image/png" 
+                          className="hidden" 
+                          onChange={(e) => handleLogoUpload(e, 'create')}
+                          disabled={uploadingLogo}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCreateForm({ ...createForm, logo_url: '' })}
+                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                        title="Quitar logotipo"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/60 hover:bg-indigo-50/30 rounded-xl cursor-pointer transition-all group">
+                      <div className="p-2.5 bg-white rounded-full shadow-sm text-indigo-600 group-hover:scale-110 transition-transform mb-2">
+                        <UploadCloud size={24} />
+                      </div>
+                      <p className="text-xs font-bold text-slate-700 group-hover:text-indigo-600">
+                        {uploadingLogo ? 'Subiendo imagen PNG...' : 'Subir logotipo PNG desde su computadora'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Seleccione un archivo .png desde su escritorio o carpeta
+                      </p>
+                      <input 
+                        type="file" 
+                        accept=".png,image/png" 
+                        className="hidden" 
+                        onChange={(e) => handleLogoUpload(e, 'create')}
+                        disabled={uploadingLogo}
+                      />
+                    </label>
                   )}
+                </div>
+
+                {/* Speed Limit Setting */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Gauge size={14} className="text-amber-600" />
+                      Límite de Velocidad Máxima
+                    </label>
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      {createForm.limite_velocidad || 90} km/h
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mb-2">
+                    Si una unidad supera esta velocidad, se emitirá una alerta inmediata al Superadmin y a la Empresa.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="range" 
+                      min="30" 
+                      max="140" 
+                      step="5"
+                      value={createForm.limite_velocidad || 90}
+                      onChange={(e) => setCreateForm({ ...createForm, limite_velocidad: parseInt(e.target.value, 10) })}
+                      className="w-full accent-amber-600 cursor-pointer"
+                    />
+                    <input 
+                      type="number" 
+                      min="20" 
+                      max="160"
+                      value={createForm.limite_velocidad || 90}
+                      onChange={(e) => setCreateForm({ ...createForm, limite_velocidad: parseInt(e.target.value, 10) || 90 })}
+                      className="w-16 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-center text-slate-800"
+                    />
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    {[60, 80, 90, 100, 110].map(speed => (
+                      <button
+                        key={speed}
+                        type="button"
+                        onClick={() => setCreateForm({ ...createForm, limite_velocidad: speed })}
+                        className={`text-[10px] font-semibold px-2 py-1 rounded-md border transition-colors ${createForm.limite_velocidad === speed ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                      >
+                        {speed} km/h
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Color Picker */}
@@ -574,13 +707,107 @@ export default function CompaniesPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Logo URL</label>
-                <input
-                  type="url"
-                  value={editForm.logo_url}
-                  onChange={(e) => setEditForm({ ...editForm, logo_url: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                />
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Logotipo Oficial de la Empresa</span>
+                  <span className="text-[11px] text-indigo-600 font-normal">Formato obligatorio: PNG</span>
+                </label>
+                
+                {editForm.logo_url ? (
+                  <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="w-14 h-14 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-sm">
+                      <img 
+                        src={editForm.logo_url} 
+                        alt="Logo" 
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 truncate">Logotipo PNG cargado</p>
+                      <p className="text-[11px] text-emerald-600 font-medium">✓ Logotipo activo</p>
+                    </div>
+                    <label className="cursor-pointer px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-medium rounded-lg transition-colors">
+                      Cambiar PNG
+                      <input 
+                        type="file" 
+                        accept=".png,image/png" 
+                        className="hidden" 
+                        onChange={(e) => handleLogoUpload(e, 'edit')}
+                        disabled={uploadingLogo}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, logo_url: '' })}
+                      className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                      title="Quitar logotipo"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/60 hover:bg-indigo-50/30 rounded-xl cursor-pointer transition-all group">
+                    <div className="p-2.5 bg-white rounded-full shadow-sm text-indigo-600 group-hover:scale-110 transition-transform mb-2">
+                      <UploadCloud size={24} />
+                    </div>
+                    <p className="text-xs font-bold text-slate-700 group-hover:text-indigo-600">
+                      {uploadingLogo ? 'Subiendo imagen PNG...' : 'Subir logotipo PNG desde su computadora'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Seleccione un archivo .png desde su escritorio o carpeta
+                    </p>
+                    <input 
+                      type="file" 
+                      accept=".png,image/png" 
+                      className="hidden" 
+                      onChange={(e) => handleLogoUpload(e, 'edit')}
+                      disabled={uploadingLogo}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Speed Limit in Edit Modal */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Gauge size={14} className="text-amber-600" />
+                    Límite de Velocidad Máxima
+                  </label>
+                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    {editForm.limite_velocidad || 90} km/h
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="range" 
+                    min="30" 
+                    max="140" 
+                    step="5"
+                    value={editForm.limite_velocidad || 90}
+                    onChange={(e) => setEditForm({ ...editForm, limite_velocidad: parseInt(e.target.value, 10) })}
+                    className="w-full accent-amber-600 cursor-pointer"
+                  />
+                  <input 
+                    type="number" 
+                    min="20" 
+                    max="160"
+                    value={editForm.limite_velocidad || 90}
+                    onChange={(e) => setEditForm({ ...editForm, limite_velocidad: parseInt(e.target.value, 10) || 90 })}
+                    className="w-16 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-center text-slate-800"
+                  />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {[60, 80, 90, 100, 110].map(speed => (
+                    <button
+                      key={speed}
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, limite_velocidad: speed })}
+                      className={`text-[10px] font-semibold px-2 py-1 rounded-md border transition-colors ${editForm.limite_velocidad === speed ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                    >
+                      {speed} km/h
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

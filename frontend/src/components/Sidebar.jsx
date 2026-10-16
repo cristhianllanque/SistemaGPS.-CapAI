@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Navigation, AlertCircle, Power, PowerOff } from 'lucide-react';
 
-export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectVehicle }) {
+export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90 }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filtered = vehiculos.filter(v => 
@@ -41,6 +41,7 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
           );
 
           const isPanic = u && isOnline && Boolean(u.boton_panico);
+          const isSpeeding = u && isOnline && u.velocidad > (limiteVelocidad || 90);
           const isMoving = u && isOnline && u.velocidad > 0;
           const isStoppedWithIgnition = u && isOnline && u.velocidad === 0 && u.ignicion;
           const isSelected = selectedVehicleId === v.id;
@@ -53,6 +54,10 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
             statusColor = 'bg-red-50 border-red-300 ring-2 ring-red-400'; 
             statusDot = 'bg-red-500 animate-pulse'; 
             statusLabel = '¡Pánico!';
+          } else if (isSpeeding) {
+            statusColor = 'bg-amber-50 border-amber-300 ring-2 ring-amber-400';
+            statusDot = 'bg-amber-500 animate-pulse';
+            statusLabel = '¡Exceso de velocidad!';
           } else if (isSelected) { 
             statusColor = 'bg-blue-50 border-blue-300 ring-2 ring-blue-500'; 
             statusDot = isOnline ? (isMoving ? 'bg-green-500' : (isStoppedWithIgnition ? 'bg-yellow-500' : 'bg-slate-400')) : 'bg-slate-400'; 
@@ -84,15 +89,25 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
                   <p className="text-xs text-slate-500">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-semibold text-slate-400">{statusLabel}</span>
+                  <span className={`text-[10px] font-semibold ${isSpeeding ? 'text-amber-700 font-bold' : 'text-slate-400'}`}>
+                    {statusLabel}
+                  </span>
                   {isPanic && <AlertCircle size={16} className="text-red-500 animate-bounce" />}
+                  {isSpeeding && !isPanic && <span className="text-xs">⚡</span>}
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
-                <div className="bg-white p-2 rounded flex flex-col items-center shadow-sm">
-                  <span className="text-xs text-slate-400 mb-1">Velocidad</span>
-                  <span className="font-semibold text-slate-700">{isOnline && u ? u.velocidad : 0} km/h</span>
+                <div className={`p-2 rounded flex flex-col items-center shadow-sm ${isSpeeding ? 'bg-amber-100/70 border border-amber-300' : 'bg-white'}`}>
+                  <span className="text-[11px] text-slate-400 mb-0.5">Velocidad</span>
+                  <span className={`font-bold ${isSpeeding ? 'text-amber-800 text-sm' : 'text-slate-700'}`}>
+                    {isOnline && u ? u.velocidad : 0} km/h
+                  </span>
+                  {isSpeeding && (
+                    <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded mt-0.5">
+                      Lím: {limiteVelocidad}k
+                    </span>
+                  )}
                 </div>
                 <div className="bg-white p-2 rounded flex flex-col items-center justify-center shadow-sm">
                   {isOnline && u && u.ignicion ? (

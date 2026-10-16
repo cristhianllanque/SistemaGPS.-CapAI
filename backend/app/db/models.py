@@ -11,6 +11,7 @@ class Empresa(Base):
     slug = Column(String(100), unique=True, nullable=False)
     logo_url = Column(String(255))
     color_primario = Column(String(50))
+    limite_velocidad = Column(Integer, default=90)
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -123,6 +124,8 @@ class AlertaPanico(Base):
     latitud = Column(Float, nullable=False)
     longitud = Column(Float, nullable=False)
     estado = Column(Enum('pendiente', 'atendida', 'falsa_alarma'), default='pendiente', index=True)
+    tipo = Column(String(50), default='panico')
+    velocidad = Column(SmallInteger, nullable=True)
     fecha_hora = Column(DateTime, default=datetime.utcnow, index=True)
     usuario_atendio_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     observaciones_atencion = Column(Text, nullable=True)

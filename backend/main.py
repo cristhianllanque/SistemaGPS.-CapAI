@@ -1,6 +1,8 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from jose import jwt, JWTError
 from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios, empresas
@@ -8,6 +10,9 @@ from app.websockets.manager import manager
 from app.core.config import settings
 from app.db.database import engine, Base
 from app.services.tcp_listener import start_tcp_server
+
+# Ensure upload directories exist
+os.makedirs("uploads/logos", exist_ok=True)
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
@@ -33,6 +38,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])

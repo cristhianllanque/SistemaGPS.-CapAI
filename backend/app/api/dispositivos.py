@@ -82,6 +82,9 @@ def create_dispositivo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     # Check unique IMEI
     exists = db.query(models.Dispositivo).filter(models.Dispositivo.imei == payload.imei).first()
     if exists:
@@ -91,9 +94,6 @@ def create_dispositivo(
         raise HTTPException(status_code=400, detail="Ya existe un dispositivo con ese número de serie")
 
     dump_data = payload.model_dump()
-    if current_user.rol != 'superadmin':
-        dump_data['empresa_id'] = current_user.empresa_id
-
     dispositivo = models.Dispositivo(**dump_data)
     db.add(dispositivo)
     db.commit()
@@ -108,16 +108,14 @@ def update_dispositivo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    query = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id)
     if current_user.rol != 'superadmin':
-        query = query.filter(models.Dispositivo.empresa_id == current_user.empresa_id)
-    d = query.first()
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
+    d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
     if not d:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 
     update_data = payload.model_dump(exclude_unset=True)
-    if current_user.rol != 'superadmin' and 'empresa_id' in update_data:
-        del update_data['empresa_id']
 
     # Validate unique constraints if changing
     if "imei" in update_data:
@@ -153,10 +151,10 @@ def delete_dispositivo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    query = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id)
     if current_user.rol != 'superadmin':
-        query = query.filter(models.Dispositivo.empresa_id == current_user.empresa_id)
-    d = query.first()
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
+    d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
     if not d:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 

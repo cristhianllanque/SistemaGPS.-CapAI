@@ -115,7 +115,7 @@ def atender_alerta(
         raise HTTPException(status_code=404, detail="Alerta no encontrada")
 
     vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.id == alerta.vehiculo_id).first()
-    if not vehiculo or vehiculo.empresa_id != current_user.empresa_id:
+    if not vehiculo or (current_user.rol != 'superadmin' and vehiculo.empresa_id != current_user.empresa_id):
         raise HTTPException(status_code=403, detail="No tienes permisos sobre esta alerta")
 
     alerta.estado = payload.estado

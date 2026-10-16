@@ -5,8 +5,8 @@ import L from 'leaflet';
 import { AlertTriangle, Navigation, RotateCcw } from 'lucide-react';
 
 // Create custom icons based on status
-const createIcon = (color, isPanic = false) => {
-  const size = isPanic ? 28 : 22;
+const createIcon = (color, isPanic = false, isSpeed = false) => {
+  const size = isPanic ? 28 : (isSpeed ? 26 : 22);
   return L.divIcon({
     className: 'custom-icon',
     html: `
@@ -16,13 +16,13 @@ const createIcon = (color, isPanic = false) => {
         height: ${size}px; 
         border-radius: 50%; 
         border: 3px solid white; 
-        box-shadow: 0 0 ${isPanic ? '15px #dc2626' : '6px rgba(0,0,0,0.4)'};
+        box-shadow: 0 0 ${isPanic ? '15px #dc2626' : (isSpeed ? '12px #d97706' : '6px rgba(0,0,0,0.4)')};
         display: flex;
         align-items: center;
         justify-content: center;
-        ${isPanic ? 'animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;' : ''}
+        ${isPanic ? 'animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;' : (isSpeed ? 'animation: pulse 1.2s infinite;' : '')}
       ">
-        ${isPanic ? '<div style="width: 10px; height: 10px; background: white; border-radius: 50%;"></div>' : ''}
+        ${isPanic ? '<div style="width: 10px; height: 10px; background: white; border-radius: 50%;"></div>' : (isSpeed ? '<div style="font-size: 11px; color: white; font-weight: 900; line-height: 1;">⚡</div>' : '')}
       </div>
     `,
     iconSize: [size, size],
@@ -32,10 +32,11 @@ const createIcon = (color, isPanic = false) => {
 };
 
 const icons = {
-  moving: createIcon('#22c55e'),       // Green (En ruta)
-  stopped_on: createIcon('#eab308'),   // Yellow (Detenido con motor encendido)
-  stopped_off: createIcon('#94a3b8'),  // Gray (Apagado)
-  panic: createIcon('#ef4444', true)   // Red (¡Botón de pánico activo!)
+  moving: createIcon('#22c55e'),                 // Green (En ruta)
+  speeding: createIcon('#f59e0b', false, true),  // Amber / Orange (¡Exceso de velocidad!)
+  stopped_on: createIcon('#eab308'),             // Yellow (Detenido con motor encendido)
+  stopped_off: createIcon('#94a3b8'),            // Gray (Apagado)
+  panic: createIcon('#ef4444', true)             // Red (¡Botón de pánico activo!)
 };
 
 // Internal map controller for programmatic camera movement & live tracking
@@ -72,6 +73,7 @@ export default function LiveMap({
   vehiculos = [], 
   selectedVehicleId = null, 
   emergencyVehicleId = null,
+  limiteVelocidad = 90,
   onSelectVehicle,
   onClearFocus
 }) {
@@ -83,6 +85,11 @@ export default function LiveMap({
   const targetCoords = trackedVehicle?.ultima_lectura 
     ? [trackedVehicle.ultima_lectura.latitud, trackedVehicle.ultima_lectura.longitud] 
     : null;
+
+  const isTrackedSpeeding = Boolean(
+    trackedVehicle?.ultima_lectura && 
+    trackedVehicle.ultima_lectura.velocidad > (limiteVelocidad || 90)
+  );
 
   return (
     <div className="h-full w-full relative">
@@ -109,6 +116,11 @@ export default function LiveMap({
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/90 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-3 border border-slate-700 text-sm">
           <Navigation size={16} className="text-blue-400" />
           <span>Siguiendo: <strong>{trackedVehicle.placa}</strong></span>
+          {isTrackedSpeeding && (
+            <span className="text-xs bg-amber-500/30 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
+              ⚡ {trackedVehicle.ultima_lectura?.velocidad} km/h (&gt;{limiteVelocidad}k)
+            </span>
+          )}
           <button 
             onClick={onClearFocus}
             className="ml-2 text-xs text-slate-300 hover:text-white bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-600 transition-colors"
@@ -142,9 +154,11 @@ export default function LiveMap({
           );
 
           const isThisEmergency = isOnline && (emergencyVehicleId === v.id || Boolean(u.boton_panico));
+          const isSpeeding = isOnline && (u.velocidad > (limiteVelocidad || 90));
           
           let icon = icons.stopped_off; // Default is gray (offline / apagado)
           if (isThisEmergency) icon = icons.panic;
+          else if (isSpeeding) icon = icons.speeding;
           else if (isOnline && u.velocidad > 0) icon = icons.moving;
           else if (isOnline && u.ignicion) icon = icons.stopped_on;
 
@@ -158,12 +172,16 @@ export default function LiveMap({
               }}
             >
               <Popup>
-                <div className="p-1 min-w-[190px]">
+                <div className="p-1 min-w-[200px]">
                   <div className="flex items-center justify-between border-b pb-1 mb-1">
                     <h3 className="font-bold text-sm text-slate-800">{v.placa}</h3>
                     {isThisEmergency ? (
                       <span className="text-[10px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded">
                         ¡PÁNICO!
+                      </span>
+                    ) : isSpeeding ? (
+                      <span className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded animate-pulse">
+                        ¡EXCESO DE VELOCIDAD!
                       </span>
                     ) : (
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isOnline ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
@@ -174,11 +192,20 @@ export default function LiveMap({
                   <p className="text-xs text-slate-500 mb-2">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
                     <span className="font-semibold text-slate-600">Estado:</span>
-                    <span className={isOnline ? "text-green-600 font-bold" : "text-slate-500 font-medium"}>
-                      {isOnline ? (u.velocidad > 0 ? 'En movimiento' : (u.ignicion ? 'Motor ON' : 'Detenido')) : 'Apagado'}
+                    <span className={isOnline ? (isSpeeding ? "text-amber-600 font-bold" : "text-green-600 font-bold") : "text-slate-500 font-medium"}>
+                      {isOnline ? (isSpeeding ? 'Exceso de velocidad' : (u.velocidad > 0 ? 'En movimiento' : (u.ignicion ? 'Motor ON' : 'Detenido'))) : 'Apagado'}
                     </span>
                     <span className="font-semibold text-slate-600">Velocidad:</span>
-                    <span className="font-bold text-slate-700">{isOnline ? `${u.velocidad} km/h` : '0 km/h'}</span>
+                    <div className="flex items-center gap-1">
+                      <span className={`font-bold ${isSpeeding ? 'text-amber-700' : 'text-slate-700'}`}>
+                        {isOnline ? `${u.velocidad} km/h` : '0 km/h'}
+                      </span>
+                      {isSpeeding && (
+                        <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1 rounded border border-amber-300">
+                          &gt;{limiteVelocidad}k
+                        </span>
+                      )}
+                    </div>
                     <span className="font-semibold text-slate-600">Motor:</span>
                     <span className={isOnline && u.ignicion ? "text-green-600 font-bold" : "text-slate-500 font-medium"}>
                       {isOnline && u.ignicion ? 'ON' : 'OFF'}

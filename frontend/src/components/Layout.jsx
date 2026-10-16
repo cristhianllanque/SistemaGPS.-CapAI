@@ -25,10 +25,13 @@ const NAV_ITEMS = [
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
-  const empresa = JSON.parse(localStorage.getItem('empresa') || '{}');
-  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+  const rawEmpresa = localStorage.getItem('empresa');
+  const empresa = (rawEmpresa && rawEmpresa !== 'null' && rawEmpresa !== 'undefined')
+    ? (JSON.parse(rawEmpresa) || {})
+    : {};
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
   const token = localStorage.getItem('token');
-  const primaryColor = empresa.color_primario || '#1E40AF';
+  const primaryColor = empresa?.color_primario || '#4F46E5';
 
   const [activeAlert, setActiveAlert] = useState(null);
 
@@ -45,7 +48,9 @@ export default function Layout() {
   });
 
   useEffect(() => {
-    if (lastJsonMessage && lastJsonMessage.type === 'panic_alert') {
+    if (!lastJsonMessage) return;
+
+    if (lastJsonMessage.type === 'panic_alert') {
       // Trigger emergency siren sound in the browser
       siren.start();
       
@@ -57,6 +62,21 @@ export default function Layout() {
         conductor_nombre: lastJsonMessage.conductor,
         latitud: lastJsonMessage.latitud,
         longitud: lastJsonMessage.longitud,
+        tipo: 'panico',
+        fecha_hora: new Date().toISOString()
+      });
+    } else if (lastJsonMessage.type === 'speed_alert') {
+      // Show modal for speed excess alert
+      setActiveAlert({
+        id: lastJsonMessage.alerta_id,
+        vehiculo_id: lastJsonMessage.vehiculo_id,
+        placa: lastJsonMessage.placa,
+        conductor_nombre: lastJsonMessage.conductor,
+        latitud: lastJsonMessage.latitud,
+        longitud: lastJsonMessage.longitud,
+        tipo: 'exceso_velocidad',
+        velocidad: lastJsonMessage.velocidad,
+        limite: lastJsonMessage.limite,
         fecha_hora: new Date().toISOString()
       });
     }
@@ -101,10 +121,10 @@ export default function Layout() {
       >
         {/* Logo & Corporate Identity Area */}
         <div className="h-16 flex items-center px-4 border-b border-slate-700/50 gap-3">
-          {empresa.logo_url ? (
+          {empresa?.logo_url ? (
             <img 
               src={empresa.logo_url} 
-              alt={empresa.nombre} 
+              alt={empresa.nombre || 'Empresa'} 
               className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
@@ -119,12 +139,12 @@ export default function Layout() {
           {!collapsed && (
             <div className="overflow-hidden">
               <h1 className="text-sm font-bold leading-tight truncate text-white">
-                {empresa.nombre || 'Copay GPS'}
+                {empresa?.nombre || (usuario?.rol === 'superadmin' ? 'Copay Central' : 'Copay GPS')}
               </h1>
               <p className="text-[10px] text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
                 <span>
-                  {usuario.rol === 'superadmin' ? 'Superadmin Copay' : (usuario.rol === 'admin' ? 'Gerencia / Admin' : 'Operador')}
+                  {usuario?.rol === 'superadmin' ? 'Superadmin Copay' : (usuario?.rol === 'admin' ? 'Gerencia / Admin' : 'Operador')}
                 </span>
               </p>
             </div>

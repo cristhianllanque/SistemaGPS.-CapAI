@@ -106,6 +106,9 @@ def create_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     exists = db.query(models.Vehiculo).filter(models.Vehiculo.placa == payload.placa).first()
     if exists:
         raise HTTPException(status_code=400, detail="Ya existe un vehículo con esa placa")
@@ -146,6 +149,9 @@ def update_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
@@ -191,6 +197,9 @@ def vincular_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
@@ -260,6 +269,9 @@ def desvincular_dispositivo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
@@ -294,6 +306,9 @@ def desvincular_conductor(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
@@ -323,6 +338,9 @@ def delete_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)

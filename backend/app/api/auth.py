@@ -23,14 +23,25 @@ def login_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordR
     )
     
     user_out = schemas.UsuarioOut.model_validate(user)
-    if user.empresa:
+    empresa_data = user.empresa
+    if not empresa_data:
+        empresa_data = schemas.Empresa(
+            id=0,
+            nombre="Copay Telematics (Central)",
+            slug="copay-central",
+            logo_url=None,
+            color_primario="#4F46E5",
+            activo=True
+        )
+        user_out.empresa_nombre = "Copay Central"
+    else:
         user_out.empresa_nombre = user.empresa.nombre
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "usuario": user_out,
-        "empresa": user.empresa
+        "empresa": empresa_data
     }
 
 @router.get("/me")
@@ -39,10 +50,22 @@ def get_current_user_profile(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     user_out = schemas.UsuarioOut.model_validate(current_user)
-    if current_user.empresa:
+    empresa_data = current_user.empresa
+    if not empresa_data:
+        empresa_data = schemas.Empresa(
+            id=0,
+            nombre="Copay Telematics (Central)",
+            slug="copay-central",
+            logo_url=None,
+            color_primario="#4F46E5",
+            activo=True
+        )
+        user_out.empresa_nombre = "Copay Central"
+    else:
         user_out.empresa_nombre = current_user.empresa.nombre
+
     return {
         "usuario": user_out,
-        "empresa": current_user.empresa
+        "empresa": empresa_data
     }
 

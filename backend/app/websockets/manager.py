@@ -34,4 +34,8 @@ class ConnectionManager:
         for dead_conn in dead_connections:
             self.disconnect(dead_conn, empresa_id)
 
+    async def broadcast_all(self, message: dict):
+        for empresa_id in list(self.active_connections.keys()):
+            await self.broadcast_to_empresa(empresa_id, message)
+
 manager = ConnectionManager()

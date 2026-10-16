@@ -92,18 +92,30 @@ def create_conductor(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
     exists = db.query(models.Conductor).filter(models.Conductor.dni == payload.dni).first()
     if exists:
         raise HTTPException(status_code=400, detail="Ya existe un conductor con ese DNI")
 
-    conductor = models.Conductor(
-        empresa_id=current_user.empresa_id,
-        **payload.model_dump()
-    )
+    target_empresa_id = payload.empresa_id if (current_user.rol == 'superadmin' and payload.empresa_id) else current_user.empresa_id
+    if not target_empresa_id:
+        emp_default = db.query(models.Empresa).first()
+        target_empresa_id = emp_default.id if emp_default else 1
+
+    cond_data = payload.model_dump()
+    cond_data["empresa_id"] = target_empresa_id
+
+    conductor = models.Conductor(**cond_data)
     db.add(conductor)
     db.commit()
     db.refresh(conductor)
-    return schemas.ConductorOut.model_validate(conductor)
+    
+    out = schemas.ConductorOut.model_validate(conductor)
+    if conductor.empresa:
+        out.empresa_nombre = conductor.empresa.nombre
+    return out
 
 
 @router.put("/{conductor_id}", response_model=schemas.ConductorOut)
@@ -113,10 +125,10 @@ def update_conductor(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    c = db.query(models.Conductor).filter(
-        models.Conductor.id == conductor_id,
-        models.Conductor.empresa_id == current_user.empresa_id
-    ).first()
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
+    c = db.query(models.Conductor).filter(models.Conductor.id == conductor_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Conductor no encontrado")
 
@@ -138,6 +150,8 @@ def update_conductor(
     data = schemas.ConductorOut.model_validate(c)
     if c.vehiculo:
         data.vehiculo_placa = c.vehiculo.placa
+    if c.empresa:
+        data.empresa_nombre = c.empresa.nombre
     return data
 
 
@@ -147,10 +161,10 @@ def delete_conductor(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    c = db.query(models.Conductor).filter(
-        models.Conductor.id == conductor_id,
-        models.Conductor.empresa_id == current_user.empresa_id
-    ).first()
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+
+    c = db.query(models.Conductor).filter(models.Conductor.id == conductor_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Conductor no encontrado")
 
