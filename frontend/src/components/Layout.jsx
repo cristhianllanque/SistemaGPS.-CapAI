@@ -2,23 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Radio, Truck, Users, Link2, Map, AlertTriangle, Route,
-  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield
+  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2
 } from 'lucide-react';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { siren } from '../utils/sound';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/dispositivos', icon: Radio, label: 'Dispositivos' },
-  { to: '/vehiculos', icon: Truck, label: 'Vehículos' },
-  { to: '/conductores', icon: Users, label: 'Conductores' },
-  { to: '/vinculacion', icon: Link2, label: 'Vinculación' },
-  { to: '/monitoreo', icon: Map, label: 'Monitoreo GPS' },
-  { to: '/historial-rutas', icon: Route, label: 'Historial de Rutas' },
-  { to: '/alertas', icon: AlertTriangle, label: 'Alertas' },
-  { to: '/reportes', icon: Activity, label: 'Reportes' },
-  { to: '/usuarios', icon: Shield, label: 'Usuarios y Accesos', adminOnly: true },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin'] },
+  { to: '/empresas', icon: Building2, label: 'Empresas Clientes', roles: ['superadmin'] },
+  { to: '/dispositivos', icon: Radio, label: 'Dispositivos GPS', roles: ['superadmin'] },
+  { to: '/vehiculos', icon: Truck, label: 'Vehículos', roles: ['superadmin', 'admin'] },
+  { to: '/conductores', icon: Users, label: 'Conductores', roles: ['superadmin', 'admin'] },
+  { to: '/vinculacion', icon: Link2, label: 'Vinculación', roles: ['superadmin', 'admin'] },
+  { to: '/monitoreo', icon: Map, label: 'Monitoreo GPS', roles: ['superadmin', 'admin', 'operador'] },
+  { to: '/historial-rutas', icon: Route, label: 'Historial de Rutas', roles: ['superadmin', 'admin', 'operador'] },
+  { to: '/alertas', icon: AlertTriangle, label: 'Alertas', roles: ['superadmin', 'admin', 'operador'] },
+  { to: '/reportes', icon: Activity, label: 'Reportes', roles: ['superadmin', 'admin'] },
+  { to: '/usuarios', icon: Shield, label: 'Usuarios y Accesos', roles: ['superadmin', 'admin'] },
 ];
 
 export default function Layout() {
@@ -32,8 +33,9 @@ export default function Layout() {
   const [activeAlert, setActiveAlert] = useState(null);
 
   // Authenticated WebSocket connection with JWT token query parameter
-  const WS_URL = token && empresa?.id 
-    ? `ws://localhost:8000/ws/flota/${empresa.id}?token=${token}` 
+  const activeEmpresaId = empresa?.id || 1;
+  const WS_URL = token 
+    ? `ws://localhost:8000/ws/flota/${activeEmpresaId}?token=${token}` 
     : null;
   
   const { lastJsonMessage } = useWebSocket(WS_URL, {
@@ -97,25 +99,41 @@ export default function Layout() {
       <aside
         className={`${collapsed ? 'w-[72px]' : 'w-64'} bg-slate-900 text-white flex flex-col transition-all duration-300 ease-in-out flex-shrink-0 z-50`}
       >
-        {/* Logo Area */}
+        {/* Logo & Corporate Identity Area */}
         <div className="h-16 flex items-center px-4 border-b border-slate-700/50 gap-3">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <Activity size={20} className="text-white" />
-          </div>
+          {empresa.logo_url ? (
+            <img 
+              src={empresa.logo_url} 
+              alt={empresa.nombre} 
+              className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ) : (
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold shadow"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Activity size={20} />
+            </div>
+          )}
           {!collapsed && (
             <div className="overflow-hidden">
-              <h1 className="text-sm font-bold leading-tight truncate">Teltonika GPS</h1>
-              <p className="text-[10px] text-slate-400 truncate">{empresa.nombre}</p>
+              <h1 className="text-sm font-bold leading-tight truncate text-white">
+                {empresa.nombre || 'Copay GPS'}
+              </h1>
+              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
+                <span>
+                  {usuario.rol === 'superadmin' ? 'Superadmin Copay' : (usuario.rol === 'admin' ? 'Gerencia / Admin' : 'Operador')}
+                </span>
+              </p>
             </div>
           )}
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.filter(item => !item.adminOnly || (usuario.rol === 'admin' || usuario.rol === 'superadmin')).map((item) => (
+          {NAV_ITEMS.filter(item => !item.roles || item.roles.includes(usuario.rol || 'operador')).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

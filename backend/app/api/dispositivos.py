@@ -32,12 +32,15 @@ def list_dispositivos(
         data = schemas.DispositivoOut.model_validate(d)
         if d.vehiculo:
             data.vehiculo_placa = d.vehiculo.placa
+        if d.empresa:
+            data.empresa_nombre = d.empresa.nombre
         result.append(data)
     return result
 
 
 @router.get("/disponibles", response_model=List[schemas.DispositivoOut])
 def list_dispositivos_disponibles(
+    empresa_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
@@ -47,6 +50,10 @@ def list_dispositivos_disponibles(
     )
     if current_user.rol != 'superadmin':
         query = query.filter(models.Dispositivo.empresa_id == current_user.empresa_id)
+    elif empresa_id:
+        query = query.filter(
+            (models.Dispositivo.empresa_id == empresa_id) | (models.Dispositivo.empresa_id == None)
+        )
     dispositivos = query.all()
     return [schemas.DispositivoOut.model_validate(d) for d in dispositivos]
 

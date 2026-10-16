@@ -1,21 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Radio, Truck, Users, AlertTriangle, Link2, TrendingUp, Package, ShieldCheck } from 'lucide-react';
+import { Radio, Truck, Users, AlertTriangle, Link2, TrendingUp, Package, ShieldCheck, Building2 } from 'lucide-react';
 
 const API = 'http://localhost:8000';
 
 export default function DashboardHome() {
   const [stats, setStats] = useState(null);
+  const [empresas, setEmpresas] = useState([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState('');
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem('token');
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
   const empresa = JSON.parse(localStorage.getItem('empresa') || '{}');
+  const isSuperAdmin = usuario.rol === 'superadmin';
   const primaryColor = empresa.color_primario || '#1E40AF';
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      axios.get(`${API}/api/empresas/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(res => setEmpresas(res.data)).catch(console.error);
+    }
+  }, [isSuperAdmin, token]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        setLoading(true);
+        const params = {};
+        if (isSuperAdmin && selectedEmpresa) {
+          params.empresa_id = selectedEmpresa;
+        }
         const res = await axios.get(`${API}/api/dashboard/stats`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          params
         });
         setStats(res.data);
       } catch (err) {
@@ -25,7 +43,7 @@ export default function DashboardHome() {
       }
     };
     fetchStats();
-  }, [token]);
+  }, [token, selectedEmpresa]);
 
   if (loading) {
     return (
@@ -73,9 +91,32 @@ export default function DashboardHome() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Panel de Control</h1>
-        <p className="text-slate-500 mt-1">Resumen general de {empresa.nombre}</p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Panel de Control</h1>
+          <p className="text-slate-500 mt-1">
+            {isSuperAdmin
+              ? (selectedEmpresa ? `Métricas filtradas por empresa` : `Visión global de todas las empresas cliente`)
+              : `Resumen general de ${empresa.nombre}`}
+          </p>
+        </div>
+
+        {isSuperAdmin && (
+          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+            <Building2 size={18} className="text-indigo-600" />
+            <span className="text-xs font-semibold text-slate-600">Empresa:</span>
+            <select
+              value={selectedEmpresa}
+              onChange={(e) => setSelectedEmpresa(e.target.value)}
+              className="bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer"
+            >
+              <option value="">Todas las Empresas (Global)</option>
+              {empresas.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}

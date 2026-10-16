@@ -20,9 +20,9 @@ export default function MonitoringPage() {
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
   
-  // Authenticated WebSocket connection with JWT token query parameter
-  const WS_URL = token && empresa?.id 
-    ? `ws://localhost:8000/ws/flota/${empresa.id}?token=${token}` 
+  const activeEmpresaId = empresa?.id || 1;
+  const WS_URL = token 
+    ? `ws://localhost:8000/ws/flota/${activeEmpresaId}?token=${token}` 
     : null;
   
   const { lastJsonMessage } = useWebSocket(WS_URL, {

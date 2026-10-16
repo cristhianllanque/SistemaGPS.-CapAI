@@ -11,13 +11,17 @@ router = APIRouter()
 @router.get("/", response_model=List[schemas.ConductorOut])
 def list_conductores(
     search: Optional[str] = Query(None),
+    empresa_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    query = db.query(models.Conductor).filter(
-        models.Conductor.empresa_id == current_user.empresa_id,
-        models.Conductor.activo == True
-    )
+    query = db.query(models.Conductor).filter(models.Conductor.activo == True)
+    if current_user.rol == 'superadmin':
+        if empresa_id:
+            query = query.filter(models.Conductor.empresa_id == empresa_id)
+    else:
+        query = query.filter(models.Conductor.empresa_id == current_user.empresa_id)
+
     if search:
         query = query.filter(
             (models.Conductor.nombre.contains(search)) |
@@ -36,21 +40,31 @@ def list_conductores(
 
 @router.get("/disponibles", response_model=List[schemas.ConductorOut])
 def list_conductores_disponibles(
+    empresa_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
     """Conductores que no están asignados a ningún vehículo"""
-    # Get all conductor IDs that are assigned to a vehicle
-    assigned_ids = [v.conductor_id for v in db.query(models.Vehiculo.conductor_id).filter(
-        models.Vehiculo.conductor_id.isnot(None),
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).all()]
+    target_empresa_id = current_user.empresa_id
+    if current_user.rol == 'superadmin' and empresa_id:
+        target_empresa_id = empresa_id
 
-    conductores = db.query(models.Conductor).filter(
-        models.Conductor.empresa_id == current_user.empresa_id,
-        models.Conductor.activo == True,
-        ~models.Conductor.id.in_(assigned_ids) if assigned_ids else True
-    ).all()
+    # Get all conductor IDs that are assigned to a vehicle
+    assigned_query = db.query(models.Vehiculo.conductor_id).filter(
+        models.Vehiculo.conductor_id.isnot(None),
+        models.Vehiculo.activo == True
+    )
+    if target_empresa_id:
+        assigned_query = assigned_query.filter(models.Vehiculo.empresa_id == target_empresa_id)
+    assigned_ids = [v.conductor_id for v in assigned_query.all()]
+
+    cond_query = db.query(models.Conductor).filter(models.Conductor.activo == True)
+    if target_empresa_id:
+        cond_query = cond_query.filter(models.Conductor.empresa_id == target_empresa_id)
+    if assigned_ids:
+        cond_query = cond_query.filter(~models.Conductor.id.in_(assigned_ids))
+
+    conductores = cond_query.all()
     return [schemas.ConductorOut.model_validate(c) for c in conductores]
 
 

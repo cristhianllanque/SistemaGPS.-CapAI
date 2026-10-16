@@ -16,7 +16,15 @@ def list_usuarios(
     query = db.query(models.Usuario)
     if current_user.rol != 'superadmin':
         query = query.filter(models.Usuario.empresa_id == current_user.empresa_id)
-    return query.all()
+    usuarios = query.all()
+    
+    result = []
+    for u in usuarios:
+        u_out = schemas.UsuarioOut.model_validate(u)
+        if u.empresa:
+            u_out.empresa_nombre = u.empresa.nombre
+        result.append(u_out)
+    return result
 
 
 @router.post("/", response_model=schemas.UsuarioOut, status_code=201)
@@ -30,10 +38,11 @@ def create_usuario(
     if exists:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
 
-    # Determine empresa_id
-    empresa_id = current_user.empresa_id
-    # If superadmin, we could allow setting a different empresa, but the schema doesn't have it for now.
-    # We will just assign it to the current user's empresa if not provided.
+    # Determine empresa_id: Superadmin can assign to any company, client admin only to their own
+    if current_user.rol == 'superadmin' and payload.empresa_id:
+        empresa_id = payload.empresa_id
+    else:
+        empresa_id = current_user.empresa_id
 
     hashed_password = security.get_password_hash(payload.password)
     
@@ -47,7 +56,11 @@ def create_usuario(
     db.add(nuevo_usuario)
     db.commit()
     db.refresh(nuevo_usuario)
-    return nuevo_usuario
+
+    result = schemas.UsuarioOut.model_validate(nuevo_usuario)
+    if nuevo_usuario.empresa:
+        result.empresa_nombre = nuevo_usuario.empresa.nombre
+    return result
 
 
 @router.put("/{usuario_id}", response_model=schemas.UsuarioOut)

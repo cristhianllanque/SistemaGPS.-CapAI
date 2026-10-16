@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Truck, Plus, Search, Edit2, Trash2, X, Check, AlertCircle } from 'lucide-react';
+import { Truck, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Building2 } from 'lucide-react';
 
 const API = 'http://localhost:8000';
 
@@ -14,11 +14,13 @@ const ESTADO_COLORS = {
 
 const emptyForm = {
   padron: '', placa: '', marca: '', modelo: '', anio: '', color: '', tipo: 'minivan',
-  numero_asientos: '', foto_url: ''
+  numero_asientos: '', foto_url: '', empresa_id: ''
 };
 
 export default function VehiclesPage() {
   const [vehiculos, setVehiculos] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
+  const [selectedEmpresaFilter, setSelectedEmpresaFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -26,23 +28,49 @@ export default function VehiclesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  
   const token = localStorage.getItem('token');
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+  const isSuperAdmin = usuario.rol === 'superadmin';
   const headers = { Authorization: `Bearer ${token}` };
+
+  const fetchEmpresas = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const res = await axios.get(`${API}/api/empresas/`, { headers });
+      setEmpresas(res.data);
+    } catch (err) {
+      console.error('Error fetching empresas:', err);
+    }
+  };
 
   const fetchData = async () => {
     try {
       const params = {};
       if (searchTerm) params.search = searchTerm;
+      if (isSuperAdmin && selectedEmpresaFilter) params.empresa_id = selectedEmpresaFilter;
       const res = await axios.get(`${API}/api/vehiculos/`, { headers, params });
       setVehiculos(res.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, [searchTerm]);
+  useEffect(() => {
+    fetchEmpresas();
+  }, []);
+
+  useEffect(() => { 
+    fetchData(); 
+  }, [searchTerm, selectedEmpresaFilter]);
 
   const openCreate = () => {
-    setEditingId(null); setForm({ ...emptyForm }); setError(''); setShowModal(true);
+    setEditingId(null); 
+    setForm({ 
+      ...emptyForm, 
+      empresa_id: empresas.length > 0 ? empresas[0].id : '' 
+    }); 
+    setError(''); 
+    setShowModal(true);
   };
 
   const formatPlaca = (val) => {
@@ -58,7 +86,8 @@ export default function VehiclesPage() {
     setForm({
       padron: v.padron, placa: v.placa, marca: v.marca || '', modelo: v.modelo || '',
       anio: v.anio || '', color: v.color || '', tipo: v.tipo || 'minivan',
-      numero_asientos: v.numero_asientos || '', foto_url: v.foto_url || ''
+      numero_asientos: v.numero_asientos || '', foto_url: v.foto_url || '',
+      empresa_id: v.empresa_id || ''
     });
     setError(''); setShowModal(true);
   };
@@ -77,6 +106,11 @@ export default function VehiclesPage() {
       if (!payload.modelo) delete payload.modelo;
       if (!payload.color) delete payload.color;
       if (!payload.foto_url) delete payload.foto_url;
+      if (isSuperAdmin && payload.empresa_id) {
+        payload.empresa_id = parseInt(payload.empresa_id);
+      } else {
+        delete payload.empresa_id;
+      }
 
       if (editingId) {
         await axios.put(`${API}/api/vehiculos/${editingId}`, payload, { headers });
@@ -112,11 +146,29 @@ export default function VehiclesPage() {
         </button>
       </div>
 
-      <div className="relative max-w-sm mb-5">
-        <Search size={16} className="absolute left-3 top-3 text-slate-400" />
-        <input type="text" placeholder="Buscar por placa..." value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+          <input type="text" placeholder="Buscar por placa..." value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+
+        {isSuperAdmin && (
+          <div className="flex items-center gap-2">
+            <Building2 size={18} className="text-slate-400" />
+            <select
+              value={selectedEmpresaFilter}
+              onChange={(e) => setSelectedEmpresaFilter(e.target.value)}
+              className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700"
+            >
+              <option value="">Todas las empresas</option>
+              {empresas.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -124,6 +176,9 @@ export default function VehiclesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
+                {isSuperAdmin && (
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Empresa</th>
+                )}
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Padrón / Placa</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Marca / Modelo</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Año</th>
@@ -138,7 +193,7 @@ export default function VehiclesPage() {
             <tbody className="divide-y divide-slate-100">
               {vehiculos.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-12 text-slate-400">
+                  <td colSpan={isSuperAdmin ? "10" : "9"} className="text-center py-12 text-slate-400">
                     <Truck size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay vehículos registrados</p>
                     <p className="text-xs mt-1">Registre su primer vehículo</p>
@@ -146,6 +201,14 @@ export default function VehiclesPage() {
                 </tr>
               ) : vehiculos.map(v => (
                 <tr key={v.id} className="hover:bg-slate-50 transition-colors">
+                  {isSuperAdmin && (
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <Building2 size={12} />
+                        {v.empresa_nombre || 'Sin Empresa'}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="font-bold text-slate-800">{v.padron}</div>
                     <div className="text-xs text-slate-500 font-mono">{v.placa}</div>
@@ -199,6 +262,24 @@ export default function VehiclesPage() {
             </div>
             <div className="p-5 space-y-4">
               {error && <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm"><AlertCircle size={16} /> {error}</div>}
+
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
+                    <Building2 size={16} className="text-emerald-600" /> Empresa Cliente *
+                  </label>
+                  <select
+                    value={form.empresa_id}
+                    onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700"
+                  >
+                    <option value="">-- Seleccionar Empresa --</option>
+                    {empresas.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Padrón / Móvil *</label>

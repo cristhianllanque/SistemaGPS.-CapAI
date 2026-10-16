@@ -12,21 +12,28 @@ router = APIRouter()
 @router.get("/", response_model=List[schemas.AlertaPanicoOut])
 def get_alertas_pendientes(
     estado: Optional[str] = None,
+    empresa_id: Optional[int] = None,
     db: Session = Depends(get_db), 
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    vehiculos_empresa = [v.id for v in db.query(models.Vehiculo.id).filter(
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).all()]
-
-    if not vehiculos_empresa:
-        return []
-
     query = db.query(models.AlertaPanico).options(
         joinedload(models.AlertaPanico.usuario_atendio)
-    ).filter(
-        models.AlertaPanico.vehiculo_id.in_(vehiculos_empresa)
     )
+
+    if current_user.rol != 'superadmin':
+        vehiculos_empresa = [v.id for v in db.query(models.Vehiculo.id).filter(
+            models.Vehiculo.empresa_id == current_user.empresa_id
+        ).all()]
+        if not vehiculos_empresa:
+            return []
+        query = query.filter(models.AlertaPanico.vehiculo_id.in_(vehiculos_empresa))
+    elif empresa_id:
+        vehiculos_empresa = [v.id for v in db.query(models.Vehiculo.id).filter(
+            models.Vehiculo.empresa_id == empresa_id
+        ).all()]
+        if not vehiculos_empresa:
+            return []
+        query = query.filter(models.AlertaPanico.vehiculo_id.in_(vehiculos_empresa))
     
     if estado:
         query = query.filter(models.AlertaPanico.estado == estado)
@@ -54,21 +61,30 @@ def get_alertas_pendientes(
 
 @router.get("/historial", response_model=List[schemas.AlertaPanicoOut])
 def get_alertas_historial(
+    empresa_id: Optional[int] = None,
     db: Session = Depends(get_db), 
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    vehiculos_empresa = [v.id for v in db.query(models.Vehiculo.id).filter(
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).all()]
-
-    if not vehiculos_empresa:
-        return []
-
-    alertas = db.query(models.AlertaPanico).options(
+    query = db.query(models.AlertaPanico).options(
         joinedload(models.AlertaPanico.usuario_atendio)
-    ).filter(
-        models.AlertaPanico.vehiculo_id.in_(vehiculos_empresa)
-    ).order_by(models.AlertaPanico.fecha_hora.desc()).limit(100).all()
+    )
+
+    if current_user.rol != 'superadmin':
+        vehiculos_empresa = [v.id for v in db.query(models.Vehiculo.id).filter(
+            models.Vehiculo.empresa_id == current_user.empresa_id
+        ).all()]
+        if not vehiculos_empresa:
+            return []
+        query = query.filter(models.AlertaPanico.vehiculo_id.in_(vehiculos_empresa))
+    elif empresa_id:
+        vehiculos_empresa = [v.id for v in db.query(models.Vehiculo.id).filter(
+            models.Vehiculo.empresa_id == empresa_id
+        ).all()]
+        if not vehiculos_empresa:
+            return []
+        query = query.filter(models.AlertaPanico.vehiculo_id.in_(vehiculos_empresa))
+
+    alertas = query.order_by(models.AlertaPanico.fecha_hora.desc()).limit(100).all()
 
     result = []
     for a in alertas:

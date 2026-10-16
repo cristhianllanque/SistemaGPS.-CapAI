@@ -8,11 +8,38 @@ class EmpresaBase(BaseModel):
     nombre: str
     slug: str
     logo_url: Optional[str] = None
+    color_primario: Optional[str] = "#1E40AF"
+
+class EmpresaCreate(BaseModel):
+    nombre: str
+    slug: Optional[str] = None
+    logo_url: Optional[str] = None
+    color_primario: Optional[str] = "#1E40AF"
+    # Optional initial Gerente user creation
+    gerente_nombre: Optional[str] = None
+    gerente_email: Optional[EmailStr] = None
+    gerente_password: Optional[str] = None
+
+class EmpresaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    slug: Optional[str] = None
+    logo_url: Optional[str] = None
     color_primario: Optional[str] = None
+    activo: Optional[bool] = None
 
 class Empresa(EmpresaBase):
     id: int
     activo: bool
+    class Config:
+        from_attributes = True
+
+class EmpresaOut(EmpresaBase):
+    id: int
+    activo: bool
+    created_at: Optional[datetime] = None
+    total_vehiculos: Optional[int] = 0
+    total_dispositivos: Optional[int] = 0
+    total_usuarios: Optional[int] = 0
     class Config:
         from_attributes = True
 
@@ -25,6 +52,7 @@ class UsuarioBase(BaseModel):
 
 class UsuarioCreate(UsuarioBase):
     password: str
+    empresa_id: Optional[int] = None
 
 class UsuarioUpdate(BaseModel):
     email: Optional[EmailStr] = None
@@ -32,10 +60,12 @@ class UsuarioUpdate(BaseModel):
     rol: Optional[str] = None
     password: Optional[str] = None
     activo: Optional[bool] = None
+    empresa_id: Optional[int] = None
 
 class UsuarioOut(UsuarioBase):
     id: int
     empresa_id: Optional[int] = None
+    empresa_nombre: Optional[str] = None
     activo: bool
     class Config:
         from_attributes = True
@@ -47,8 +77,8 @@ class UsuarioLogin(BaseModel):
 class UsuarioToken(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    usuario: UsuarioBase
-    empresa: Empresa
+    usuario: UsuarioOut
+    empresa: Optional[Empresa] = None
 
 
 # ============ DISPOSITIVO ============
@@ -81,7 +111,8 @@ class DispositivoUpdate(BaseModel):
 
 class DispositivoOut(BaseModel):
     id: int
-    empresa_id: int
+    empresa_id: Optional[int] = None
+    empresa_nombre: Optional[str] = None
     imei: str
     numero_serie: str
     modelo: str
@@ -136,6 +167,7 @@ class ConductorOut(BaseModel):
 
 # ============ VEHICULO ============
 class VehiculoCreate(BaseModel):
+    empresa_id: Optional[int] = None
     padron: str
     placa: str = Field(..., pattern=r"^[A-Z0-9]{3}-[A-Z0-9]{3}$")
     marca: Optional[str] = None
@@ -147,6 +179,7 @@ class VehiculoCreate(BaseModel):
     foto_url: Optional[str] = None
 
 class VehiculoUpdate(BaseModel):
+    empresa_id: Optional[int] = None
     padron: Optional[str] = None
     placa: Optional[str] = Field(None, pattern=r"^[A-Z0-9]{3}-[A-Z0-9]{3}$")
     marca: Optional[str] = None
@@ -190,6 +223,7 @@ class ConductorMini(BaseModel):
 class VehiculoOut(BaseModel):
     id: int
     empresa_id: int
+    empresa_nombre: Optional[str] = None
     padron: str
     placa: str
     marca: Optional[str] = None

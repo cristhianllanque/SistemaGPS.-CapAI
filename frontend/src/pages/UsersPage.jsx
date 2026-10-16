@@ -6,10 +6,11 @@ const API = 'http://localhost:8000';
 
 const ROLES = ['admin', 'operador'];
 
-const emptyForm = { nombre: '', email: '', password: '', rol: 'operador' };
+const emptyForm = { nombre: '', email: '', password: '', rol: 'operador', empresa_id: '' };
 
 export default function UsersPage() {
   const [usuarios, setUsuarios] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -21,12 +22,18 @@ export default function UsersPage() {
   const headers = { Authorization: `Bearer ${token}` };
   
   const currentUser = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const isAdmin = currentUser.rol === 'admin' || currentUser.rol === 'superadmin';
+  const isSuperadmin = currentUser.rol === 'superadmin';
+  const isAdmin = currentUser.rol === 'admin' || isSuperadmin;
 
   const fetchData = async () => {
     try {
-      const res = await axios.get(`${API}/api/usuarios/`, { headers });
-      setUsuarios(res.data);
+      const requests = [axios.get(`${API}/api/usuarios/`, { headers })];
+      if (isSuperadmin) {
+        requests.push(axios.get(`${API}/api/empresas/`, { headers }));
+      }
+      const [usrRes, empRes] = await Promise.all(requests);
+      setUsuarios(usrRes.data);
+      if (empRes) setEmpresas(empRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -41,14 +48,20 @@ export default function UsersPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm });
+    setForm({ ...emptyForm, empresa_id: isSuperadmin ? '' : currentUser.empresa_id });
     setError('');
     setShowModal(true);
   };
 
   const openEdit = (u) => {
     setEditingId(u.id);
-    setForm({ nombre: u.nombre, email: u.email, password: '', rol: u.rol });
+    setForm({ 
+      nombre: u.nombre, 
+      email: u.email, 
+      password: '', 
+      rol: u.rol,
+      empresa_id: u.empresa_id || '' 
+    });
     setError('');
     setShowModal(true);
   };
@@ -69,6 +82,11 @@ export default function UsersPage() {
     try {
       const payload = { ...form };
       if (editingId && !payload.password) delete payload.password; // Don't send empty password if editing
+      if (payload.empresa_id) {
+        payload.empresa_id = parseInt(payload.empresa_id, 10);
+      } else {
+        delete payload.empresa_id;
+      }
       
       if (editingId) {
         await axios.put(`${API}/api/usuarios/${editingId}`, payload, { headers });
@@ -125,6 +143,9 @@ export default function UsersPage() {
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Nombre</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Email</th>
+                {isSuperadmin && (
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Empresa</th>
+                )}
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Rol</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Estado</th>
                 <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
@@ -133,7 +154,7 @@ export default function UsersPage() {
             <tbody className="divide-y divide-slate-100">
               {usuarios.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-12 text-slate-400">
+                  <td colSpan={isSuperadmin ? "6" : "5"} className="text-center py-12 text-slate-400">
                     <User size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay usuarios registrados</p>
                   </td>
@@ -142,6 +163,13 @@ export default function UsersPage() {
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-slate-800">{u.nombre}</td>
                   <td className="px-4 py-3 text-slate-600">{u.email}</td>
+                  {isSuperadmin && (
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-mono">
+                        {u.empresa_nombre || 'Copay Central'}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full 
                       ${u.rol === 'admin' ? 'bg-blue-100 text-blue-700' : 
@@ -195,11 +223,27 @@ export default function UsersPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email Corporativo *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email Corporativo Real *</label>
                 <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="usuario@empresa.com" />
               </div>
+
+              {isSuperadmin && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Empresa Cliente</label>
+                  <select 
+                    value={form.empresa_id || ''} 
+                    onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Copay Central (Superadmin / Global)</option>
+                    {empresas.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Rol *</label>

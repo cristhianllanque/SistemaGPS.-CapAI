@@ -29,6 +29,7 @@ const emptyForm = {
 
 export default function DevicesPage() {
   const [dispositivos, setDispositivos] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -47,8 +48,13 @@ export default function DevicesPage() {
       const params = {};
       if (filterEstado) params.estado = filterEstado;
       if (searchTerm) params.search = searchTerm;
-      const res = await axios.get(`${API}/api/dispositivos/`, { headers, params });
+      const requests = [axios.get(`${API}/api/dispositivos/`, { headers, params })];
+      if (isSuperAdmin) {
+        requests.push(axios.get(`${API}/api/empresas/`, { headers }));
+      }
+      const [res, empRes] = await Promise.all(requests);
       setDispositivos(res.data);
+      if (empRes) setEmpresas(empRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -172,6 +178,9 @@ export default function DevicesPage() {
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">IMEI</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">N° Serie</th>
+                {isSuperAdmin && (
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Empresa</th>
+                )}
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Modelo</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">SIM</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Operador</th>
@@ -184,7 +193,7 @@ export default function DevicesPage() {
             <tbody className="divide-y divide-slate-100">
               {dispositivos.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-12 text-slate-400">
+                  <td colSpan={isSuperAdmin ? "10" : "9"} className="text-center py-12 text-slate-400">
                     <Radio size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay dispositivos registrados</p>
                     <p className="text-xs mt-1">Registre su primer dispositivo Teltonika FMC130</p>
@@ -194,6 +203,13 @@ export default function DevicesPage() {
                 <tr key={d.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs font-medium text-slate-800">{d.imei}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{d.numero_serie}</td>
+                  {isSuperAdmin && (
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-0.5 rounded font-mono">
+                        {d.empresa_nombre || 'En Stock Copay'}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-slate-700">{d.modelo}</td>
                   <td className="px-4 py-3 text-slate-600">{d.numero_sim || '—'}</td>
                   <td className="px-4 py-3 text-slate-600">{d.operador_sim || '—'}</td>
@@ -250,6 +266,22 @@ export default function DevicesPage() {
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
                   <AlertCircle size={16} /> {error}
+                </div>
+              )}
+
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Empresa Cliente Asignada</label>
+                  <select 
+                    value={form.empresa_id || ''} 
+                    onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">En Stock Copay (Sin asignar a cliente)</option>
+                    {empresas.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 

@@ -14,16 +14,22 @@ router = APIRouter()
 def list_vehiculos(
     search: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
+    empresa_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
     query = db.query(models.Vehiculo).options(
         joinedload(models.Vehiculo.dispositivo),
-        joinedload(models.Vehiculo.conductor)
-    ).filter(
-        models.Vehiculo.empresa_id == current_user.empresa_id,
-        models.Vehiculo.activo == True
-    )
+        joinedload(models.Vehiculo.conductor),
+        joinedload(models.Vehiculo.empresa)
+    ).filter(models.Vehiculo.activo == True)
+
+    if current_user.rol == 'superadmin':
+        if empresa_id:
+            query = query.filter(models.Vehiculo.empresa_id == empresa_id)
+    else:
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+
     if estado:
         query = query.filter(models.Vehiculo.estado == estado)
     if search:
@@ -34,6 +40,8 @@ def list_vehiculos(
     result = []
     for v in vehiculos:
         data = schemas.VehiculoOut.model_validate(v)
+        if v.empresa:
+            data.empresa_nombre = v.empresa.nombre
         # Attach last GPS reading
         ultima = db.query(models.LecturaGPS).filter(
             models.LecturaGPS.vehiculo_id == v.id
@@ -50,16 +58,23 @@ def get_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    v = db.query(models.Vehiculo).options(
+    query = db.query(models.Vehiculo).options(
         joinedload(models.Vehiculo.dispositivo),
-        joinedload(models.Vehiculo.conductor)
-    ).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).first()
+        joinedload(models.Vehiculo.conductor),
+        joinedload(models.Vehiculo.empresa)
+    ).filter(models.Vehiculo.id == vehiculo_id)
+
+    if current_user.rol != 'superadmin':
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+
+    v = query.first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
-    return schemas.VehiculoOut.model_validate(v)
+    
+    data = schemas.VehiculoOut.model_validate(v)
+    if v.empresa:
+        data.empresa_nombre = v.empresa.nombre
+    return data
 
 
 @router.post("/", response_model=schemas.VehiculoOut, status_code=201)
@@ -72,14 +87,33 @@ def create_vehiculo(
     if exists:
         raise HTTPException(status_code=400, detail="Ya existe un vehículo con esa placa")
 
-    vehiculo = models.Vehiculo(
-        empresa_id=current_user.empresa_id,
-        **payload.model_dump()
-    )
+    target_empresa_id = current_user.empresa_id
+    if current_user.rol == 'superadmin' and payload.empresa_id:
+        target_empresa_id = payload.empresa_id
+
+    if not target_empresa_id:
+        empresa_default = db.query(models.Empresa).first()
+        target_empresa_id = empresa_default.id if empresa_default else 1
+
+    vehiculo_data = payload.model_dump()
+    vehiculo_data["empresa_id"] = target_empresa_id
+
+    vehiculo = models.Vehiculo(**vehiculo_data)
     db.add(vehiculo)
     db.commit()
     db.refresh(vehiculo)
-    return schemas.VehiculoOut.model_validate(vehiculo)
+
+    # Reload with relations
+    v = db.query(models.Vehiculo).options(
+        joinedload(models.Vehiculo.empresa),
+        joinedload(models.Vehiculo.dispositivo),
+        joinedload(models.Vehiculo.conductor)
+    ).filter(models.Vehiculo.id == vehiculo.id).first()
+
+    data = schemas.VehiculoOut.model_validate(v)
+    if v.empresa:
+        data.empresa_nombre = v.empresa.nombre
+    return data
 
 
 @router.put("/{vehiculo_id}", response_model=schemas.VehiculoOut)
@@ -89,14 +123,17 @@ def update_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    v = db.query(models.Vehiculo).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).first()
+    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
+    if current_user.rol != 'superadmin':
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+
+    v = query.first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
     update_data = payload.model_dump(exclude_unset=True)
+    if current_user.rol != 'superadmin':
+        update_data.pop("empresa_id", None)
 
     if "placa" in update_data:
         exists = db.query(models.Vehiculo).filter(
@@ -111,7 +148,17 @@ def update_vehiculo(
 
     db.commit()
     db.refresh(v)
-    return schemas.VehiculoOut.model_validate(v)
+
+    v_reloaded = db.query(models.Vehiculo).options(
+        joinedload(models.Vehiculo.empresa),
+        joinedload(models.Vehiculo.dispositivo),
+        joinedload(models.Vehiculo.conductor)
+    ).filter(models.Vehiculo.id == v.id).first()
+
+    data = schemas.VehiculoOut.model_validate(v_reloaded)
+    if v_reloaded.empresa:
+        data.empresa_nombre = v_reloaded.empresa.nombre
+    return data
 
 
 @router.put("/{vehiculo_id}/vincular", response_model=schemas.VehiculoOut)
@@ -121,18 +168,20 @@ def vincular_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    v = db.query(models.Vehiculo).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).first()
+    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
+    if current_user.rol != 'superadmin':
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+
+    v = query.first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
     if payload.dispositivo_id is not None:
-        disp = db.query(models.Dispositivo).filter(
-            models.Dispositivo.id == payload.dispositivo_id,
-            models.Dispositivo.empresa_id == current_user.empresa_id
-        ).first()
+        disp_query = db.query(models.Dispositivo).filter(models.Dispositivo.id == payload.dispositivo_id)
+        if current_user.rol != 'superadmin':
+            disp_query = disp_query.filter(models.Dispositivo.empresa_id == current_user.empresa_id)
+        disp = disp_query.first()
+
         if not disp:
             raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
         if disp.estado == 'instalado' and v.dispositivo_id != disp.id:
@@ -146,12 +195,13 @@ def vincular_vehiculo(
 
         v.dispositivo_id = payload.dispositivo_id
         disp.estado = 'instalado'
+        disp.empresa_id = v.empresa_id
 
     if payload.conductor_id is not None:
-        cond = db.query(models.Conductor).filter(
-            models.Conductor.id == payload.conductor_id,
-            models.Conductor.empresa_id == current_user.empresa_id
-        ).first()
+        cond_query = db.query(models.Conductor).filter(models.Conductor.id == payload.conductor_id)
+        if current_user.rol != 'superadmin':
+            cond_query = cond_query.filter(models.Conductor.empresa_id == current_user.empresa_id)
+        cond = cond_query.first()
         if not cond:
             raise HTTPException(status_code=404, detail="Conductor no encontrado")
 
@@ -159,7 +209,7 @@ def vincular_vehiculo(
         existing = db.query(models.Vehiculo).filter(
             models.Vehiculo.conductor_id == payload.conductor_id,
             models.Vehiculo.id != vehiculo_id,
-            models.Vehiculo.empresa_id == current_user.empresa_id
+            models.Vehiculo.empresa_id == v.empresa_id
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail=f"El conductor ya está asignado al vehículo {existing.placa}")
@@ -168,7 +218,17 @@ def vincular_vehiculo(
 
     db.commit()
     db.refresh(v)
-    return schemas.VehiculoOut.model_validate(v)
+    
+    v_reloaded = db.query(models.Vehiculo).options(
+        joinedload(models.Vehiculo.empresa),
+        joinedload(models.Vehiculo.dispositivo),
+        joinedload(models.Vehiculo.conductor)
+    ).filter(models.Vehiculo.id == v.id).first()
+
+    data = schemas.VehiculoOut.model_validate(v_reloaded)
+    if v_reloaded.empresa:
+        data.empresa_nombre = v_reloaded.empresa.nombre
+    return data
 
 
 @router.put("/{vehiculo_id}/desvincular-dispositivo", response_model=schemas.VehiculoOut)
@@ -177,10 +237,10 @@ def desvincular_dispositivo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    v = db.query(models.Vehiculo).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).first()
+    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
+    if current_user.rol != 'superadmin':
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+    v = query.first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
@@ -192,7 +252,17 @@ def desvincular_dispositivo(
 
     db.commit()
     db.refresh(v)
-    return schemas.VehiculoOut.model_validate(v)
+
+    v_reloaded = db.query(models.Vehiculo).options(
+        joinedload(models.Vehiculo.empresa),
+        joinedload(models.Vehiculo.dispositivo),
+        joinedload(models.Vehiculo.conductor)
+    ).filter(models.Vehiculo.id == v.id).first()
+
+    data = schemas.VehiculoOut.model_validate(v_reloaded)
+    if v_reloaded.empresa:
+        data.empresa_nombre = v_reloaded.empresa.nombre
+    return data
 
 
 @router.put("/{vehiculo_id}/desvincular-conductor", response_model=schemas.VehiculoOut)
@@ -201,17 +271,27 @@ def desvincular_conductor(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    v = db.query(models.Vehiculo).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).first()
+    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
+    if current_user.rol != 'superadmin':
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+    v = query.first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
     v.conductor_id = None
     db.commit()
     db.refresh(v)
-    return schemas.VehiculoOut.model_validate(v)
+
+    v_reloaded = db.query(models.Vehiculo).options(
+        joinedload(models.Vehiculo.empresa),
+        joinedload(models.Vehiculo.dispositivo),
+        joinedload(models.Vehiculo.conductor)
+    ).filter(models.Vehiculo.id == v.id).first()
+
+    data = schemas.VehiculoOut.model_validate(v_reloaded)
+    if v_reloaded.empresa:
+        data.empresa_nombre = v_reloaded.empresa.nombre
+    return data
 
 
 @router.delete("/{vehiculo_id}")
@@ -220,10 +300,10 @@ def delete_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    v = db.query(models.Vehiculo).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).first()
+    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
+    if current_user.rol != 'superadmin':
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+    v = query.first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
@@ -260,10 +340,10 @@ def get_historial(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    vehiculo = db.query(models.Vehiculo).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.empresa_id == current_user.empresa_id
-    ).first()
+    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
+    if current_user.rol != 'superadmin':
+        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+    vehiculo = query.first()
 
     if not vehiculo:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from contextlib import asynccontextmanager
 from jose import jwt, JWTError
-from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios
+from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios, empresas
 from app.websockets.manager import manager
 from app.core.config import settings
 from app.db.database import engine, Base
@@ -36,6 +36,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
+app.include_router(empresas.router, prefix="/api/empresas", tags=["empresas"])
 app.include_router(dispositivos.router, prefix="/api/dispositivos", tags=["dispositivos"])
 app.include_router(conductores.router, prefix="/api/conductores", tags=["conductores"])
 app.include_router(vehiculos.router, prefix="/api/vehiculos", tags=["vehiculos"])
@@ -55,9 +56,14 @@ async def websocket_endpoint(websocket: WebSocket, empresa_id: int, token: str =
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_empresa_id = payload.get("empresa_id")
         user_email = payload.get("sub")
-        if not user_email or user_empresa_id is None or int(user_empresa_id) != empresa_id:
+        user_rol = payload.get("rol")
+        if not user_email:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
+        if user_rol != 'superadmin':
+            if user_empresa_id is None or int(user_empresa_id) != empresa_id:
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
     except (JWTError, Exception):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
