@@ -141,17 +141,29 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                 is_sabotaje = True
 
             if is_sabotaje:
-                alerta_sab_existente = db.query(models.AlertaPanico).filter(
+                # Find most recent sabotage alert for this vehicle
+                ultima_alerta_sab = db.query(models.AlertaPanico).filter(
                     models.AlertaPanico.vehiculo_id == vehiculo_id,
-                    models.AlertaPanico.estado == 'pendiente',
                     models.AlertaPanico.tipo == 'sabotaje'
                 ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
+
+                # Check if normal vehicle power (> 9.0V) was restored after that alert
+                power_restored_since_last_alert = True
+                if ultima_alerta_sab:
+                    reading_with_power = db.query(models.LecturaGPS.id).filter(
+                        models.LecturaGPS.vehiculo_id == vehiculo_id,
+                        models.LecturaGPS.timestamp > ultima_alerta_sab.fecha_hora,
+                        models.LecturaGPS.bateria_ext >= 9.0
+                    ).first()
+                    if not reading_with_power:
+                        power_restored_since_last_alert = False
 
                 ext_val = bateria_ext_v if bateria_ext_v is not None else 0.0
                 int_val = bateria_int_v if bateria_int_v is not None else 0.0
                 obs = f"Corte de batería principal / Sabotaje. Voltaje ext: {ext_val}V. Bat interna: {int_val}V."
 
-                if not alerta_sab_existente:
+                # Only trigger a brand new alert and modal siren if power was restored or this is the first disconnect
+                if power_restored_since_last_alert:
                     alerta_sab = models.AlertaPanico(
                         vehiculo_id=vehiculo_id,
                         latitud=r['latitude'],
@@ -164,6 +176,7 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                     )
                     db.add(alerta_sab)
                     db.flush()
+                    # Trigger siren & modal ONLY once on initial disconnect
                     sabotage_alert_info = {
                         "alerta_id": alerta_sab.id,
                         "bateria_ext": ext_val,
@@ -171,17 +184,22 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                         "bateria_porcentaje": bateria_pct
                     }
                 else:
-                    alerta_sab_existente.latitud = r['latitude']
-                    alerta_sab_existente.longitud = r['longitude']
-                    alerta_sab_existente.velocidad = curr_speed
-                    sabotage_alert_info = {
-                        "alerta_id": alerta_sab_existente.id,
-                        "bateria_ext": ext_val,
-                        "bateria_int": int_val,
-                        "bateria_porcentaje": bateria_pct
-                    }
+                    # Ongoing power cut: update location quietly if alert is still pending
+                    if ultima_alerta_sab and ultima_alerta_sab.estado == 'pendiente':
+                        ultima_alerta_sab.latitud = r['latitude']
+                        ultima_alerta_sab.longitud = r['longitude']
+                        ultima_alerta_sab.velocidad = curr_speed
+                    # If it was marked as 'falsa_alarma' or 'atendida', respect operator resolution:
+                    # do NOT reopen, do NOT re-trigger siren!
                 
         db.commit()
+
+        # Check if there is currently an active pending sabotage alert for this vehicle
+        has_pending_sab = db.query(models.AlertaPanico.id).filter(
+            models.AlertaPanico.vehiculo_id == vehiculo_id,
+            models.AlertaPanico.estado == 'pendiente',
+            models.AlertaPanico.tipo == 'sabotaje'
+        ).first() is not None
         
         lecturas_dicts = [{
             'latitud': l.latitud,
@@ -192,7 +210,7 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             'bateria_ext': l.bateria_ext,
             'bateria_int': l.bateria_int,
             'bateria_porcentaje': l.bateria_porcentaje,
-            'sabotaje': bool(l.bateria_ext is not None and l.bateria_ext < 6.0),
+            'sabotaje': has_pending_sab,
             'online': True,
             'timestamp': (l.timestamp.isoformat() + 'Z') if l.timestamp else None
         } for l in inserted_lecturas]

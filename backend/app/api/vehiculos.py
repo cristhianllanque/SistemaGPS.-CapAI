@@ -59,7 +59,18 @@ def list_vehiculos(
             lect_out.bateria_ext = ultima.bateria_ext
             lect_out.bateria_int = ultima.bateria_int
             lect_out.bateria_porcentaje = ultima.bateria_porcentaje
-            lect_out.sabotaje = bool(ultima.bateria_ext is not None and ultima.bateria_ext < 6.0)
+            has_pending_sab = db.query(models.AlertaPanico.id).filter(
+                models.AlertaPanico.vehiculo_id == v.id,
+                models.AlertaPanico.estado == 'pendiente',
+                models.AlertaPanico.tipo == 'sabotaje'
+            ).first() is not None
+            has_pending_panic = db.query(models.AlertaPanico.id).filter(
+                models.AlertaPanico.vehiculo_id == v.id,
+                models.AlertaPanico.estado == 'pendiente',
+                models.AlertaPanico.tipo == 'panico'
+            ).first() is not None
+            lect_out.sabotaje = has_pending_sab
+            lect_out.boton_panico = has_pending_panic
             data.ultima_lectura = lect_out
         result.append(data)
     return result
@@ -101,7 +112,18 @@ def get_vehiculo(
         lect_out.bateria_ext = ultima.bateria_ext
         lect_out.bateria_int = ultima.bateria_int
         lect_out.bateria_porcentaje = ultima.bateria_porcentaje
-        lect_out.sabotaje = bool(ultima.bateria_ext is not None and ultima.bateria_ext < 6.0)
+        has_pending_sab = db.query(models.AlertaPanico.id).filter(
+            models.AlertaPanico.vehiculo_id == v.id,
+            models.AlertaPanico.estado == 'pendiente',
+            models.AlertaPanico.tipo == 'sabotaje'
+        ).first() is not None
+        has_pending_panic = db.query(models.AlertaPanico.id).filter(
+            models.AlertaPanico.vehiculo_id == v.id,
+            models.AlertaPanico.estado == 'pendiente',
+            models.AlertaPanico.tipo == 'panico'
+        ).first() is not None
+        lect_out.sabotaje = has_pending_sab
+        lect_out.boton_panico = has_pending_panic
         data.ultima_lectura = lect_out
 
     return data

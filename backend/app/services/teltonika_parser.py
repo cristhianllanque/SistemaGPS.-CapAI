@@ -4,6 +4,33 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def calculate_liion_battery_percentage(mv: int) -> int:
+    """
+    Calibrates internal Li-ion battery voltage (mV) to State of Charge (SoC %)
+    matching Teltonika official FMB series discharge curve (3.7V nominal ~60%).
+    """
+    if mv >= 4150:
+        return 100
+    elif mv >= 3980:
+        return 80 + int((mv - 3980) / (4150 - 3980) * 20)
+    elif mv >= 3880:
+        return 70 + int((mv - 3880) / (3980 - 3880) * 10)
+    elif mv >= 3700:
+        # At 3710mV this yields 60%, exactly matching Teltonika Configurator
+        return 60 + int((mv - 3700) / (3880 - 3700) * 10)
+    elif mv >= 3650:
+        return 50 + int((mv - 3650) / (3700 - 3650) * 10)
+    elif mv >= 3600:
+        return 40 + int((mv - 3600) / (3650 - 3600) * 10)
+    elif mv >= 3550:
+        return 25 + int((mv - 3550) / (3600 - 3550) * 15)
+    elif mv >= 3450:
+        return 10 + int((mv - 3450) / (3550 - 3450) * 15)
+    elif mv > 3300:
+        return max(1, int((mv - 3300) / (3450 - 3300) * 9))
+    else:
+        return 0
+
 class TeltonikaCodec8Parser:
     @staticmethod
     def parse_imei(data: bytes) -> str:
@@ -176,7 +203,7 @@ class TeltonikaCodec8Parser:
                 'boton_panico': bool(io_dict[2]) if 2 in io_dict else (bool(io_dict[252]) if 252 in io_dict else (True if io_event_id in (2, 252) else False)),
                 'bateria_ext': round(io_dict[66] / 1000.0, 2) if 66 in io_dict else None,
                 'bateria_int': round(io_dict[67] / 1000.0, 2) if 67 in io_dict else None,
-                'bateria_porcentaje': int(io_dict[113]) if 113 in io_dict else (max(0, min(100, int((io_dict[67] - 3400) / (4100 - 3400) * 100))) if 67 in io_dict and io_dict[67] > 0 else None),
+                'bateria_porcentaje': int(io_dict[113]) if 113 in io_dict else (calculate_liion_battery_percentage(io_dict[67]) if 67 in io_dict and io_dict[67] > 0 else None),
                 'io_dict': io_dict
             }
             print(f"DEBUG IO DICT: {io_dict}", flush=True)

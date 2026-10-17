@@ -37,7 +37,7 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
           const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
           const isIgnitionOn = Boolean(u && u.ignicion);
 
-          const isSabotage = u && (Boolean(u.sabotaje) || (u.bateria_ext !== null && u.bateria_ext !== undefined && u.bateria_ext < 6.0));
+          const isSabotage = u && Boolean(u.sabotaje);
           const isPanic = u && Boolean(u.boton_panico);
           const isSpeeding = u && u.velocidad > (limiteVelocidad || 90);
           const isMoving = u && u.velocidad > 0;
