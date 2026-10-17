@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, Plus, Edit2, Shield, User, ToggleLeft, ToggleRight, AlertCircle, X, Check } from 'lucide-react';
-
-const API = 'http://localhost:8000';
+import { API_BASE_URL as API } from '../config';
 
 const ROLES = ['admin', 'operador'];
 

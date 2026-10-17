@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ShieldAlert, Truck } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -16,7 +17,7 @@ export default function Login() {
       formData.append('username', email);
       formData.append('password', password);
 
-      const response = await axios.post('http://localhost:8000/api/auth/login', formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, formData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         }

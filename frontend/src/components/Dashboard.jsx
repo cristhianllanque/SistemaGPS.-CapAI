@@ -5,6 +5,7 @@ import { LogOut, Map as MapIcon, Activity } from 'lucide-react';
 import LiveMap from './LiveMap';
 import Sidebar from './Sidebar';
 import PanicAlert from './PanicAlert';
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 
 export default function Dashboard() {
   const [vehiculos, setVehiculos] = useState([]);
@@ -13,7 +14,7 @@ export default function Dashboard() {
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
   const token = localStorage.getItem('token');
   
-  const WS_URL = `ws://localhost:8000/ws/flota/${empresa.id}`;
+  const WS_URL = `${WS_BASE_URL}/ws/flota/${empresa.id}`;
   
   const { lastJsonMessage } = useWebSocket(WS_URL, {
     shouldReconnect: (closeEvent) => true,
@@ -25,8 +26,8 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [vehRes, alertRes] = await Promise.all([
-          axios.get('http://localhost:8000/api/vehiculos', { headers: { Authorization: `Bearer ${token}` }}),
-          axios.get('http://localhost:8000/api/alertas', { headers: { Authorization: `Bearer ${token}` }})
+          axios.get(`${API_BASE_URL}/api/vehiculos`, { headers: { Authorization: `Bearer ${token}` }}),
+          axios.get(`${API_BASE_URL}/api/alertas`, { headers: { Authorization: `Bearer ${token}` }})
         ]);
         setVehiculos(vehRes.data);
         setAlertas(alertRes.data);
@@ -64,7 +65,7 @@ export default function Dashboard() {
 
   const handleAtenderAlerta = async (alertaId) => {
     try {
-      await axios.put(`http://localhost:8000/api/alertas/${alertaId}/atender`, { estado: 'atendida' }, {
+      await axios.put(`${API_BASE_URL}/api/alertas/${alertaId}/atender`, { estado: 'atendida' }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAlertas(prev => prev.filter(a => a.alerta_id !== alertaId && a.id !== alertaId));

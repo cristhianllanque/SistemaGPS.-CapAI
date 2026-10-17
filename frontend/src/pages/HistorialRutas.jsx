@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 import { 
   Search, Play, Pause, RotateCcw, MapPin, Flag, 
   Clock, Gauge, Power, Battery, Calendar, AlertTriangle 
@@ -99,7 +100,7 @@ export default function HistorialRutas() {
   const fetchVehiculos = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:8000/api/vehiculos', {
+      const res = await axios.get(`${API_BASE_URL}/api/vehiculos`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setVehiculos(res.data);
@@ -146,7 +147,7 @@ export default function HistorialRutas() {
     
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:8000/api/vehiculos/${selectedVehiculo}/historial`, {
+      const res = await axios.get(`${API_BASE_URL}/api/vehiculos/${selectedVehiculo}/historial`, {
         params: { 
           fecha_inicio: new Date(fechaInicio).toISOString(), 
           fecha_fin: new Date(fechaFin).toISOString() 

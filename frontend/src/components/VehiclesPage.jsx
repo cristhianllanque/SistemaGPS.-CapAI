@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Truck, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Building2 } from 'lucide-react';
-
-const API = 'http://localhost:8000';
+import { API_BASE_URL as API } from '../config';
 
 const TIPOS = ['minivan', 'bus', 'camioneta', 'sedan', 'otro'];
 

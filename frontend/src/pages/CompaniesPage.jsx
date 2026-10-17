@@ -5,7 +5,7 @@ import {
   ExternalLink, ShieldCheck, Mail, Key, Sparkles, RefreshCw, UploadCloud, Gauge, Image as ImageIcon
 } from 'lucide-react';
 
-const API = 'http://localhost:8000';
+import { API_BASE_URL as API, getAssetUrl } from '../config';
 
 const COLOR_PRESETS = [
   { name: 'Azul Real', hex: '#1E40AF' },
@@ -327,7 +327,7 @@ export default function CompaniesPage() {
                     <div className="flex items-center gap-3">
                       {emp.logo_url ? (
                         <img 
-                          src={emp.logo_url} 
+                          src={getAssetUrl(emp.logo_url)} 
                           alt={emp.nombre} 
                           className="w-12 h-12 rounded-xl object-contain border border-slate-100 bg-slate-50 p-1 shadow-sm"
                           onError={(e) => { e.target.style.display = 'none'; }}
@@ -476,7 +476,7 @@ export default function CompaniesPage() {
                     <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                       <div className="w-14 h-14 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-sm">
                         <img 
-                          src={createForm.logo_url} 
+                          src={getAssetUrl(createForm.logo_url)} 
                           alt="Logo" 
                           className="max-h-full max-w-full object-contain"
                         />
@@ -716,7 +716,7 @@ export default function CompaniesPage() {
                   <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                     <div className="w-14 h-14 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-sm">
                       <img 
-                        src={editForm.logo_url} 
+                        src={getAssetUrl(editForm.logo_url)} 
                         alt="Logo" 
                         className="max-h-full max-w-full object-contain"
                       />

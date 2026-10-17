@@ -7,6 +7,7 @@ import {
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { siren } from '../utils/sound';
+import { WS_BASE_URL, getAssetUrl } from '../config';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin'] },
@@ -38,7 +39,7 @@ export default function Layout() {
   // Authenticated WebSocket connection with JWT token query parameter
   const activeEmpresaId = empresa?.id || 1;
   const WS_URL = token 
-    ? `ws://localhost:8000/ws/flota/${activeEmpresaId}?token=${token}` 
+    ? `${WS_BASE_URL}/ws/flota/${activeEmpresaId}?token=${token}` 
     : null;
   
   const { lastJsonMessage } = useWebSocket(WS_URL, {
@@ -138,7 +139,7 @@ export default function Layout() {
         <div className="h-16 flex items-center px-4 border-b border-slate-700/50 gap-3">
           {empresa?.logo_url ? (
             <img 
-              src={empresa.logo_url} 
+              src={getAssetUrl(empresa.logo_url)} 
               alt={empresa.nombre || 'Empresa'} 
               className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
               onError={(e) => { e.target.style.display = 'none'; }}

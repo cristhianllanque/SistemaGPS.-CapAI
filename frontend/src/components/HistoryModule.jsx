@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Route, X, Calendar, Search } from 'lucide-react';
 import { format, subDays } from 'date-fns';
+import { API_BASE_URL } from '../config';
 
 export default function HistoryModule({ vehiculos, onHistoryData }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,7 +16,7 @@ export default function HistoryModule({ vehiculos, onHistoryData }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:8000/api/vehiculos/${selectedVehiculo}/historial`, {
+      const res = await axios.get(`${API_BASE_URL}/api/vehiculos/${selectedVehiculo}/historial`, {
         params: { fecha_inicio: new Date(fechaInicio).toISOString(), fecha_fin: new Date(fechaFin).toISOString() },
         headers: { Authorization: `Bearer ${token}` }
       });

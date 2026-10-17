@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -69,6 +69,7 @@ from fastapi import UploadFile, File
 
 @router.post("/upload-logo")
 async def upload_logo(
+    request: Request,
     file: UploadFile = File(...),
     current_user: models.Usuario = Depends(require_role(['superadmin', 'admin']))
 ):
@@ -88,7 +89,8 @@ async def upload_logo(
     with open(filepath, "wb") as f:
         f.write(content)
 
-    logo_url = f"http://localhost:8000/uploads/logos/{unique_filename}"
+    base_url = str(request.base_url).rstrip('/')
+    logo_url = f"{base_url}/uploads/logos/{unique_filename}"
     return {"logo_url": logo_url, "filename": file.filename}
 
 @router.post("/", response_model=schemas.EmpresaOut, status_code=201)

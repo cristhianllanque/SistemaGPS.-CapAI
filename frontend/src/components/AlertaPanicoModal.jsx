@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AlertTriangle, X, ShieldAlert, MapPin, Zap, Gauge } from 'lucide-react';
 import { siren } from '../utils/sound';
+import { API_BASE_URL } from '../config';
 
 export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
   const [estado, setEstado] = useState('atendida');
@@ -30,7 +31,7 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:8000/api/alertas/${alertData.id}/atender`, {
+      await axios.put(`${API_BASE_URL}/api/alertas/${alertData.id}/atender`, {
         estado,
         observaciones_atencion: observaciones
       }, {

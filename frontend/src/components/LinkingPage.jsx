@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link2, Unlink, Truck, Radio, Users, Check, AlertTriangle, Shield, Building2 } from 'lucide-react';
-
-const API = 'http://localhost:8000';
+import { API_BASE_URL as API } from '../config';
 
 export default function LinkingPage() {
   const [vehiculos, setVehiculos] = useState([]);

@@ -3,8 +3,7 @@ import axios from 'axios';
 import { AlertTriangle, CheckCircle, Clock, XCircle, FileText, User } from 'lucide-react';
 import { format } from 'date-fns';
 import AlertaPanicoModal from './AlertaPanicoModal';
-
-const API = 'http://localhost:8000';
+import { API_BASE_URL as API } from '../config';
 
 export default function AlertsPage() {
   const [alertas, setAlertas] = useState([]);

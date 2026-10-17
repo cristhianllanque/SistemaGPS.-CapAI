@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FileText, Download, Calendar, Truck, AlertTriangle, FileSpreadsheet, Search } from 'lucide-react';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
+import { API_BASE_URL as API_URL } from '../config';
 
 export default function Reportes() {
   const [data, setData] = useState([]);
@@ -11,7 +12,6 @@ export default function Reportes() {
   const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd'T'23:59"));
   
   const token = localStorage.getItem('token');
-  const API_URL = 'http://localhost:8000';
 
   const fetchPreview = async () => {
     setLoading(true);

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Radio, Plus, Search, Edit2, Trash2, X, Check, Wifi, WifiOff, AlertCircle, Shield } from 'lucide-react';
-
-const API = 'http://localhost:8000';
+import { API_BASE_URL as API } from '../config';
 
 const ESTADOS = [
   { value: '', label: 'Todos' },

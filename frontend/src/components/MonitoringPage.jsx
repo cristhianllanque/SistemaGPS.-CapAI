@@ -7,8 +7,7 @@ import LiveMap from './LiveMap';
 import Sidebar from './Sidebar';
 import PanicAlert from './PanicAlert';
 import { siren } from '../utils/sound';
-
-const API = 'http://localhost:8000';
+import { API_BASE_URL as API, WS_BASE_URL } from '../config';
 
 export default function MonitoringPage() {
   const [searchParams] = useSearchParams();
@@ -34,7 +33,7 @@ export default function MonitoringPage() {
   const canEditSpeedLimit = usuario?.rol === 'superadmin' || usuario?.rol === 'admin';
 
   const WS_URL = token 
-    ? `ws://localhost:8000/ws/flota/${activeEmpresaId}?token=${token}` 
+    ? `${WS_BASE_URL}/ws/flota/${activeEmpresaId}?token=${token}` 
     : null;
   
   const { lastJsonMessage } = useWebSocket(WS_URL, {
