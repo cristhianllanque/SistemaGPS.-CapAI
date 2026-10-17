@@ -2,7 +2,7 @@ import re
 import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.api.deps import get_db, get_current_user, require_role
 from app.db import models, schemas
