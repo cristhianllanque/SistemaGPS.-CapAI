@@ -13,6 +13,7 @@ import HistorialRutas from './pages/HistorialRutas';
 import Reportes from './pages/Reportes';
 import UsersPage from './pages/UsersPage';
 import CompaniesPage from './pages/CompaniesPage';
+import ParticularesPage from './pages/ParticularesPage';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -32,6 +33,7 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardHome />} />
           <Route path="empresas" element={<CompaniesPage />} />
+          <Route path="particulares" element={<ParticularesPage />} />
           <Route path="dispositivos" element={<DevicesPage />} />
           <Route path="vehiculos" element={<VehiclesPage />} />
           <Route path="conductores" element={<DriversPage />} />

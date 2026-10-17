@@ -9,6 +9,9 @@ class Empresa(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, nullable=False)
+    tipo = Column(String(20), default="flota") # 'flota' o 'particular'
+    documento = Column(String(20), nullable=True) # DNI o RUC para clientes particulares
+    telefono = Column(String(50), nullable=True)
     logo_url = Column(String(255))
     color_primario = Column(String(50))
     limite_velocidad = Column(Integer, default=90)

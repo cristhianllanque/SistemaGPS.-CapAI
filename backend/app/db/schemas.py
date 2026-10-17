@@ -7,6 +7,9 @@ from datetime import datetime, date
 class EmpresaBase(BaseModel):
     nombre: str
     slug: str
+    tipo: Optional[str] = "flota"
+    documento: Optional[str] = None
+    telefono: Optional[str] = None
     logo_url: Optional[str] = None
     color_primario: Optional[str] = "#1E40AF"
     limite_velocidad: Optional[int] = 90
@@ -14,6 +17,9 @@ class EmpresaBase(BaseModel):
 class EmpresaCreate(BaseModel):
     nombre: str
     slug: Optional[str] = None
+    tipo: Optional[str] = "flota"
+    documento: Optional[str] = None
+    telefono: Optional[str] = None
     logo_url: Optional[str] = None
     color_primario: Optional[str] = "#1E40AF"
     limite_velocidad: Optional[int] = 90
@@ -22,9 +28,31 @@ class EmpresaCreate(BaseModel):
     gerente_email: Optional[EmailStr] = None
     gerente_password: Optional[str] = None
 
+class ClienteParticularCreate(BaseModel):
+    # Datos del Cliente / Propietario
+    nombre: str
+    documento: Optional[str] = None # DNI / RUC
+    telefono: Optional[str] = None
+    email: EmailStr
+    password: str
+    limite_velocidad: Optional[int] = 90
+    # Datos del Vehículo
+    placa: str
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    tipo_vehiculo: Optional[str] = "sedan"
+    anio: Optional[int] = None
+    # GPS asignado
+    dispositivo_id: Optional[int] = None
+    imei: Optional[str] = None
+
 class EmpresaUpdate(BaseModel):
     nombre: Optional[str] = None
     slug: Optional[str] = None
+    tipo: Optional[str] = None
+    documento: Optional[str] = None
+    telefono: Optional[str] = None
     logo_url: Optional[str] = None
     color_primario: Optional[str] = None
     limite_velocidad: Optional[int] = None

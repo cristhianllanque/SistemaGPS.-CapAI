@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Radio, Truck, Users, Link2, Map, AlertTriangle, Route,
-  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2
+  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car
 } from 'lucide-react';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
@@ -12,6 +12,7 @@ import { WS_BASE_URL, getAssetUrl } from '../config';
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin'] },
   { to: '/empresas', icon: Building2, label: 'Empresas Clientes', roles: ['superadmin'] },
+  { to: '/particulares', icon: Car, label: 'Clientes Particulares', roles: ['superadmin'] },
   { to: '/dispositivos', icon: Radio, label: 'Dispositivos GPS', roles: ['superadmin'] },
   { to: '/vehiculos', icon: Truck, label: 'Vehículos', roles: ['superadmin', 'admin'] },
   { to: '/conductores', icon: Users, label: 'Conductores', roles: ['superadmin', 'admin'] },
@@ -169,7 +170,14 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.filter(item => !item.roles || item.roles.includes(usuario.rol || 'operador')).map((item) => (
+          {(empresa?.tipo === 'particular'
+            ? [
+                { to: '/monitoreo', icon: Map, label: 'Mi Vehículo (En Vivo)' },
+                { to: '/historial-rutas', icon: Route, label: 'Historial de Rutas' },
+                { to: '/alertas', icon: AlertTriangle, label: 'Mis Alertas' },
+              ]
+            : NAV_ITEMS.filter(item => !item.roles || item.roles.includes(usuario.rol || 'operador'))
+          ).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

@@ -5,7 +5,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from jose import jwt, JWTError
-from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios, empresas
+from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios, empresas, particulares
 from app.websockets.manager import manager
 from app.core.config import settings
 from app.db.database import engine, Base
@@ -45,6 +45,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(empresas.router, prefix="/api/empresas", tags=["empresas"])
+app.include_router(particulares.router, prefix="/api/particulares", tags=["particulares"])
 app.include_router(dispositivos.router, prefix="/api/dispositivos", tags=["dispositivos"])
 app.include_router(conductores.router, prefix="/api/conductores", tags=["conductores"])
 app.include_router(vehiculos.router, prefix="/api/vehiculos", tags=["vehiculos"])

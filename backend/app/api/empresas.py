@@ -18,10 +18,16 @@ def slugify(text: str) -> str:
 
 @router.get("/", response_model=List[schemas.EmpresaOut])
 def list_empresas(
+    tipo: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
     query = db.query(models.Empresa)
+    if tipo:
+        query = query.filter(models.Empresa.tipo == tipo)
+    else:
+        query = query.filter(models.Empresa.tipo != 'particular')
+
     if current_user.rol != 'superadmin':
         query = query.filter(models.Empresa.id == current_user.empresa_id)
         
