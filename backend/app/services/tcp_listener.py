@@ -314,7 +314,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                             "limite_velocidad": limite_velocidad,
                             "data": latest_record
                         }
-                        await manager.broadcast_all(broadcast_msg)
+                        await manager.broadcast_flota(empresa_id, broadcast_msg)
                         
                         if panic_alert_id:
                             panic_msg = {
@@ -327,7 +327,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "longitud": latest_record['longitud'],
                                 "message": "¡Alerta de pánico recibida!"
                             }
-                            await manager.broadcast_all(panic_msg)
+                            await manager.broadcast_flota(empresa_id, panic_msg)
 
                         if speed_alert_info:
                             speed_msg = {
@@ -342,7 +342,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "longitud": latest_record['longitud'],
                                 "message": f"¡Exceso de velocidad: {speed_alert_info['velocidad']} km/h! (Límite configurado: {speed_alert_info['limite']} km/h)"
                             }
-                            await manager.broadcast_all(speed_msg)
+                            await manager.broadcast_flota(empresa_id, speed_msg)
 
                         if sabotage_alert_info:
                             sabotage_msg = {
@@ -358,7 +358,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "longitud": latest_record['longitud'],
                                 "message": f"¡ALERTA DE SABOTAJE! Corte de energía / Batería principal desconectada en vehículo {placa} ({sabotage_alert_info['bateria_ext']}V)"
                             }
-                            await manager.broadcast_all(sabotage_msg)
+                            await manager.broadcast_flota(empresa_id, sabotage_msg)
                     
                     # Respond with AVL ACK: 4 bytes big endian count of records
                     ack_response = TeltonikaCodec8Parser.generate_ack(len(records))

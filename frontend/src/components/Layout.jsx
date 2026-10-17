@@ -52,6 +52,14 @@ export default function Layout() {
   useEffect(() => {
     if (!lastJsonMessage) return;
 
+    // Aislamiento Multi-empresa (estricto): usuarios que no son superadmin SOLO procesan
+    // eventos cuyo empresa_id coincide exactamente con su propia empresa.
+    if (usuario?.rol !== 'superadmin') {
+      if (!lastJsonMessage.empresa_id || !empresa?.id || Number(lastJsonMessage.empresa_id) !== Number(empresa.id)) {
+        return;
+      }
+    }
+
     if (lastJsonMessage.type === 'panic_alert') {
       // Trigger emergency siren sound in the browser
       siren.start();

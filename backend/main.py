@@ -77,7 +77,8 @@ async def websocket_endpoint(websocket: WebSocket, empresa_id: int, token: str =
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    await manager.connect(websocket, empresa_id)
+    is_superadmin = (user_rol == 'superadmin')
+    await manager.connect(websocket, empresa_id, is_superadmin=is_superadmin)
     try:
         while True:
             data = await websocket.receive_text()

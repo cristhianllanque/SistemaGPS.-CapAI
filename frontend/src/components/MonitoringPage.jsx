@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
@@ -30,7 +30,13 @@ export default function MonitoringPage() {
   const headers = { Authorization: `Bearer ${token}` };
   
   const activeEmpresaId = empresa?.id || 1;
+  const isSuperAdmin = usuario?.rol === 'superadmin';
   const canEditSpeedLimit = usuario?.rol === 'superadmin' || usuario?.rol === 'admin';
+
+  // Filtro de flota (solo Superadmin): 'all' | 'particulares' | '<empresa_id>'
+  const [empresaFilter, setEmpresaFilter] = useState('all');
+  const [empresasList, setEmpresasList] = useState([]);
+  const [particularIds, setParticularIds] = useState([]);
 
   const WS_URL = token 
     ? `${WS_BASE_URL}/ws/flota/${activeEmpresaId}?token=${token}` 
@@ -85,8 +91,49 @@ export default function MonitoringPage() {
     fetchData();
   }, []);
 
+  // Carga de empresas y clientes particulares para el filtro del Superadmin
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    Promise.all([
+      axios.get(`${API}/api/empresas/`, { headers }).catch(() => ({ data: [] })),
+      axios.get(`${API}/api/empresas/`, { headers, params: { tipo: 'particular' } }).catch(() => ({ data: [] })),
+    ]).then(([empRes, partRes]) => {
+      setEmpresasList((empRes.data || []).map(e => ({ id: e.id, nombre: e.nombre })));
+      setParticularIds((partRes.data || []).map(p => Number(p.id)));
+    });
+  }, [isSuperAdmin]);
+
+  const vehiculosFiltrados = useMemo(() => {
+    if (!isSuperAdmin || empresaFilter === 'all') return vehiculos;
+    if (empresaFilter === 'particulares') {
+      return vehiculos.filter(v => particularIds.includes(Number(v.empresa_id)));
+    }
+    return vehiculos.filter(v => Number(v.empresa_id) === Number(empresaFilter));
+  }, [vehiculos, empresaFilter, particularIds, isSuperAdmin]);
+
+  // En el mapa, un vehículo en emergencia SIEMPRE se muestra aunque esté fuera del filtro
+  const vehiculosMapa = useMemo(() => {
+    if (!emergencyVehicleId || vehiculosFiltrados.some(v => v.id === emergencyVehicleId)) return vehiculosFiltrados;
+    const emergencia = vehiculos.find(v => v.id === emergencyVehicleId);
+    return emergencia ? [...vehiculosFiltrados, emergencia] : vehiculosFiltrados;
+  }, [vehiculosFiltrados, vehiculos, emergencyVehicleId]);
+
+  const filterCounts = useMemo(() => {
+    const counts = { all: vehiculos.length, particulares: 0 };
+    vehiculos.forEach(v => {
+      const key = String(v.empresa_id);
+      counts[key] = (counts[key] || 0) + 1;
+      if (particularIds.includes(Number(v.empresa_id))) counts.particulares += 1;
+    });
+    return counts;
+  }, [vehiculos, particularIds]);
+
   useEffect(() => {
     if (lastJsonMessage) {
+      // Aislamiento Multi-empresa: ignorar eventos de otras empresas (salvo Superadmin)
+      if (!isSuperAdmin && (!lastJsonMessage.empresa_id || !empresa?.id || Number(lastJsonMessage.empresa_id) !== Number(empresa.id))) {
+        return;
+      }
       if (lastJsonMessage.type === 'telemetria') {
         if (lastJsonMessage.limite_velocidad) {
           setLimiteVelocidad(lastJsonMessage.limite_velocidad);
@@ -197,11 +244,17 @@ export default function MonitoringPage() {
 
       {/* Sidebar with fleet list */}
       <Sidebar 
-        vehiculos={vehiculos} 
+        vehiculos={vehiculosFiltrados} 
         color={primaryColor} 
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={(id) => setSelectedVehicleId(id)}
         limiteVelocidad={limiteVelocidad}
+        showEmpresaFilter={isSuperAdmin}
+        empresas={empresasList}
+        empresaFilter={empresaFilter}
+        onEmpresaFilterChange={setEmpresaFilter}
+        filterCounts={filterCounts}
+        hasParticulares={particularIds.length > 0}
       />
 
       <div className="flex-1 relative">
@@ -236,7 +289,7 @@ export default function MonitoringPage() {
 
         {/* Live Map */}
         <LiveMap 
-          vehiculos={vehiculos} 
+          vehiculos={vehiculosMapa} 
           selectedVehicleId={selectedVehicleId}
           emergencyVehicleId={emergencyVehicleId}
           limiteVelocidad={limiteVelocidad}

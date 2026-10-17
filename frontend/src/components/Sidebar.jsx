@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { Search, Navigation, AlertCircle, Power, PowerOff } from 'lucide-react';
+import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown } from 'lucide-react';
 
-export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90 }) {
+export default function Sidebar({
+  vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90,
+  showEmpresaFilter = false, empresas = [], empresaFilter = 'all', onEmpresaFilterChange,
+  filterCounts = {}, hasParticulares = false
+}) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filtered = vehiculos.filter(v => 
@@ -27,6 +31,34 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
           />
           <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
         </div>
+
+        {showEmpresaFilter && (
+          <div className="relative mt-2">
+            <Building2 size={15} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+            <select
+              id="monitoring-empresa-filter"
+              value={empresaFilter}
+              onChange={(e) => onEmpresaFilterChange && onEmpresaFilterChange(e.target.value)}
+              className="w-full appearance-none pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:border-transparent transition-all hover:bg-slate-100"
+              style={{ '--tw-ring-color': color }}
+            >
+              <option value="all">Todas las flotas ({filterCounts.all ?? 0})</option>
+              {hasParticulares && (
+                <option value="particulares">Vehículos particulares ({filterCounts.particulares ?? 0})</option>
+              )}
+              {empresas.length > 0 && (
+                <optgroup label="Empresas">
+                  {empresas.map(emp => (
+                    <option key={emp.id} value={String(emp.id)}>
+                      {emp.nombre} ({filterCounts[String(emp.id)] ?? 0})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <ChevronDown size={15} className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" />
+          </div>
+        )}
       </div>
       
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
@@ -89,6 +121,11 @@ export default function Sidebar({ vehiculos, color, selectedVehicleId, onSelectV
                     <span className={`w-2 h-2 rounded-full ${statusDot}`} title={statusLabel}></span>
                   </h3>
                   <p className="text-xs text-slate-500">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
+                  {showEmpresaFilter && v.empresa_nombre && (
+                    <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                      <Building2 size={10} /> {v.empresa_nombre}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <span className={`text-[10px] font-semibold ${isSabotage ? 'text-rose-700 font-bold' : (isSpeeding ? 'text-amber-700 font-bold' : (isIgnitionOn ? 'text-emerald-700 font-bold' : 'text-slate-400'))}`}>
