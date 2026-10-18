@@ -49,17 +49,28 @@ def send_welcome_email(
     nombre: str, 
     password_temp: str, 
     entidad_o_placa: str = None, 
-    tipo: str = "particular"
+    tipo: str = "particular",
+    empresa_slug: str = None
 ) -> bool:
     """
-    Envía el correo corporativo de bienvenida con credenciales y acceso a industriascopai.com
+    Envía el correo corporativo de bienvenida con credenciales y acceso directo
+    al portal de la empresa cliente o a industriascopai.com.
     Diseño HTML responsivo, moderno y con alta entregabilidad en Gmail/Outlook.
     """
-    login_url = f"{settings.FRONTEND_URL}/login"
+    es_empresa = (tipo == "empresa")
     
-    es_particular = (tipo == "particular")
-    subtitulo_tipo = "Vehículo Particular Registrado" if es_particular else "Gestión de Flota Empresarial"
-    detalle_label = "Unidad / Placa:" if es_particular else "Empresa / Flota:"
+    if es_empresa and empresa_slug:
+        login_url = f"{settings.FRONTEND_URL}/login?empresa={empresa_slug}&login=true"
+        subtitulo_tipo = f"Portal de Flota - {entidad_o_placa or 'Empresa'}"
+        detalle_label = "Empresa / Flota:"
+        bienvenida_msg = f"Tu cuenta de Gerencia / Administración ha sido activada exitosamente para la gestión de la flota de <strong>{entidad_o_placa or 'tu Empresa'}</strong> en nuestra plataforma de telemetría y rastreo satelital Copai."
+        btn_label = f"🚀 Ingresar al Portal de {entidad_o_placa or 'tu Empresa'}"
+    else:
+        login_url = f"{settings.FRONTEND_URL}/login"
+        subtitulo_tipo = "Vehículo Particular Registrado" if (tipo == "particular") else "Acceso a Plataforma"
+        detalle_label = "Unidad / Placa:" if (tipo == "particular") else "Empresa / Cuenta:"
+        bienvenida_msg = f"Te damos la bienvenida a <strong>Industrias Copai</strong>. Tu cuenta ha sido activada exitosamente en nuestra plataforma de telemetría y rastreo vehicular para el servicio de <strong>{subtitulo_tipo}</strong>."
+        btn_label = "🚀 Ingresar a la Plataforma"
     
     html = f"""
     <!DOCTYPE html>
@@ -92,7 +103,7 @@ def send_welcome_email(
                             <td style="padding: 35px 30px;">
                                 <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 20px; font-weight: 700;">¡Hola, {nombre}! 👋</h2>
                                 <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 20px;">
-                                    Te damos la bienvenida a <strong>Industrias Copai</strong>. Tu cuenta ha sido activada exitosamente en nuestra plataforma de telemetría y rastreo vehicular para el servicio de <strong>{subtitulo_tipo}</strong>.
+                                    {bienvenida_msg}
                                 </p>
 
                                 <!-- Tarjeta de Credenciales -->
@@ -118,6 +129,12 @@ def send_welcome_email(
                                                     <td style="padding: 6px 0; font-size: 14px; color: #0284c7; font-weight: 700;">{entidad_o_placa}</td>
                                                 </tr>
                                                 ''' if entidad_o_placa else ''}
+                                                {f'''
+                                                <tr>
+                                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">Acceso al Portal:</td>
+                                                    <td style="padding: 6px 0; font-size: 12px; color: #16a34a; font-family: monospace; font-weight: 600;">{empresa_slug}.industriascopai.com</td>
+                                                </tr>
+                                                ''' if (es_empresa and empresa_slug) else ''}
                                             </table>
                                         </td>
                                     </tr>
@@ -128,15 +145,15 @@ def send_welcome_email(
                                     <tr>
                                         <td align="center">
                                             <a href="{login_url}" target="_blank" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 700; padding: 14px 36px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
-                                                🚀 Ingresar a la Plataforma
+                                                {btn_label}
                                             </a>
                                         </td>
                                     </tr>
                                 </table>
 
                                 <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0; text-align: center;">
-                                    O copia este enlace en tu navegador:<br>
-                                    <a href="{login_url}" style="color: #2563eb; text-decoration: underline;">{login_url}</a>
+                                    O copia este enlace directo en tu navegador:<br>
+                                    <a href="{login_url}" style="color: #2563eb; text-decoration: underline; word-break: break-all;">{login_url}</a>
                                 </p>
 
                                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">

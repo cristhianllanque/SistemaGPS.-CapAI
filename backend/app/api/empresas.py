@@ -213,14 +213,15 @@ def create_empresa(
             db.commit()
             print(f"[COPAI NOTIFICACIÓN] Creado usuario Gerente ({payload.gerente_email}) para la empresa '{payload.nombre}'. Enlace de bienvenida enviado por correo.", flush=True)
 
-            # Enviar correo de bienvenida al gerente en segundo plano
+            # Enviar correo de bienvenida al gerente en segundo plano con acceso directo a su portal
             background_tasks.add_task(
                 send_welcome_email,
                 to_email=payload.gerente_email,
                 nombre=payload.gerente_nombre or f"Gerente {payload.nombre}",
                 password_temp=payload.gerente_password,
                 entidad_o_placa=payload.nombre,
-                tipo="empresa"
+                tipo="empresa",
+                empresa_slug=nueva_empresa.slug
             )
 
     emp_dict = schemas.EmpresaOut.model_validate(nueva_empresa)

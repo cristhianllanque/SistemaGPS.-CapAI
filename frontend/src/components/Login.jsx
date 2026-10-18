@@ -165,69 +165,39 @@ export default function Login() {
 
   return (
     <div 
-      className={`min-h-screen font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden relative transition-colors duration-300 ${
+      className={`min-h-screen font-sans selection:bg-emerald-500/30 selection:text-white overflow-x-hidden relative transition-colors duration-300 ${
         companyPortal
-          ? isLightPortal ? 'text-slate-900' : 'text-slate-100'
+          ? 'bg-slate-950 text-slate-100'
           : 'bg-[#F8FAFC] text-slate-800'
       }`}
-      style={companyPortal ? {
-        background: isLightPortal 
-          ? `radial-gradient(circle at 15% 15%, ${cTerciario} 0%, #FFFFFF 55%, ${cTerciario}80 100%)`
-          : `radial-gradient(circle at 15% 15%, ${cTerciario} 0%, #030805 70%, ${cTerciario}50 100%)`
-      } : {
+      style={!companyPortal ? {
         background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 40%, #F1F5F9 100%)'
-      }}
+      } : undefined}
     >
       
-      {/* Luces y Gradientes de Fondo Adaptativos */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div 
-          className="absolute top-[-10%] left-[10%] w-[600px] h-[600px] rounded-full blur-[140px]" 
-          style={{ 
-            backgroundColor: companyPortal ? cPrimario : '#3B82F6',
-            opacity: companyPortal ? (isLightPortal ? 0.20 : 0.35) : 0.07 
-          }}
-        />
-        <div 
-          className="absolute top-[20%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[140px]" 
-          style={{ 
-            backgroundColor: companyPortal ? cTerciario : '#60A5FA',
-            opacity: companyPortal ? (isLightPortal ? 0.35 : 0.35) : 0.05 
-          }}
-        />
-        <div 
-          className="absolute bottom-[-10%] left-[30%] w-[550px] h-[550px] rounded-full blur-[140px]" 
-          style={{ 
-            backgroundColor: companyPortal ? cSecundario : '#93C5FD',
-            opacity: companyPortal ? (isLightPortal ? 0.25 : 0.08) : 0.05 
-          }}
-        />
-        
-        {/* Grilla sutil de fondo adaptativa */}
-        <div 
-          className="absolute inset-0" 
-          style={{ 
-            opacity: companyPortal ? (isLightPortal ? 0.08 : 0.05) : 0.025,
-            backgroundImage: `radial-gradient(circle at 1px 1px, ${companyPortal ? cPrimario : '#0284c7'} 1px, transparent 0)`,
-            backgroundSize: '36px 36px' 
-          }} 
-        />
-      </div>
+      {/* Luces sutiles sólo para el portal corporativo CopAI */}
+      {!companyPortal && (
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-[-10%] left-[10%] w-[600px] h-[600px] rounded-full blur-[140px] bg-blue-500 opacity-[0.07]" />
+          <div className="absolute top-[20%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[140px] bg-indigo-500 opacity-[0.05]" />
+          <div 
+            className="absolute inset-0 opacity-[0.025]" 
+            style={{ 
+              backgroundImage: 'radial-gradient(circle at 1px 1px, #0284c7 1px, transparent 0)',
+              backgroundSize: '36px 36px' 
+            }} 
+          />
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* CASO A: PORTAL WHITE-LABEL DE EMPRESA CLIENTE (Huaynarroque, Nazareth, etc) */}
       {/* ========================================================================= */}
       {companyPortal ? (
-        <div className="relative z-10 flex flex-col min-h-screen">
+        <div className="relative z-10 flex flex-col min-h-screen bg-slate-950">
           
           {/* Header Superior Corporativo de la Empresa */}
-          <header 
-            className="fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors shadow-sm"
-            style={{ 
-              backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.88)' : 'rgba(10, 20, 15, 0.90)',
-              borderBottomColor: `${cPrimario}30` 
-            }}
-          >
+          <header className="fixed top-0 left-0 right-0 z-40 backdrop-blur-xl bg-slate-950/75 border-b border-white/10 transition-colors">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
               
               {/* Logo y Nombre de la Empresa Cliente */}
@@ -236,33 +206,29 @@ export default function Login() {
                   <img 
                     src={getAssetUrl(companyPortal.logo_url)} 
                     alt={companyPortal.nombre} 
-                    className="h-10 sm:h-12 w-auto max-w-[160px] object-contain drop-shadow-md"
+                    className="h-10 sm:h-12 w-auto max-w-[170px] object-contain drop-shadow-md"
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 ) : (
                   <div 
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center font-extrabold text-lg shadow-lg border"
-                    style={{ 
-                      backgroundColor: cPrimario, 
-                      color: cSecundario,
-                      borderColor: `${cSecundario}40` 
-                    }}
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center font-extrabold text-lg text-white shadow-lg border border-white/20"
+                    style={{ backgroundColor: cPrimario }}
                   >
                     {companyPortal.nombre.charAt(0).toUpperCase()}
                   </div>
                 )}
 
                 <div>
-                  <h1 className="text-base sm:text-lg font-black tracking-tight leading-none" style={{ color: isLightPortal ? '#0F172A' : cSecundario }}>
+                  <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-none">
                     {companyPortal.nombre}
                   </h1>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: cPrimario }} />
-                    <span className="text-[11px] font-bold font-mono tracking-wide uppercase" style={{ color: cPrimario }}>
-                      Central Satelital 24/7
+                    <span className="text-[11px] font-bold font-mono tracking-wide uppercase text-slate-300">
+                      Monitoreo Activo 24/7
                     </span>
                     {companyPortal.documento && (
-                      <span className="hidden sm:inline text-[11px] font-mono" style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>
+                      <span className="hidden sm:inline text-[11px] font-mono text-slate-400">
                         | RUC: {companyPortal.documento}
                       </span>
                     )}
@@ -274,8 +240,7 @@ export default function Login() {
               <div className="flex items-center gap-3 sm:gap-5">
                 <a 
                   href="/" 
-                  className="hidden md:flex items-center gap-1.5 text-xs transition-colors font-semibold"
-                  style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}
+                  className="hidden md:flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors font-semibold"
                   title="Ir al portal principal de Industrias CopAI"
                 >
                   <img src="/logo-copai-white.png" alt="CopAI" className="h-4 object-contain opacity-70 hover:opacity-100" />
@@ -288,17 +253,15 @@ export default function Login() {
                     setShowLoginModal(true);
                     setError('');
                   }}
-                  className="relative group px-5 sm:px-6 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all duration-300 flex items-center gap-2.5 cursor-pointer active:scale-95 border"
+                  className="group px-5 sm:px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all duration-300 flex items-center gap-2 cursor-pointer active:scale-95 border border-white/15 hover:brightness-110"
                   style={{
                     backgroundColor: cPrimario,
-                    color: cSecundario,
-                    borderColor: `${cSecundario}40`,
-                    boxShadow: `0 4px 20px ${cPrimario}50`
+                    boxShadow: `0 4px 15px ${cPrimario}40`
                   }}
                 >
-                  <Lock size={15} className="group-hover:rotate-12 transition-transform" />
+                  <Lock size={14} className="group-hover:rotate-12 transition-transform" />
                   <span>Acceso a Central</span>
-                  <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
 
@@ -306,318 +269,246 @@ export default function Login() {
           </header>
 
           {/* CUERPO DEL PORTAL WHITE-LABEL */}
-          <main className="flex-1 pt-24 sm:pt-28 pb-16">
+          <main className="flex-1">
             
-            {/* HERO SECTION DE LA EMPRESA CON FOTO DE FLOTA / BANNER */}
-            <section className="relative overflow-hidden">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
-                
-                {/* Contenedor Banner Panorámico */}
-                <div 
-                  className="relative rounded-3xl overflow-hidden border shadow-2xl min-h-[420px] sm:min-h-[500px] flex items-end p-6 sm:p-12"
-                  style={{ 
-                    borderColor: `${cPrimario}50`,
-                    boxShadow: isLightPortal ? `0 25px 60px -10px ${cPrimario}30` : `0 20px 60px ${cPrimario}20`
+            {/* HERO SECTION PANORÁMICO - LA FOTO DE FLOTA ES LA PROTAGONISTA ABSOLUTA */}
+            <section className="relative w-full min-h-[85vh] sm:min-h-[88vh] flex flex-col justify-between overflow-hidden">
+              
+              {/* Imagen de Fondo Panorámica a Pantalla Completa */}
+              <div className="absolute inset-0 z-0 overflow-hidden">
+                <img 
+                  src={companyPortal.banner_url ? getAssetUrl(companyPortal.banner_url) : '/banners/huaynarroque_banner.jpg'} 
+                  alt={companyPortal.nombre} 
+                  className="w-full h-full object-cover object-center filter brightness-[0.82] contrast-[1.08]"
+                  onError={(e) => {
+                    e.target.src = '/banners/huaynarroque_banner.jpg';
                   }}
-                >
+                />
+                {/* Viñetas cinematográficas para legibilidad perfecta */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-slate-950/40" />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-transparent" />
+              </div>
+
+              {/* Espacio superior para compensar el header flotante */}
+              <div className="h-24 sm:h-28" />
+
+              {/* Contenido Central del Hero */}
+              <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full flex-1 flex flex-col justify-center">
+                <div className="max-w-3xl space-y-5">
                   
-                  {/* Foto de Portada / Flota */}
-                  <div className="absolute inset-0 z-0">
-                    <img 
-                      src={companyPortal.banner_url ? getAssetUrl(companyPortal.banner_url) : '/banners/huaynarroque_banner.jpg'} 
-                      alt={companyPortal.nombre} 
-                      className="w-full h-full object-cover object-center filter brightness-[0.75] contrast-[1.05]"
-                      onError={(e) => {
-                        e.target.src = '/banners/huaynarroque_banner.jpg';
-                      }}
-                    />
-                    {/* Degradado sobre la imagen para legibilidad impecable */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent" />
-                    <div 
-                      className="absolute inset-0 opacity-25 mix-blend-color" 
-                      style={{ backgroundColor: cPrimario }} 
-                    />
+                  {/* Badge de Estado Satelital */}
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/15 bg-slate-900/80 backdrop-blur-md text-xs font-semibold text-slate-200 shadow-lg w-fit">
+                    <span className="w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: cPrimario }} />
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cPrimario }} />
+                    <span className="tracking-wide uppercase font-mono text-[11px]">Sistema de Telemetría & Rastreo Satelital</span>
                   </div>
 
-                  {/* Texto y Contenido Superpuesto */}
-                  <div className="relative z-10 max-w-3xl space-y-4">
-                    
-                    {/* Badge */}
-                    <div 
-                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md shadow-md"
+                  {/* Nombre Principal de la Empresa */}
+                  <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08] drop-shadow-xl">
+                    {companyPortal.nombre}
+                  </h1>
+
+                  {/* Slogan Corporativo */}
+                  <p className="text-base sm:text-xl text-slate-200 font-light leading-relaxed max-w-2xl drop-shadow">
+                    {companyPortal.slogan || "Líderes en transporte seguro y puntual, con monitoreo continuo vía GPS satelital."}
+                  </p>
+
+                  {/* Botones de Acción Inmediata */}
+                  <div className="pt-3 flex flex-wrap items-center gap-4">
+                    <button
+                      onClick={() => {
+                        setShowLoginModal(true);
+                        setError('');
+                      }}
+                      className="group px-7 py-3.5 rounded-xl font-bold text-sm text-white shadow-xl transition-all duration-300 flex items-center gap-2.5 active:scale-95 cursor-pointer hover:brightness-110"
                       style={{
-                        backgroundColor: 'rgba(8, 14, 18, 0.85)',
-                        borderColor: `${cPrimario}60`,
-                        color: '#FFFFFF'
+                        backgroundColor: cPrimario,
+                        boxShadow: `0 10px 30px ${cPrimario}50`
                       }}
                     >
-                      <Satellite size={14} style={{ color: cPrimario }} className="animate-pulse" />
-                      <span>TELEMETRÍA SATELITAL & GESTIÓN DE FLOTA EN TIEMPO REAL</span>
-                    </div>
+                      <ShieldCheck size={18} />
+                      <span>Iniciar Sesión de Despacho</span>
+                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
 
-                    {/* Nombre y Slogan */}
-                    <h2 
-                      className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-white drop-shadow-md"
-                    >
-                      {companyPortal.nombre}
-                    </h2>
-
-                    <p className="text-base sm:text-xl text-slate-100 font-normal leading-relaxed drop-shadow">
-                      {companyPortal.slogan || "Líderes en transporte seguro y puntual, con monitoreo continuo vía GPS satelital."}
-                    </p>
-
-                    {/* Botón de Ingreso Directo */}
-                    <div className="pt-2 flex flex-wrap items-center gap-4">
-                      <button
-                        onClick={() => {
-                          setShowLoginModal(true);
-                          setError('');
-                        }}
-                        className="px-7 py-3.5 rounded-xl font-bold text-sm shadow-xl transition-all duration-300 flex items-center gap-2.5 active:scale-95 border"
-                        style={{
-                          backgroundColor: cPrimario,
-                          color: cSecundario,
-                          borderColor: `${cSecundario}30`,
-                          boxShadow: `0 8px 30px ${cPrimario}70`
-                        }}
+                    {companyPortal.telefono && (
+                      <a
+                        href={`tel:${companyPortal.telefono}`}
+                        className="flex items-center gap-2 px-5 py-3.5 rounded-xl border border-white/20 bg-slate-900/60 hover:bg-slate-900/80 backdrop-blur-md text-xs font-semibold text-white transition-all shadow-md"
                       >
-                        <ShieldCheck size={18} />
-                        <span>Iniciar Sesión de Despacho</span>
-                        <ArrowRight size={16} />
-                      </button>
+                        <Phone size={14} style={{ color: cPrimario }} />
+                        <span>Central: {companyPortal.telefono}</span>
+                      </a>
+                    )}
 
-                      {companyPortal.telefono && (
-                        <div 
-                          className="flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-semibold backdrop-blur-md"
-                          style={{ 
-                            backgroundColor: 'rgba(15, 23, 42, 0.80)',
-                            borderColor: `${cPrimario}50`, 
-                            color: '#FFFFFF' 
-                          }}
-                        >
-                          <Phone size={14} style={{ color: cPrimario }} />
-                          <span>Central: {companyPortal.telefono}</span>
-                        </div>
-                      )}
-                    </div>
-
+                    {companyPortal.documento && (
+                      <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-3 rounded-xl bg-black/40 border border-white/10 text-xs font-mono text-slate-300 backdrop-blur-sm">
+                        <span>RUC: {companyPortal.documento}</span>
+                      </div>
+                    )}
                   </div>
 
                 </div>
+              </div>
 
-                {/* Métricas y Datos Rápidos de la Flota */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              {/* Fila de Métricas y KPIs Flotantes */}
+              <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 w-full">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                   
-                  <div 
-                    className="border rounded-2xl p-5 backdrop-blur-md transition-all hover:translate-y-[-2px] shadow-sm"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.70)',
-                      borderTop: `4px solid ${cPrimario}`, 
-                      borderColor: `${cPrimario}30`,
-                      boxShadow: isLightPortal ? `0 10px 25px -5px ${cPrimario}20` : undefined
-                    }}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div 
-                        className="p-2.5 rounded-xl"
-                        style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                      >
-                        <Truck size={20} />
+                  <div className="bg-slate-900/80 hover:bg-slate-900/95 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-2xl p-4 sm:p-5 transition-all shadow-xl">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: `${cPrimario}25`, color: cPrimario }}>
+                        <Truck size={18} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: isLightPortal ? '#475569' : '#94A3B8' }}>
-                        Flota en Ruta
-                      </span>
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Flota en Ruta</span>
                     </div>
-                    <p className="text-2xl font-black" style={{ color: isLightPortal ? '#0F172A' : '#FFFFFF' }}>
+                    <p className="text-2xl sm:text-3xl font-black text-white">
                       {companyPortal.total_vehiculos || 0}
-                      <span className="text-xs font-medium ml-1.5" style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>unidades activas</span>
+                      <span className="text-xs font-normal text-slate-400 ml-1.5">unidades</span>
                     </p>
                   </div>
 
-                  <div 
-                    className="border rounded-2xl p-5 backdrop-blur-md transition-all hover:translate-y-[-2px] shadow-sm"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.70)',
-                      borderTop: `4px solid ${cPrimario}`, 
-                      borderColor: `${cPrimario}30`,
-                      boxShadow: isLightPortal ? `0 10px 25px -5px ${cPrimario}20` : undefined
-                    }}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div 
-                        className="p-2.5 rounded-xl"
-                        style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                      >
-                        <Radio size={20} />
+                  <div className="bg-slate-900/80 hover:bg-slate-900/95 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-2xl p-4 sm:p-5 transition-all shadow-xl">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: `${cPrimario}25`, color: cPrimario }}>
+                        <Radio size={18} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: isLightPortal ? '#475569' : '#94A3B8' }}>
-                        GPS Satelital
-                      </span>
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">GPS Satelital</span>
                     </div>
-                    <p className="text-2xl font-black" style={{ color: cPrimario }}>
+                    <p className="text-2xl sm:text-3xl font-black" style={{ color: cPrimario }}>
                       100%
-                      <span className="text-xs font-medium ml-1.5" style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>Teltonika 4G</span>
+                      <span className="text-xs font-normal text-slate-400 ml-1.5">Teltonika 4G</span>
                     </p>
                   </div>
 
-                  <div 
-                    className="border rounded-2xl p-5 backdrop-blur-md transition-all hover:translate-y-[-2px] shadow-sm"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.70)',
-                      borderTop: `4px solid ${cPrimario}`, 
-                      borderColor: `${cPrimario}30`,
-                      boxShadow: isLightPortal ? `0 10px 25px -5px ${cPrimario}20` : undefined
-                    }}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div 
-                        className="p-2.5 rounded-xl"
-                        style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                      >
-                        <Gauge size={20} />
+                  <div className="bg-slate-900/80 hover:bg-slate-900/95 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-2xl p-4 sm:p-5 transition-all shadow-xl">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                        <Gauge size={18} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: isLightPortal ? '#475569' : '#94A3B8' }}>
-                        Límite de Ruta
-                      </span>
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Límite Seguro</span>
                     </div>
-                    <p className="text-2xl font-black text-amber-600">
+                    <p className="text-2xl sm:text-3xl font-black text-amber-400">
                       {companyPortal.limite_velocidad || 90}
-                      <span className="text-xs font-medium ml-1.5" style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>km/h máx.</span>
+                      <span className="text-xs font-normal text-slate-400 ml-1.5">km/h máx.</span>
                     </p>
                   </div>
 
-                  <div 
-                    className="border rounded-2xl p-5 backdrop-blur-md transition-all hover:translate-y-[-2px] shadow-sm"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.70)',
-                      borderTop: `4px solid ${cPrimario}`, 
-                      borderColor: `${cPrimario}30`,
-                      boxShadow: isLightPortal ? `0 10px 25px -5px ${cPrimario}20` : undefined
-                    }}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div 
-                        className="p-2.5 rounded-xl"
-                        style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                      >
-                        <ShieldCheck size={20} />
+                  <div className="bg-slate-900/80 hover:bg-slate-900/95 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-2xl p-4 sm:p-5 transition-all shadow-xl">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: `${cPrimario}25`, color: cPrimario }}>
+                        <ShieldCheck size={18} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: isLightPortal ? '#475569' : '#94A3B8' }}>
-                        Seguridad
-                      </span>
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Monitoreo</span>
                     </div>
-                    <p className="text-2xl font-black" style={{ color: isLightPortal ? '#0F172A' : '#FFFFFF' }}>
+                    <p className="text-2xl sm:text-3xl font-black text-white">
                       24 / 7
-                      <span className="text-xs font-medium ml-1.5" style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>telemetría continua</span>
+                      <span className="text-xs font-normal text-slate-400 ml-1.5">telemetría</span>
                     </p>
                   </div>
 
                 </div>
+              </div>
 
-                {/* Sección de Rutas y Servicios */}
+            </section>
+
+            {/* SECCIÓN INFERIOR: RUTAS, COBERTURA Y TECNOLOGÍA */}
+            <section className="bg-slate-950 py-16 sm:py-20 border-t border-slate-900">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+                
+                {/* Rutas y Cobertura Operativa de la Flota */}
                 {companyPortal.servicios && (
-                  <div 
-                    className="mt-8 border rounded-3xl p-6 sm:p-8 backdrop-blur-md shadow-md"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.60)',
-                      borderColor: `${cPrimario}35`,
-                      boxShadow: isLightPortal ? `0 15px 35px -5px ${cPrimario}15` : undefined
-                    }}
-                  >
-                    <div className="flex items-start gap-4">
+                  <div className="rounded-3xl p-6 sm:p-8 border border-slate-800 bg-slate-900/60 backdrop-blur-md shadow-lg">
+                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                       <div 
-                        className="p-3.5 rounded-2xl shadow-md flex-shrink-0"
-                        style={{ 
-                          backgroundColor: cPrimario,
-                          color: cSecundario
-                        }}
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md"
+                        style={{ backgroundColor: cPrimario, color: '#FFFFFF' }}
                       >
                         <Route size={24} />
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold mb-1.5" style={{ color: isLightPortal ? '#0F172A' : cSecundario }}>
+                      <div className="flex-1 space-y-2">
+                        <h3 className="text-xl font-bold text-white">
                           Rutas y Cobertura Operativa de la Flota
                         </h3>
-                        <p className="text-sm leading-relaxed" style={{ color: isLightPortal ? '#334155' : '#CBD5E1' }}>
+                        <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
                           {companyPortal.servicios}
                         </p>
+                        
+                        {/* Tags de destinos */}
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {companyPortal.servicios.split(/[-–—,]/).map((tramo, idx) => {
+                            const cleanTramo = tramo.trim();
+                            if (!cleanTramo || cleanTramo.toLowerCase().startsWith('rutas')) return null;
+                            return (
+                              <span 
+                                key={idx} 
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-800/80 border border-slate-700 text-slate-200 font-mono"
+                              >
+                                <MapPin size={11} style={{ color: cPrimario }} />
+                                {cleanTramo}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* 3 Pilares Tecnológicos de la Flota */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-                  
-                  <div 
-                    className="border rounded-2xl p-6 transition-all hover:translate-y-[-2px] shadow-sm"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.80)',
-                      borderTop: `3px solid ${cPrimario}`, 
-                      borderColor: `${cPrimario}25`,
-                      boxShadow: isLightPortal ? `0 8px 20px rgba(0,0,0,0.04)` : undefined
-                    }}
-                  >
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                      style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                    >
-                      <Navigation size={20} />
-                    </div>
-                    <h4 className="font-bold text-base mb-2" style={{ color: isLightPortal ? '#0F172A' : '#FFFFFF' }}>
-                      Rastreo Satelital en Tiempo Real
-                    </h4>
-                    <p className="text-xs leading-relaxed" style={{ color: isLightPortal ? '#475569' : '#94A3B8' }}>
-                      Transmisión continua de coordenadas geográficas, odómetro virtual, estado del motor y cálculo automático de tiempos de llegada a cada estación.
+                <div>
+                  <div className="text-center max-w-2xl mx-auto mb-10">
+                    <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      Seguridad & Telemetría en Tiempo Real
+                    </h3>
+                    <p className="text-slate-400 text-sm mt-2">
+                      Garantizamos la máxima precisión en ruta con hardware GPS certificado de grado industrial.
                     </p>
                   </div>
 
-                  <div 
-                    className="border rounded-2xl p-6 transition-all hover:translate-y-[-2px] shadow-sm"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.80)',
-                      borderTop: `3px solid ${cPrimario}`, 
-                      borderColor: `${cPrimario}25`,
-                      boxShadow: isLightPortal ? `0 8px 20px rgba(0,0,0,0.04)` : undefined
-                    }}
-                  >
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                      style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                    >
-                      <Gauge size={20} />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="rounded-2xl p-6 border border-slate-800/90 bg-slate-900/50 hover:bg-slate-900/80 transition-all hover:border-slate-700 shadow-md">
+                      <div 
+                        className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+                        style={{ backgroundColor: `${cPrimario}20`, color: cPrimario }}
+                      >
+                        <Navigation size={22} />
+                      </div>
+                      <h4 className="font-bold text-white text-base mb-2">
+                        Rastreo Satelital GNSS 4G
+                      </h4>
+                      <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                        Transmisión continua de posición, velocidad, odómetro virtual y estado del motor con redundancia multi-red.
+                      </p>
                     </div>
-                    <h4 className="font-bold text-base mb-2" style={{ color: isLightPortal ? '#0F172A' : '#FFFFFF' }}>
-                      Control Estricto de Velocidad
-                    </h4>
-                    <p className="text-xs leading-relaxed" style={{ color: isLightPortal ? '#475569' : '#94A3B8' }}>
-                      Detección instantánea de excesos sobre el límite configurado ({companyPortal.limite_velocidad || 90} km/h) con alarmas sonoras y alertas por correo al centro de control.
-                    </p>
-                  </div>
 
-                  <div 
-                    className="border rounded-2xl p-6 transition-all hover:translate-y-[-2px] shadow-sm"
-                    style={{ 
-                      backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.80)',
-                      borderTop: `3px solid ${cPrimario}`, 
-                      borderColor: `${cPrimario}25`,
-                      boxShadow: isLightPortal ? `0 8px 20px rgba(0,0,0,0.04)` : undefined
-                    }}
-                  >
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                      style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                    >
-                      <Shield size={20} />
+                    <div className="rounded-2xl p-6 border border-slate-800/90 bg-slate-900/50 hover:bg-slate-900/80 transition-all hover:border-slate-700 shadow-md">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-amber-500/20 text-amber-400">
+                        <Gauge size={22} />
+                      </div>
+                      <h4 className="font-bold text-white text-base mb-2">
+                        Control Estricto de Velocidad
+                      </h4>
+                      <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                        Supervisión del límite de velocidad en ruta ({companyPortal.limite_velocidad || 90} km/h) con alertas inmediatas a la central de despacho.
+                      </p>
                     </div>
-                    <h4 className="font-bold text-base mb-2" style={{ color: isLightPortal ? '#0F172A' : '#FFFFFF' }}>
-                      Seguridad para Pasajeros y Carga
-                    </h4>
-                    <p className="text-xs leading-relaxed" style={{ color: isLightPortal ? '#475569' : '#94A3B8' }}>
-                      Geocercas de seguridad en carretera, monitoreo de desvíos no autorizados y registro inviolable de telemetría certificado para cumplimiento de normas.
-                    </p>
-                  </div>
 
+                    <div className="rounded-2xl p-6 border border-slate-800/90 bg-slate-900/50 hover:bg-slate-900/80 transition-all hover:border-slate-700 shadow-md">
+                      <div 
+                        className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+                        style={{ backgroundColor: `${cPrimario}20`, color: cPrimario }}
+                      >
+                        <ShieldCheck size={22} />
+                      </div>
+                      <h4 className="font-bold text-white text-base mb-2">
+                        Protección de Carga y Pasajeros
+                      </h4>
+                      <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                        Geocercas de parada autorizada, detección de desvíos en carretera y bitácora inviolable de telemetría certificada.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
               </div>
@@ -626,22 +517,16 @@ export default function Login() {
           </main>
 
           {/* Footer White-Label */}
-          <footer 
-            className="border-t py-8 px-4 text-center transition-colors"
-            style={{ 
-              backgroundColor: isLightPortal ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 42, 0.90)',
-              borderTopColor: `${cPrimario}25` 
-            }}
-          >
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          <footer className="border-t border-slate-900 bg-slate-950 py-8 px-4 text-center">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
               <div className="flex items-center gap-2">
-                <span className="font-bold" style={{ color: isLightPortal ? '#0F172A' : cSecundario }}>{companyPortal.nombre}</span>
-                {companyPortal.documento && <span style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>• RUC {companyPortal.documento}</span>}
+                <span className="font-bold text-slate-300">{companyPortal.nombre}</span>
+                {companyPortal.documento && <span>• RUC {companyPortal.documento}</span>}
               </div>
-              <p style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>
+              <p>
                 Infraestructura satelital y telemetría de vanguardia provista por{' '}
                 <a href="/" className="hover:underline font-semibold" style={{ color: cPrimario }}>
-                  Industrias CopAI
+                  Industrias CopAI Telematics
                 </a>
               </p>
             </div>

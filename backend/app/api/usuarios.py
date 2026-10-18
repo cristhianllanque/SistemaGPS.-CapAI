@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.api.deps import get_db, get_current_user, require_role
 from app.db import models, schemas
 from app.core import security
+from app.services.email_service import send_welcome_email
 
 router = APIRouter()
 
@@ -34,6 +35,7 @@ def list_usuarios(
 @router.post("/", response_model=schemas.UsuarioOut, status_code=201)
 def create_usuario(
     payload: schemas.UsuarioCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(require_role(['superadmin']))
 ):
@@ -57,6 +59,25 @@ def create_usuario(
     db.add(nuevo_usuario)
     db.commit()
     db.refresh(nuevo_usuario)
+
+    # Enviar correo de bienvenida con credenciales y enlace directo al portal de la empresa
+    empresa_slug = None
+    empresa_nombre = None
+    if nuevo_usuario.empresa_id:
+        empresa_obj = db.query(models.Empresa).filter(models.Empresa.id == nuevo_usuario.empresa_id).first()
+        if empresa_obj:
+            empresa_slug = empresa_obj.slug
+            empresa_nombre = empresa_obj.nombre
+
+    background_tasks.add_task(
+        send_welcome_email,
+        to_email=nuevo_usuario.email,
+        nombre=nuevo_usuario.nombre,
+        password_temp=payload.password,
+        entidad_o_placa=empresa_nombre or "Industrias Copai",
+        tipo="empresa" if empresa_slug else "plataforma",
+        empresa_slug=empresa_slug
+    )
 
     result = schemas.UsuarioOut.model_validate(nuevo_usuario)
     if nuevo_usuario.empresa:
