@@ -9,3 +9,4 @@ websockets
 pydantic
 pydantic-settings
 pydantic[email]
+python-multipart
