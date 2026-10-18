@@ -17,9 +17,9 @@ sudo apt update && sudo apt upgrade -y
 echo "🐍 Instalando Python 3, venv, Git, Nginx y utilidades..."
 sudo apt install -y git curl wget ufw nginx python3 python3-pip python3-venv mariadb-server certbot python3-certbot-nginx
 
-# 3. Instalar Node.js 18 LTS
-echo "📦 Instalando Node.js 18 LTS..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# 3. Instalar Node.js 20 LTS (Requerido por Vite 8 y React Router 7)
+echo "📦 Instalando Node.js 20 LTS..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # 4. Iniciar y asegurar MariaDB/MySQL
