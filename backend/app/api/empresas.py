@@ -140,18 +140,19 @@ async def upload_banner(
     file: UploadFile = File(...),
     current_user: models.Usuario = Depends(require_role(['superadmin', 'admin']))
 ):
-    """Permite subir la foto panorámica o banner de la flota de la empresa (PNG, JPG, WEBP)"""
+    """Permite subir la foto panorámica o video corto en bucle (PNG, JPG, WEBP, MP4, WEBM)"""
     filename = file.filename.lower()
-    allowed_exts = ('.png', '.jpg', '.jpeg', '.webp')
+    allowed_exts = ('.png', '.jpg', '.jpeg', '.webp', '.mp4', '.webm')
     if not any(filename.endswith(ext) for ext in allowed_exts):
         raise HTTPException(
             status_code=400,
-            detail="Formato de imagen inválido. Solo se admiten archivos PNG, JPG o WEBP."
+            detail="Formato multimedia inválido. Solo se admiten fotos (PNG, JPG, WEBP) o videos cortos (MP4, WEBM)."
         )
 
     os.makedirs("uploads/banners", exist_ok=True)
     ext = os.path.splitext(filename)[1]
-    unique_filename = f"banner_{uuid.uuid4().hex[:10]}{ext}"
+    is_video = ext in ('.mp4', '.webm')
+    unique_filename = f"{'video' if is_video else 'banner'}_{uuid.uuid4().hex[:10]}{ext}"
     filepath = os.path.join("uploads", "banners", unique_filename)
 
     content = await file.read()
@@ -159,7 +160,11 @@ async def upload_banner(
         f.write(content)
 
     banner_url = f"/uploads/banners/{unique_filename}"
-    return {"banner_url": banner_url, "filename": file.filename}
+    return {
+        "banner_url": banner_url,
+        "filename": file.filename,
+        "media_type": "video" if is_video else "image"
+    }
 
 @router.post("/", response_model=schemas.EmpresaOut, status_code=201)
 def create_empresa(

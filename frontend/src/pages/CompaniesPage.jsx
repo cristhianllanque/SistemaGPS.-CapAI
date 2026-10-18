@@ -42,6 +42,13 @@ export default function CompaniesPage() {
       .replace(/-+/g, '-');
   };
 
+  // Helper para verificar si un asset es video
+  const isVideoUrl = (url) => {
+    if (!url) return false;
+    const clean = url.split('?')[0].toLowerCase();
+    return clean.endsWith('.mp4') || clean.endsWith('.webm');
+  };
+
   // Forms
   const [createForm, setCreateForm] = useState({
     nombre: '',
@@ -172,15 +179,15 @@ export default function CompaniesPage() {
     }
   };
 
-  // Upload Banner / Foto de Portada (PNG, JPG, WEBP)
+  // Upload Banner / Foto o Video de Portada (PNG, JPG, WEBP, MP4, WEBM)
   const handleBannerUpload = async (e, formType) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowed = ['.png', '.jpg', '.jpeg', '.webp'];
+    const allowed = ['.png', '.jpg', '.jpeg', '.webp', '.mp4', '.webm'];
     const filename = file.name.toLowerCase();
     if (!allowed.some(ext => filename.endsWith(ext))) {
-      setErrorMsg('Formato inválido: Se admiten imágenes PNG, JPG o WEBP.');
+      setErrorMsg('Formato inválido: Se admiten fotos (PNG, JPG, WEBP) o videos cortos en bucle (MP4, WEBM).');
       return;
     }
 
@@ -197,14 +204,15 @@ export default function CompaniesPage() {
         }
       });
 
+      const isVid = filename.endsWith('.mp4') || filename.endsWith('.webm');
       if (formType === 'create') {
         setCreateForm(prev => ({ ...prev, banner_url: res.data.banner_url }));
       } else {
         setEditForm(prev => ({ ...prev, banner_url: res.data.banner_url }));
       }
-      showToast('Foto panorámica de flota cargada con éxito.');
+      showToast(isVid ? 'Video en bucle de flota cargado con éxito.' : 'Foto panorámica de flota cargada con éxito.');
     } catch (err) {
-      setErrorMsg(err.response?.data?.detail || 'Error al subir el banner de la flota');
+      setErrorMsg(err.response?.data?.detail || 'Error al subir el archivo multimedia');
     } finally {
       setUploadingBanner(false);
     }
@@ -808,7 +816,7 @@ export default function CompaniesPage() {
                           borderColor: `${createForm.color_secundario || '#FFFFFF'}40`
                         }}
                       >
-                        <span>Botón Portal Web →</span>
+                        <span>Vista Botón</span>
                       </div>
                     </div>
                   </div>
@@ -876,31 +884,45 @@ export default function CompaniesPage() {
                     )}
                   </div>
 
-                  {/* Banner / Foto de la Flota */}
+                  {/* Banner / Multimedia (Foto o Video) de la Flota */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                      <span>Foto de Portada / Flota para el Portal Web</span>
-                      <span className="text-[11px] text-slate-400 font-normal">PNG, JPG, WEBP</span>
+                      <span className="flex items-center gap-1.5">
+                        <ImageIcon size={14} className="text-indigo-600" />
+                        Foto o Video en Bucle de Portada
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-normal">PNG, JPG, WEBP, MP4, WEBM</span>
                     </label>
                     
                     {createForm.banner_url ? (
                       <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group">
-                        <img 
-                          src={getAssetUrl(createForm.banner_url)} 
-                          alt="Banner de la Flota" 
-                          className="w-full h-24 object-cover opacity-90"
-                        />
+                        {isVideoUrl(createForm.banner_url) ? (
+                          <video 
+                            autoPlay 
+                            loop 
+                            muted 
+                            playsInline 
+                            className="w-full h-28 object-cover opacity-90"
+                            src={getAssetUrl(createForm.banner_url)}
+                          />
+                        ) : (
+                          <img 
+                            src={getAssetUrl(createForm.banner_url)} 
+                            alt="Banner de la Flota" 
+                            className="w-full h-28 object-cover opacity-90"
+                          />
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-2.5">
-                          <span className="text-[11px] text-white font-medium flex items-center gap-1">
+                          <span className="text-[11px] text-white font-medium flex items-center gap-1.5">
                             <Check size={12} className="text-emerald-400" />
-                            Foto cargada
+                            {isVideoUrl(createForm.banner_url) ? 'Video en bucle activo' : 'Foto panorámica activa'}
                           </span>
                           <div className="flex gap-1.5">
-                            <label className="cursor-pointer px-2 py-0.5 bg-white/90 hover:bg-white text-slate-800 text-[11px] font-semibold rounded-md">
+                            <label className="cursor-pointer px-2.5 py-1 bg-white/95 hover:bg-white text-slate-800 text-[11px] font-semibold rounded-md shadow-sm transition-all active:scale-95">
                               Cambiar
                               <input 
                                 type="file" 
-                                accept=".png,.jpg,.jpeg,.webp,image/*" 
+                                accept=".png,.jpg,.jpeg,.webp,.mp4,.webm,image/*,video/*" 
                                 className="hidden" 
                                 onChange={(e) => handleBannerUpload(e, 'create')}
                                 disabled={uploadingBanner}
@@ -909,21 +931,21 @@ export default function CompaniesPage() {
                             <button
                               type="button"
                               onClick={() => setCreateForm({ ...createForm, banner_url: '' })}
-                              className="p-1 bg-rose-600 text-white rounded-md"
+                              className="p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md shadow-sm transition-all"
                             >
-                              <X size={12} />
+                              <X size={13} />
                             </button>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/60 rounded-xl cursor-pointer transition-all">
-                        <ImageIcon size={20} className="text-indigo-600 mb-1" />
-                        <p className="text-xs font-bold text-slate-700">Subir foto panorámica de unidades / flota</p>
-                        <p className="text-[10px] text-slate-400">Aparecerá en el portal web de la empresa</p>
+                      <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/60 hover:bg-slate-50 rounded-xl cursor-pointer transition-all">
+                        <UploadCloud size={22} className="text-indigo-600 mb-1" />
+                        <p className="text-xs font-bold text-slate-700">Subir foto o video en bucle (10s)</p>
+                        <p className="text-[10px] text-slate-400">Admite fotos panorámicas o videos en formato MP4 / WEBM</p>
                         <input 
                           type="file" 
-                          accept=".png,.jpg,.jpeg,.webp,image/*" 
+                          accept=".png,.jpg,.jpeg,.webp,.mp4,.webm,image/*,video/*" 
                           className="hidden" 
                           onChange={(e) => handleBannerUpload(e, 'create')}
                           disabled={uploadingBanner}
@@ -1054,9 +1076,26 @@ export default function CompaniesPage() {
                 <Edit3 size={20} className="text-indigo-600" />
                 Editar Empresa: {selectedEmpresa.nombre}
               </h2>
-              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://${editForm.slug || selectedEmpresa.slug}.industriascopai.com`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-all active:scale-95 shadow-xs"
+                  title="Abrir portal web exclusivo de la empresa en una nueva pestaña"
+                >
+                  <Globe size={13} className="text-indigo-600" />
+                  <span>Ver Portal Web</span>
+                  <ExternalLink size={12} className="text-indigo-500" />
+                </a>
+                <button 
+                  type="button"
+                  onClick={() => setShowEditModal(false)} 
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -1261,16 +1300,20 @@ export default function CompaniesPage() {
                           Fondo del Portal
                         </span>
                       </div>
-                      <div 
-                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 border"
+                      <a
+                        href={`https://${editForm.slug || selectedEmpresa.slug}.industriascopai.com`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 border cursor-pointer hover:opacity-95 hover:scale-105 active:scale-95 transition-all text-decoration-none"
                         style={{
                           backgroundColor: editForm.color_primario,
                           color: editForm.color_secundario || '#FFFFFF',
                           borderColor: `${editForm.color_secundario || '#FFFFFF'}40`
                         }}
+                        title="Abrir portal web de la empresa en una nueva pestaña"
                       >
-                        <span>Botón Portal Web →</span>
-                      </div>
+                        <span>Ver Portal Web ↗</span>
+                      </a>
                     </div>
                   </div>
 
@@ -1337,31 +1380,45 @@ export default function CompaniesPage() {
                     )}
                   </div>
 
-                  {/* Banner / Foto de la Flota */}
+                  {/* Banner / Multimedia (Foto o Video) de la Flota */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                      <span>Foto de Portada / Flota para el Portal Web</span>
-                      <span className="text-[11px] text-slate-400 font-normal">PNG, JPG, WEBP</span>
+                      <span className="flex items-center gap-1.5">
+                        <ImageIcon size={14} className="text-indigo-600" />
+                        Foto o Video en Bucle de Portada
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-normal">PNG, JPG, WEBP, MP4, WEBM</span>
                     </label>
                     
                     {editForm.banner_url ? (
                       <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group">
-                        <img 
-                          src={getAssetUrl(editForm.banner_url)} 
-                          alt="Banner de la Flota" 
-                          className="w-full h-24 object-cover opacity-90"
-                        />
+                        {isVideoUrl(editForm.banner_url) ? (
+                          <video 
+                            autoPlay 
+                            loop 
+                            muted 
+                            playsInline 
+                            className="w-full h-28 object-cover opacity-90"
+                            src={getAssetUrl(editForm.banner_url)}
+                          />
+                        ) : (
+                          <img 
+                            src={getAssetUrl(editForm.banner_url)} 
+                            alt="Banner de la Flota" 
+                            className="w-full h-28 object-cover opacity-90"
+                          />
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-2.5">
-                          <span className="text-[11px] text-white font-medium flex items-center gap-1">
+                          <span className="text-[11px] text-white font-medium flex items-center gap-1.5">
                             <Check size={12} className="text-emerald-400" />
-                            Foto activa en el portal
+                            {isVideoUrl(editForm.banner_url) ? 'Video en bucle activo en portal' : 'Foto activa en el portal'}
                           </span>
                           <div className="flex gap-1.5">
-                            <label className="cursor-pointer px-2 py-0.5 bg-white/90 hover:bg-white text-slate-800 text-[11px] font-semibold rounded-md">
+                            <label className="cursor-pointer px-2.5 py-1 bg-white/95 hover:bg-white text-slate-800 text-[11px] font-semibold rounded-md shadow-sm transition-all active:scale-95">
                               Cambiar
                               <input 
                                 type="file" 
-                                accept=".png,.jpg,.jpeg,.webp,image/*" 
+                                accept=".png,.jpg,.jpeg,.webp,.mp4,.webm,image/*,video/*" 
                                 className="hidden" 
                                 onChange={(e) => handleBannerUpload(e, 'edit')}
                                 disabled={uploadingBanner}
@@ -1370,21 +1427,21 @@ export default function CompaniesPage() {
                             <button
                               type="button"
                               onClick={() => setEditForm({ ...editForm, banner_url: '' })}
-                              className="p-1 bg-rose-600 text-white rounded-md"
+                              className="p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md shadow-sm transition-all"
                             >
-                              <X size={12} />
+                              <X size={13} />
                             </button>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/60 rounded-xl cursor-pointer transition-all">
-                        <ImageIcon size={20} className="text-indigo-600 mb-1" />
-                        <p className="text-xs font-bold text-slate-700">Subir foto panorámica de unidades / flota</p>
-                        <p className="text-[10px] text-slate-400">Aparecerá en el portal web de la empresa</p>
+                      <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/60 hover:bg-slate-50 rounded-xl cursor-pointer transition-all">
+                        <UploadCloud size={22} className="text-indigo-600 mb-1" />
+                        <p className="text-xs font-bold text-slate-700">Subir foto o video en bucle (10s)</p>
+                        <p className="text-[10px] text-slate-400">Admite fotos panorámicas o videos en formato MP4 / WEBM</p>
                         <input 
                           type="file" 
-                          accept=".png,.jpg,.jpeg,.webp,image/*" 
+                          accept=".png,.jpg,.jpeg,.webp,.mp4,.webm,image/*,video/*" 
                           className="hidden" 
                           onChange={(e) => handleBannerUpload(e, 'edit')}
                           disabled={uploadingBanner}
