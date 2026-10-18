@@ -131,8 +131,7 @@ async def upload_logo(
     with open(filepath, "wb") as f:
         f.write(content)
 
-    base_url = str(request.base_url).rstrip('/')
-    logo_url = f"{base_url}/uploads/logos/{unique_filename}"
+    logo_url = f"/uploads/logos/{unique_filename}"
     return {"logo_url": logo_url, "filename": file.filename}
 
 @router.post("/upload-banner")
@@ -159,8 +158,7 @@ async def upload_banner(
     with open(filepath, "wb") as f:
         f.write(content)
 
-    base_url = str(request.base_url).rstrip('/')
-    banner_url = f"{base_url}/uploads/banners/{unique_filename}"
+    banner_url = f"/uploads/banners/{unique_filename}"
     return {"banner_url": banner_url, "filename": file.filename}
 
 @router.post("/", response_model=schemas.EmpresaOut, status_code=201)

@@ -20,15 +20,18 @@ export const WS_BASE_URL = isLocalhost
   : (import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}`);
 
 /**
- * Obtiene la URL completa para un recurso estático (p. ej. logotipos subidos)
+ * Obtiene la URL completa para un recurso estático (p. ej. logotipos y banners subidos)
+ * Soporta de manera robusta subdominios (huaynaroque.industriascopai.com), producción y localhost
  */
 export function getAssetUrl(path) {
   if (!path) return '';
+  // Si contiene la ruta /uploads/, extraer la parte relativa para cargar desde el host actual
+  if (path.includes('/uploads/')) {
+    const uploadIdx = path.indexOf('/uploads/');
+    const relPath = path.substring(uploadIdx);
+    return isLocalhost ? `${API_BASE_URL}${relPath}` : relPath;
+  }
   if (path.startsWith('http://') || path.startsWith('https://')) {
-    // Si fue guardado con localhost pero estamos en producción, ajustar dinámicamente
-    if (!isLocalhost && path.includes('localhost:8000')) {
-      return path.replace(/http:\/\/localhost:8000/, window.location.origin);
-    }
     return path;
   }
   return `${API_BASE_URL}${path.startsWith('/') ? path : '/' + path}`;

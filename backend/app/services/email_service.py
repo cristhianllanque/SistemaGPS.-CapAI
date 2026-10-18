@@ -60,7 +60,10 @@ def send_welcome_email(
     es_empresa = (tipo == "empresa")
     
     if es_empresa and empresa_slug:
-        login_url = f"{settings.FRONTEND_URL}/login?empresa={empresa_slug}&login=true"
+        if "industriascopai.com" in settings.FRONTEND_URL:
+            login_url = f"https://{empresa_slug}.industriascopai.com/login?login=true"
+        else:
+            login_url = f"{settings.FRONTEND_URL}/login?empresa={empresa_slug}&login=true"
         subtitulo_tipo = f"Portal de Flota - {entidad_o_placa or 'Empresa'}"
         detalle_label = "Empresa / Flota:"
         bienvenida_msg = f"Tu cuenta de Gerencia / Administración ha sido activada exitosamente para la gestión de la flota de <strong>{entidad_o_placa or 'tu Empresa'}</strong> en nuestra plataforma de telemetría y rastreo satelital Copai."

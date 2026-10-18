@@ -84,6 +84,15 @@ export default function Login() {
     }
   }, [location.search]);
 
+  // Actualizar título de la pestaña del navegador según la empresa o COPAI
+  useEffect(() => {
+    if (companyPortal?.nombre) {
+      document.title = `${companyPortal.nombre} | Telematics GPS`;
+    } else {
+      document.title = 'COPAI';
+    }
+  }, [companyPortal]);
+
   // Abrir modal si la URL contiene ?login=true
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -108,8 +117,21 @@ export default function Login() {
       });
 
       const { access_token, empresa, usuario } = response.data;
+
+      // Validación Multi-Tenant: Si el usuario no es superadmin e intenta ingresar en un subdominio que no es el suyo
+      if (companyPortal && usuario.rol !== 'superadmin' && usuario.empresa_id && Number(usuario.empresa_id) !== Number(companyPortal.id)) {
+        setError(`Esta cuenta pertenece a otra empresa. Por favor ingresa desde tu portal oficial.`);
+        setLoading(false);
+        return;
+      }
+
+      // Si es superadmin entrando a un subdominio de cliente, contextualizar la empresa activa a este tenant
+      const activeEmpresa = (companyPortal && (usuario.rol === 'superadmin' || !empresa || empresa.id === 0))
+        ? companyPortal
+        : (empresa || { id: 0, nombre: 'COPAI', color_primario: '#2563EB' });
+
       localStorage.setItem('token', access_token);
-      localStorage.setItem('empresa', JSON.stringify(empresa || { id: 0, nombre: 'Copai Central', color_primario: '#2563EB' }));
+      localStorage.setItem('empresa', JSON.stringify(activeEmpresa));
       localStorage.setItem('usuario', JSON.stringify(usuario));
       
       // Navegar a dashboard
@@ -239,12 +261,12 @@ export default function Login() {
               {/* Acciones Superiores */}
               <div className="flex items-center gap-3 sm:gap-5">
                 <a 
-                  href="/" 
-                  className="hidden md:flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors font-semibold"
-                  title="Ir al portal principal de Industrias CopAI"
+                  href="https://industriascopai.com" 
+                  className="hidden md:flex items-center gap-2 text-xs text-slate-300 hover:text-white transition-colors font-semibold"
+                  title="Ir al portal principal de COPAI"
                 >
-                  <img src="/logo-copai-white.png" alt="CopAI" className="h-4 object-contain opacity-70 hover:opacity-100" />
-                  <span>Red CopAI ↗</span>
+                  <img src="/copai-symbol.png" alt="COPAI" className="h-5 w-5 object-contain" />
+                  <span>Red COPAI ↗</span>
                 </a>
 
                 {/* BOTÓN SUPERIOR DERECHO: ACCESO CENTRAL DE DESPACHO */}
@@ -543,14 +565,17 @@ export default function Login() {
           <header className="fixed top-0 left-0 right-0 z-40 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 transition-all shadow-xs">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
               
-              {/* Logo Oficial Industrias CopAI */}
+              {/* Logo Oficial COPAI */}
               <div className="flex items-center gap-4">
-                <a href="#inicio" className="flex items-center group">
+                <a href="#inicio" className="flex items-center gap-3 group">
                   <img 
-                    src="/logo-copai.png" 
-                    alt="Industrias CopAI" 
-                    className="h-9 sm:h-10 object-contain transition-transform group-hover:scale-102"
+                    src="/copai-symbol.png" 
+                    alt="COPAI" 
+                    className="h-9 w-9 sm:h-10 sm:w-10 object-contain transition-transform group-hover:scale-105"
                   />
+                  <span className="text-2xl font-black tracking-wider text-slate-900 group-hover:text-blue-600 transition-colors">
+                    COPAI
+                  </span>
                 </a>
                 <div className="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-200">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -842,15 +867,20 @@ export default function Login() {
                     className="h-12 object-contain"
                   />
                 ) : (
-                  <img 
-                    src="/logo-copai.png" 
-                    alt="Industrias CopAI" 
-                    className="h-10 object-contain"
-                  />
+                  <div className="flex items-center gap-3">
+                    <img 
+                      src="/copai-symbol.png" 
+                      alt="COPAI" 
+                      className="h-10 w-10 object-contain"
+                    />
+                    <span className="text-2xl font-black tracking-wider" style={{ color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF' }}>
+                      COPAI
+                    </span>
+                  </div>
                 )}
               </div>
               <h2 className="text-2xl font-black tracking-tight" style={{ color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF' }}>
-                {companyPortal ? `Central: ${companyPortal.nombre}` : 'Portal de Acceso CopAI'}
+                {companyPortal ? `Central: ${companyPortal.nombre}` : 'Acceso a Plataforma COPAI'}
               </h2>
               <p 
                 className="text-xs mt-1 font-semibold tracking-wide"
@@ -968,7 +998,7 @@ export default function Login() {
               <p className="text-[11px]" style={{ color: isLightPortal || !companyPortal ? '#64748B' : '#94A3B8' }}>
                 {companyPortal 
                   ? `Acceso para operadores autorizados de ${companyPortal.nombre}`
-                  : 'Acceso exclusivo para clientes y operadores de Industrias CopAI'}
+                  : 'Acceso exclusivo para clientes y operadores de COPAI'}
               </p>
             </div>
 

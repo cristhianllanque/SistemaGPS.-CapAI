@@ -13,6 +13,7 @@ from app.services.tcp_listener import start_tcp_server
 
 # Ensure upload directories exist
 os.makedirs("uploads/logos", exist_ok=True)
+os.makedirs("uploads/banners", exist_ok=True)
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
