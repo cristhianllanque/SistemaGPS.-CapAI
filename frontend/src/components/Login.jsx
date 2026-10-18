@@ -165,39 +165,41 @@ export default function Login() {
 
   return (
     <div 
-      className={`min-h-screen font-sans selection:bg-cyan-500 selection:text-black overflow-x-hidden relative transition-colors duration-300 ${
+      className={`min-h-screen font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden relative transition-colors duration-300 ${
         companyPortal
           ? isLightPortal ? 'text-slate-900' : 'text-slate-100'
-          : 'bg-[#070B14] text-slate-100'
+          : 'bg-[#F8FAFC] text-slate-800'
       }`}
       style={companyPortal ? {
         background: isLightPortal 
           ? `radial-gradient(circle at 15% 15%, ${cTerciario} 0%, #FFFFFF 55%, ${cTerciario}80 100%)`
           : `radial-gradient(circle at 15% 15%, ${cTerciario} 0%, #030805 70%, ${cTerciario}50 100%)`
-      } : undefined}
+      } : {
+        background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 40%, #F1F5F9 100%)'
+      }}
     >
       
       {/* Luces y Gradientes de Fondo Adaptativos */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div 
-          className="absolute top-[-15%] left-[10%] w-[650px] h-[650px] rounded-full blur-[160px]" 
+          className="absolute top-[-10%] left-[10%] w-[600px] h-[600px] rounded-full blur-[140px]" 
           style={{ 
-            backgroundColor: companyPortal ? cPrimario : '#2563EB',
-            opacity: companyPortal ? (isLightPortal ? 0.20 : 0.35) : 0.25 
+            backgroundColor: companyPortal ? cPrimario : '#3B82F6',
+            opacity: companyPortal ? (isLightPortal ? 0.20 : 0.35) : 0.07 
           }}
         />
         <div 
-          className="absolute top-[20%] right-[-10%] w-[550px] h-[550px] rounded-full blur-[150px]" 
+          className="absolute top-[20%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[140px]" 
           style={{ 
-            backgroundColor: companyPortal ? cTerciario : 'rgba(6, 182, 212, 0.15)',
-            opacity: companyPortal ? (isLightPortal ? 0.35 : 0.35) : 0.15 
+            backgroundColor: companyPortal ? cTerciario : '#60A5FA',
+            opacity: companyPortal ? (isLightPortal ? 0.35 : 0.35) : 0.05 
           }}
         />
         <div 
-          className="absolute bottom-[-10%] left-[30%] w-[600px] h-[600px] rounded-full blur-[150px]" 
+          className="absolute bottom-[-10%] left-[30%] w-[550px] h-[550px] rounded-full blur-[140px]" 
           style={{ 
-            backgroundColor: companyPortal ? cSecundario : 'rgba(79, 70, 229, 0.10)',
-            opacity: companyPortal ? (isLightPortal ? 0.25 : 0.08) : 0.10 
+            backgroundColor: companyPortal ? cSecundario : '#93C5FD',
+            opacity: companyPortal ? (isLightPortal ? 0.25 : 0.08) : 0.05 
           }}
         />
         
@@ -205,8 +207,8 @@ export default function Login() {
         <div 
           className="absolute inset-0" 
           style={{ 
-            opacity: companyPortal ? (isLightPortal ? 0.08 : 0.05) : 0.03,
-            backgroundImage: `radial-gradient(circle at 1px 1px, ${companyPortal ? cPrimario : '#38bdf8'} 1px, transparent 0)`,
+            opacity: companyPortal ? (isLightPortal ? 0.08 : 0.05) : 0.025,
+            backgroundImage: `radial-gradient(circle at 1px 1px, ${companyPortal ? cPrimario : '#0284c7'} 1px, transparent 0)`,
             backgroundSize: '36px 36px' 
           }} 
         />
@@ -653,39 +655,39 @@ export default function Login() {
         /* ========================================================================= */
         <>
           {/* ================= BARRA SUPERIOR / NAVBAR COPAI ================= */}
-          <header className="fixed top-0 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-cyan-500/15 transition-all">
+          <header className="fixed top-0 left-0 right-0 z-40 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 transition-all shadow-xs">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
               
               {/* Logo Oficial Industrias CopAI */}
               <div className="flex items-center gap-4">
                 <a href="#inicio" className="flex items-center group">
                   <img 
-                    src="/logo-copai-white.png" 
+                    src="/logo-copai.png" 
                     alt="Industrias CopAI" 
-                    className="h-10 sm:h-11 object-contain transition-transform group-hover:scale-105"
+                    className="h-9 sm:h-10 object-contain transition-transform group-hover:scale-102"
                   />
                 </a>
-                <div className="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-800">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="text-[11px] font-semibold text-cyan-400 tracking-wider uppercase font-mono">
-                    Ecosistema Industrial 4.0
+                <div className="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[11px] font-semibold text-slate-500 tracking-wider uppercase">
+                    Ecosistema Telematics 4.0
                   </span>
                 </div>
               </div>
 
               {/* Enlaces de Navegación */}
-              <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
-                <a href="#telemetria" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5">
-                  <Radio size={15} className="text-cyan-400" /> Telemetría GPS
+              <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
+                <a href="#telemetria" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                  <Radio size={16} className="text-blue-600" /> Telemetría GPS
                 </a>
-                <a href="#robotica" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5">
-                  <Bot size={15} className="text-blue-400" /> Robótica
+                <a href="#robotica" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                  <Bot size={16} className="text-blue-600" /> Automatización
                 </a>
-                <a href="#ia" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5">
-                  <Brain size={15} className="text-cyan-300" /> Inteligencia Artificial
+                <a href="#ia" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                  <Brain size={16} className="text-blue-600" /> Analítica Predictiva
                 </a>
-                <a href="#contratos" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5">
-                  <FileCode size={15} className="text-indigo-400" /> Smart Contracts
+                <a href="#contratos" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                  <FileCode size={16} className="text-blue-600" /> Trazabilidad
                 </a>
               </nav>
 
@@ -696,11 +698,11 @@ export default function Login() {
                     setShowLoginModal(true);
                     setError('');
                   }}
-                  className="relative group px-5 sm:px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.35)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] transition-all duration-300 flex items-center gap-2.5 border border-cyan-400/40 cursor-pointer active:scale-95"
+                  className="px-5 sm:px-6 py-2.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow transition-all duration-200 flex items-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <Lock size={15} className="text-cyan-200 group-hover:rotate-12 transition-transform" />
+                  <Lock size={15} />
                   <span>Iniciar Sesión</span>
-                  <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight size={15} />
                 </button>
               </div>
 
@@ -711,176 +713,176 @@ export default function Login() {
           <main className="relative z-10 pt-28 sm:pt-36 pb-20">
             
             {/* HERO SECTION */}
-            <section id="inicio" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 sm:pt-16 pb-20">
+            <section id="inicio" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 sm:pt-16 pb-16">
               
-              {/* Badge de Vanguardia */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/30 text-xs font-semibold text-cyan-300 mb-6 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-                <Sparkles size={14} className="text-cyan-400 animate-spin" style={{ animationDuration: '6s' }} />
-                <span>INGENIERÍA TECNOLÓGICA & AUTOMATIZACIÓN AVANZADA</span>
+              {/* Badge Natural */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-xs font-semibold text-blue-700 mb-6 shadow-xs">
+                <Radio size={14} className="text-blue-600" />
+                <span>TECNOLOGÍA SATELITAL & GESTIÓN DE FLOTA</span>
               </div>
 
               {/* Título Principal */}
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.15]">
+              <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 max-w-4xl mx-auto leading-[1.18]">
                 Innovación sin Límites para la <br className="hidden sm:inline" />
-                <span className="bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-300 bg-clip-text text-transparent">
+                <span className="text-blue-600">
                   Industria del Futuro
                 </span>
               </h1>
 
               {/* Bajada Narrativa */}
-              <p className="mt-6 text-base sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
+              <p className="mt-6 text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
                 En <strong>Industrias CopAI</strong> fusionamos telemetría satelital GPS de grado industrial, robótica autónoma, inteligencia artificial predictiva y arquitectura de contratos inteligentes para liderar la transformación digital del transporte y la industria pesada.
               </p>
 
               {/* Botones de Acción */}
-              <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5">
                 <button
                   onClick={() => {
                     setShowLoginModal(true);
                     setError('');
                   }}
-                  className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.4)] hover:shadow-[0_0_40px_rgba(6,182,212,0.7)] transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer active:scale-95"
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
                 >
-                  <Cpu size={18} />
+                  <Cpu size={17} />
                   <span>Acceso a la Plataforma</span>
-                  <ArrowRight size={18} />
+                  <ArrowRight size={17} />
                 </button>
                 <a
                   href="#telemetria"
-                  className="w-full sm:w-auto px-8 py-4 rounded-xl font-semibold text-base text-slate-200 bg-slate-900/80 hover:bg-slate-800/80 border border-slate-700/80 hover:border-cyan-500/50 transition-all duration-300 flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-semibold text-sm text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 shadow-xs transition-all flex items-center justify-center gap-2"
                 >
                   <span>Explorar Tecnologías</span>
-                  <ChevronRight size={18} />
+                  <ChevronRight size={17} />
                 </a>
               </div>
 
-              {/* HUD / Indicadores en Vivo */}
-              <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-cyan-500/20 backdrop-blur-md">
-                  <div className="text-2xl sm:text-3xl font-extrabold text-cyan-400 font-mono">99.98%</div>
-                  <div className="text-xs text-slate-400 mt-1 uppercase font-semibold">Disponibilidad Uptime</div>
+              {/* Indicadores / Metricas Naturales */}
+              <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
+                  <div className="text-3xl font-extrabold text-slate-900">99.98%</div>
+                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Disponibilidad Uptime</div>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-cyan-500/20 backdrop-blur-md">
-                  <div className="text-2xl sm:text-3xl font-extrabold text-blue-400 font-mono">&lt; 100ms</div>
-                  <div className="text-xs text-slate-400 mt-1 uppercase font-semibold">Latencia Telemetría</div>
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
+                  <div className="text-3xl font-extrabold text-slate-900">&lt; 100ms</div>
+                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Latencia Telemetría</div>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-cyan-500/20 backdrop-blur-md">
-                  <div className="text-2xl sm:text-3xl font-extrabold text-teal-400 font-mono">256-bit</div>
-                  <div className="text-xs text-slate-400 mt-1 uppercase font-semibold">Cifrado Militar</div>
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
+                  <div className="text-3xl font-extrabold text-slate-900">256-bit</div>
+                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Cifrado de Datos</div>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-cyan-500/20 backdrop-blur-md">
-                  <div className="text-2xl sm:text-3xl font-extrabold text-indigo-400 font-mono">Multi-Tenant</div>
-                  <div className="text-xs text-slate-400 mt-1 uppercase font-semibold">White-Label Dedicado</div>
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
+                  <div className="text-3xl font-extrabold text-blue-600">Multi-Tenant</div>
+                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Portales Dedicados</div>
                 </div>
               </div>
 
             </section>
 
             {/* LAS 4 DIVISIONES TECNOLÓGICAS DE INDUSTRIAS COPAI */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-              <div className="text-center mb-16">
-                <h2 className="text-xs font-bold text-cyan-400 tracking-widest uppercase font-mono mb-2">
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+              <div className="text-center mb-12">
+                <h2 className="text-xs font-bold text-blue-600 tracking-widest uppercase mb-2">
                   ÁREAS DE EXCELENCIA TÉCNICA
                 </h2>
-                <p className="text-3xl sm:text-4xl font-extrabold text-white">
-                  Pilares de Transformación Industrial
+                <p className="text-3xl sm:text-4xl font-extrabold text-slate-900">
+                  Pilares de Transformación Operativa
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* 1. TELEMETRÍA GPS INDUSTRIAL */}
-                <div id="telemetria" className="group relative p-8 rounded-3xl bg-gradient-to-br from-slate-900/90 to-slate-950/90 border border-cyan-500/20 hover:border-cyan-400/50 transition-all duration-300 shadow-lg hover:shadow-[0_0_30px_rgba(6,182,212,0.2)]">
-                  <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform">
-                    <Radio size={28} />
+                <div id="telemetria" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-5">
+                    <Radio size={24} />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3 flex items-center gap-2">
-                    <span>Telemetría Satelital GPS & IoT</span>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
+                    Telemetría Satelital GPS & IoT
                   </h3>
-                  <p className="text-slate-300 text-sm leading-relaxed mb-6">
+                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
                     Arquitectura de alta concurrencia capaz de procesar miles de tramas TCP por segundo desde dispositivos Teltonika (FMC130, FMM130, etc.). Telemetría en tiempo real de velocidad, odómetro satelital, geocercas poligonales inteligentes y control remoto de corte de ignición.
                   </p>
-                  <ul className="space-y-2.5 text-xs text-slate-400 font-medium">
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-cyan-400" /> Servidor TCP asíncrono con protocolo Teltonika Codec 8/8 Extended
+                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-blue-600 flex-shrink-0" /> Protocolo asíncrono Teltonika Codec 8 y Codec 8 Extended
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-cyan-400" /> WebSockets bi-direccionales de latencia sub-segundo
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-blue-600 flex-shrink-0" /> WebSockets bi-direccionales de latencia sub-segundo
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-cyan-400" /> Notificaciones automáticas de exceso de velocidad por correo y panel
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-blue-600 flex-shrink-0" /> Alertas automáticas de velocidad y corte de energía
                     </li>
                   </ul>
                 </div>
 
                 {/* 2. ROBÓTICA INDUSTRIAL */}
-                <div id="robotica" className="group relative p-8 rounded-3xl bg-gradient-to-br from-slate-900/90 to-slate-950/90 border border-blue-500/20 hover:border-blue-400/50 transition-all duration-300 shadow-lg hover:shadow-[0_0_30px_rgba(59,130,246,0.2)]">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 mb-6 group-hover:scale-110 transition-transform">
-                    <Bot size={28} />
+                <div id="robotica" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-5">
+                    <Bot size={24} />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
                     Robótica y Automatización Autónoma
                   </h3>
-                  <p className="text-slate-300 text-sm leading-relaxed mb-6">
+                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
                     Diseño, desarrollo e integración de sistemas mecatrónicos y vehículos de guiado automático (AGVs) para logística y almacenes inteligentes. Automatización integral de procesos industriales para eliminar tiempos muertos y maximizar la precisión operativa.
                   </p>
-                  <ul className="space-y-2.5 text-xs text-slate-400 font-medium">
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-blue-400" /> Integración con PLCs industriales y buses de campo Modbus/CAN
+                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-indigo-600 flex-shrink-0" /> Integración con PLCs industriales y buses de campo Modbus/CAN
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-blue-400" /> Control cinemático en tiempo real y visión por computadora
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-indigo-600 flex-shrink-0" /> Control cinemático en tiempo real y visión computacional
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-blue-400" /> Monitoreo y diagnóstico remoto de salud mecánica
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-indigo-600 flex-shrink-0" /> Monitoreo y diagnóstico remoto de salud mecánica
                     </li>
                   </ul>
                 </div>
 
                 {/* 3. INTELIGENCIA ARTIFICIAL */}
-                <div id="ia" className="group relative p-8 rounded-3xl bg-gradient-to-br from-slate-900/90 to-slate-950/90 border border-cyan-400/20 hover:border-cyan-300/50 transition-all duration-300 shadow-lg hover:shadow-[0_0_30px_rgba(34,211,238,0.2)]">
-                  <div className="w-14 h-14 rounded-2xl bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center text-cyan-300 mb-6 group-hover:scale-110 transition-transform">
-                    <Brain size={28} />
+                <div id="ia" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5">
+                    <Brain size={24} />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
                     Inteligencia Artificial Predictiva
                   </h3>
-                  <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                    Modelos de Machine Learning entrenados sobre millones de datos de sensores para mantenimiento predictivo de motores, análisis de comportamiento del conductor (frenados bruscos, aceleraciones excesivas) y optimización de rutas y consumo de combustible.
+                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
+                    Modelos de Machine Learning entrenados sobre datos de sensores para mantenimiento predictivo de motores, análisis de comportamiento del conductor (frenados bruscos, aceleraciones excesivas) y optimización de rutas y consumo de combustible.
                   </p>
-                  <ul className="space-y-2.5 text-xs text-slate-400 font-medium">
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-cyan-300" /> Detección temprana de fallas mecánicas antes de que ocurran
+                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-emerald-600 flex-shrink-0" /> Detección temprana de anomalías antes de fallas críticas
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-cyan-300" /> Scoring automático de seguridad para conductores
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-emerald-600 flex-shrink-0" /> Calificación automática de conducción segura
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-cyan-300" /> Optimización de consumo energético y huella de carbono
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-emerald-600 flex-shrink-0" /> Optimización de consumo energético y eficiencia térmica
                     </li>
                   </ul>
                 </div>
 
                 {/* 4. SMART CONTRACTS */}
-                <div id="contratos" className="group relative p-8 rounded-3xl bg-gradient-to-br from-slate-900/90 to-slate-950/90 border border-indigo-500/20 hover:border-indigo-400/50 transition-all duration-300 shadow-lg hover:shadow-[0_0_30px_rgba(99,102,241,0.2)]">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-6 group-hover:scale-110 transition-transform">
-                    <FileCode size={28} />
+                <div id="contratos" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
+                  <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-5">
+                    <FileCode size={24} />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">
-                    Smart Contracts & Blockchain Logística
+                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
+                    Smart Contracts & Trazabilidad
                   </h3>
-                  <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                    Certificación inviolable de registros de telemetría y ejecución automática de contratos de despacho logístico mediante contratos inteligentes. Garantía criptográfica de cumplimiento de horarios, temperatura en cadena de frío e itinerarios auditables.
+                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
+                    Certificación de registros de telemetría y ejecución de auditorías de despacho logístico mediante contratos inteligentes. Garantía técnica de cumplimiento de horarios, temperatura en cadena de frío e itinerarios transparentes.
                   </p>
-                  <ul className="space-y-2.5 text-xs text-slate-400 font-medium">
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-indigo-400" /> Registro inmutable de eventos críticos y kilometraje
+                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-sky-600 flex-shrink-0" /> Registro inmutable de eventos críticos y kilometraje
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-indigo-400" /> Liquidación automática de servicios logísticos contra entrega confirmada
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-sky-600 flex-shrink-0" /> Liquidación verificable de servicios contra entrega
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Check size={14} className="text-indigo-400" /> Trazabilidad punta a punta para auditorías y aseguradoras
+                    <li className="flex items-center gap-2.5">
+                      <Check size={15} className="text-sky-600 flex-shrink-0" /> Trazabilidad punta a punta para auditorías operativas
                     </li>
                   </ul>
                 </div>
@@ -891,19 +893,19 @@ export default function Login() {
           </main>
 
           {/* ================= PIE DE PÁGINA COPAI ================= */}
-          <footer className="relative z-10 border-t border-slate-800/80 bg-slate-950/80 py-12 px-4 sm:px-6 lg:px-8 text-center sm:text-left">
+          <footer className="relative z-10 border-t border-slate-200 bg-white py-10 px-4 sm:px-6 lg:px-8 text-center sm:text-left">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-3">
                 <img 
-                  src="/logo-copai-white.png" 
+                  src="/logo-copai.png" 
                   alt="Industrias CopAI" 
                   className="h-8 object-contain"
                 />
-                <span className="text-xs text-slate-500 font-mono">
+                <span className="text-xs text-slate-500">
                   © 2026 Industrias CopAI. Todos los derechos reservados.
                 </span>
               </div>
-              <div className="text-xs text-slate-400 flex items-center gap-6">
+              <div className="text-xs text-slate-500 flex flex-wrap items-center justify-center gap-6">
                 <span>RUC: 20601847291</span>
                 <span>Puno • Arequipa • Lima, Perú</span>
                 <button
@@ -911,9 +913,9 @@ export default function Login() {
                     setShowLoginModal(true);
                     setError('');
                   }}
-                  className="text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer"
+                  className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer"
                 >
-                  Acceso Empleados / Clientes ➔
+                  Acceso a la Central ➔
                 </button>
               </div>
             </div>
@@ -925,13 +927,13 @@ export default function Login() {
       {/* MODAL UNIFICADO DE INICIAR SESIÓN (Adaptado para CopAI o Empresa Cliente) */}
       {/* ========================================================================= */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div 
             className="relative w-full max-w-md p-7 sm:p-9 rounded-3xl border transition-all animate-in zoom-in-95 duration-200 shadow-2xl"
             style={{
-              backgroundColor: isLightPortal ? '#FFFFFF' : '#0B1320',
-              borderColor: companyPortal ? `${cPrimario}50` : 'rgba(6,182,212,0.4)',
-              boxShadow: companyPortal ? `0 25px 60px ${cPrimario}30` : '0 0 60px rgba(6,182,212,0.3)'
+              backgroundColor: isLightPortal || !companyPortal ? '#FFFFFF' : '#0B1320',
+              borderColor: companyPortal ? `${cPrimario}50` : '#E2E8F0',
+              boxShadow: companyPortal ? `0 25px 60px ${cPrimario}30` : '0 20px 45px rgba(15,23,42,0.12)'
             }}
           >
             
@@ -939,7 +941,7 @@ export default function Login() {
             <button
               onClick={() => setShowLoginModal(false)}
               className="absolute top-5 right-5 p-2 rounded-xl transition-colors cursor-pointer"
-              style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}
+              style={{ color: isLightPortal || !companyPortal ? '#64748B' : '#94A3B8' }}
               title="Cerrar ventana"
             >
               <X size={20} />
@@ -956,27 +958,27 @@ export default function Login() {
                   />
                 ) : (
                   <img 
-                    src="/logo-copai-white.png" 
+                    src="/logo-copai.png" 
                     alt="Industrias CopAI" 
                     className="h-10 object-contain"
                   />
                 )}
               </div>
-              <h2 className="text-2xl font-black tracking-tight" style={{ color: isLightPortal ? '#0F172A' : '#FFFFFF' }}>
+              <h2 className="text-2xl font-black tracking-tight" style={{ color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF' }}>
                 {companyPortal ? `Central: ${companyPortal.nombre}` : 'Portal de Acceso CopAI'}
               </h2>
               <p 
-                className="text-xs mt-1 font-mono tracking-wide font-bold"
-                style={{ color: cPrimario }}
+                className="text-xs mt-1 font-semibold tracking-wide"
+                style={{ color: companyPortal ? cPrimario : '#2563EB' }}
               >
-                {companyPortal ? 'Autenticación de Flota & Despacho' : 'Autenticación Segura Multi-Tenant'}
+                {companyPortal ? 'Autenticación de Flota & Despacho' : 'Autenticación Segura de Clientes & Flota'}
               </p>
             </div>
 
             {/* Error de credenciales */}
             {error && (
-              <div className="mb-5 p-3.5 bg-red-950/50 border border-red-500/40 text-red-200 rounded-xl flex items-center gap-2.5 text-xs animate-shake">
-                <ShieldAlert size={18} className="text-red-400 flex-shrink-0" />
+              <div className="mb-5 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2.5 text-xs animate-shake">
+                <ShieldAlert size={18} className="text-red-500 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
@@ -984,8 +986,8 @@ export default function Login() {
             {/* Formulario */}
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold mb-1.5 flex items-center gap-1.5" style={{ color: isLightPortal ? '#334155' : '#E2E8F0' }}>
-                  <Mail size={13} style={{ color: cPrimario }} />
+                <label className="block text-xs font-bold mb-1.5 flex items-center gap-1.5" style={{ color: isLightPortal || !companyPortal ? '#334155' : '#E2E8F0' }}>
+                  <Mail size={13} style={{ color: companyPortal ? cPrimario : '#2563EB' }} />
                   <span>Correo Electrónico / Usuario</span>
                 </label>
                 <input 
@@ -996,17 +998,17 @@ export default function Login() {
                   placeholder="usuario@empresa.com"
                   className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all border"
                   style={{
-                    backgroundColor: isLightPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.7)',
-                    borderColor: isLightPortal ? '#CBD5E1' : '#334155',
-                    color: isLightPortal ? '#0F172A' : '#FFFFFF'
+                    backgroundColor: isLightPortal || !companyPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.7)',
+                    borderColor: isLightPortal || !companyPortal ? '#E2E8F0' : '#334155',
+                    color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF'
                   }}
                 />
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: isLightPortal ? '#334155' : '#E2E8F0' }}>
-                    <Lock size={13} style={{ color: cPrimario }} />
+                  <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: isLightPortal || !companyPortal ? '#334155' : '#E2E8F0' }}>
+                    <Lock size={13} style={{ color: companyPortal ? cPrimario : '#2563EB' }} />
                     <span>Contraseña</span>
                   </label>
                   <button
@@ -1019,7 +1021,7 @@ export default function Login() {
                       setForgotEmail('');
                     }}
                     className="text-xs font-bold hover:underline transition-colors cursor-pointer"
-                    style={{ color: cPrimario }}
+                    style={{ color: companyPortal ? cPrimario : '#2563EB' }}
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
@@ -1033,16 +1035,16 @@ export default function Login() {
                     placeholder="••••••••"
                     className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all pr-11 border"
                     style={{
-                      backgroundColor: isLightPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.7)',
-                      borderColor: isLightPortal ? '#CBD5E1' : '#334155',
-                      color: isLightPortal ? '#0F172A' : '#FFFFFF'
+                      backgroundColor: isLightPortal || !companyPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.7)',
+                      borderColor: isLightPortal || !companyPortal ? '#E2E8F0' : '#334155',
+                      color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF'
                     }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-                    style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}
+                    style={{ color: isLightPortal || !companyPortal ? '#64748B' : '#94A3B8' }}
                     title={showPassword ? 'Ocultar' : 'Mostrar'}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1060,10 +1062,10 @@ export default function Login() {
                   borderColor: `${cSecundario}40`,
                   boxShadow: `0 8px 25px ${cPrimario}50`
                 } : {
-                  background: 'linear-gradient(to right, #2563eb, #4f46e5, #06b6d4)',
-                  color: '#ffffff',
-                  borderColor: 'rgba(6,182,212,0.4)',
-                  boxShadow: '0 0 20px rgba(6,182,212,0.4)'
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  borderColor: '#1D4ED8',
+                  boxShadow: '0 4px 15px rgba(37,99,235,0.3)'
                 }}
               >
                 {loading ? (
@@ -1077,8 +1079,8 @@ export default function Login() {
               </button>
             </form>
 
-            <div className="mt-6 pt-5 border-t text-center" style={{ borderColor: isLightPortal ? '#E2E8F0' : '#1E293B' }}>
-              <p className="text-[11px]" style={{ color: isLightPortal ? '#64748B' : '#94A3B8' }}>
+            <div className="mt-6 pt-5 border-t text-center" style={{ borderColor: isLightPortal || !companyPortal ? '#E2E8F0' : '#1E293B' }}>
+              <p className="text-[11px]" style={{ color: isLightPortal || !companyPortal ? '#64748B' : '#94A3B8' }}>
                 {companyPortal 
                   ? `Acceso para operadores autorizados de ${companyPortal.nombre}`
                   : 'Acceso exclusivo para clientes y operadores de Industrias CopAI'}
@@ -1091,17 +1093,17 @@ export default function Login() {
 
       {/* ================= MODAL RECUPERACIÓN DE CONTRASEÑA ================= */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-slate-900 p-7 rounded-3xl border border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.25)] animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white p-7 rounded-3xl border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-200">
             
-            <div className="flex justify-between items-center pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-2 text-cyan-400">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-blue-600">
                 <Mail size={20} />
-                <h3 className="font-bold text-base text-white">Recuperar Contraseña</h3>
+                <h3 className="font-bold text-base text-slate-900">Recuperar Contraseña</h3>
               </div>
               <button 
                 onClick={() => setShowForgotModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -1110,9 +1112,9 @@ export default function Login() {
             <div className="pt-5">
               {forgotSuccess ? (
                 <div className="text-center py-4 space-y-3">
-                  <CheckCircle2 size={48} className="text-emerald-400 mx-auto animate-bounce" />
-                  <p className="text-sm text-slate-200 font-semibold">{forgotMsg}</p>
-                  <p className="text-xs text-slate-400">
+                  <CheckCircle2 size={48} className="text-emerald-500 mx-auto animate-bounce" />
+                  <p className="text-sm text-slate-800 font-semibold">{forgotMsg}</p>
+                  <p className="text-xs text-slate-500">
                     Revisa tu bandeja de entrada o spam. El enlace expira en 2 horas.
                   </p>
                   <button
@@ -1120,25 +1122,25 @@ export default function Login() {
                       setShowForgotModal(false);
                       setShowLoginModal(true);
                     }}
-                    className="w-full mt-4 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-2.5 rounded-xl text-sm transition-all"
+                    className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-sm"
                   >
                     Volver a Iniciar Sesión
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className="text-xs text-slate-500 leading-relaxed">
                     Ingresa el correo corporativo registrado en tu cuenta y te enviaremos de inmediato un enlace seguro desde <strong>notificaciones@industriascopai.com</strong>.
                   </p>
 
                   {forgotError && (
-                    <div className="p-3 bg-red-950/50 border border-red-500/40 text-red-200 text-xs rounded-xl">
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
                       {forgotError}
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Correo Electrónico
                     </label>
                     <input
@@ -1147,7 +1149,7 @@ export default function Login() {
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder="tu-correo@empresa.com"
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                     />
                   </div>
 
@@ -1155,14 +1157,14 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => setShowForgotModal(false)}
-                      className="px-4 py-2.5 border border-slate-800 text-slate-400 hover:text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-colors"
+                      className="px-4 py-2.5 border border-slate-200 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-xl hover:bg-slate-100 transition-colors"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={forgotLoading}
-                      className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-60 cursor-pointer"
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm disabled:opacity-60 cursor-pointer"
                     >
                       {forgotLoading ? 'Enviando...' : 'Enviar Enlace'}
                     </button>
