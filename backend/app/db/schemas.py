@@ -11,7 +11,12 @@ class EmpresaBase(BaseModel):
     documento: Optional[str] = None
     telefono: Optional[str] = None
     logo_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    slogan: Optional[str] = None
+    servicios: Optional[str] = None
     color_primario: Optional[str] = "#1E40AF"
+    color_secundario: Optional[str] = "#FFFFFF"
+    color_terciario: Optional[str] = None
     limite_velocidad: Optional[int] = 90
 
 class EmpresaCreate(BaseModel):
@@ -21,7 +26,12 @@ class EmpresaCreate(BaseModel):
     documento: Optional[str] = None
     telefono: Optional[str] = None
     logo_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    slogan: Optional[str] = None
+    servicios: Optional[str] = None
     color_primario: Optional[str] = "#1E40AF"
+    color_secundario: Optional[str] = "#FFFFFF"
+    color_terciario: Optional[str] = None
     limite_velocidad: Optional[int] = 90
     # Optional initial Gerente user creation
     gerente_nombre: Optional[str] = None
@@ -54,9 +64,32 @@ class EmpresaUpdate(BaseModel):
     documento: Optional[str] = None
     telefono: Optional[str] = None
     logo_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    slogan: Optional[str] = None
+    servicios: Optional[str] = None
     color_primario: Optional[str] = None
+    color_secundario: Optional[str] = None
+    color_terciario: Optional[str] = None
     limite_velocidad: Optional[int] = None
     activo: Optional[bool] = None
+
+class EmpresaPublicPortal(BaseModel):
+    id: int
+    nombre: str
+    slug: str
+    logo_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    color_primario: Optional[str] = "#1E40AF"
+    color_secundario: Optional[str] = "#FFFFFF"
+    color_terciario: Optional[str] = None
+    slogan: Optional[str] = None
+    servicios: Optional[str] = None
+    telefono: Optional[str] = None
+    documento: Optional[str] = None
+    total_vehiculos: Optional[int] = 0
+    limite_velocidad: Optional[int] = 90
+    class Config:
+        from_attributes = True
 
 class LimiteVelocidadUpdate(BaseModel):
     limite_velocidad: int
@@ -353,3 +386,12 @@ class DashboardStats(BaseModel):
     vehiculos_sin_dispositivo: int = 0
     total_conductores: int = 0
     alertas_pendientes: int = 0
+
+
+# ============ AUTH RECOVERY ============
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str

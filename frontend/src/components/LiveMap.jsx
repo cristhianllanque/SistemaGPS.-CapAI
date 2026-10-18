@@ -150,7 +150,7 @@ export default function LiveMap({
           const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
           const isIgnitionOn = Boolean(u && u.ignicion);
 
-          const isSabotage = u && Boolean(u.sabotaje);
+          const isSabotage = u && Boolean(u.sabotaje) && (u.bateria_ext === null || u.bateria_ext === undefined || u.bateria_ext < 7.0);
           const isThisEmergency = isOnline && (emergencyVehicleId === v.id || Boolean(u.boton_panico));
           const isSpeeding = isOnline && (u.velocidad > (limiteVelocidad || 90));
           

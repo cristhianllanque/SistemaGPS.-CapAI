@@ -14,10 +14,17 @@ import Reportes from './pages/Reportes';
 import UsersPage from './pages/UsersPage';
 import CompaniesPage from './pages/CompaniesPage';
 import ParticularesPage from './pages/ParticularesPage';
+import ResetPassword from './pages/ResetPassword';
+
+import { useLocation } from 'react-router-dom';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!token) {
+    return <Navigate to={`/login${location.search}`} replace />;
+  }
+  return children;
 }
 
 function App() {
@@ -25,6 +32,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/" element={
           <ProtectedRoute>
             <Layout />

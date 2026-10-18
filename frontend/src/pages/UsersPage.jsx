@@ -141,7 +141,7 @@ export default function UsersPage() {
         <div className="mb-5 p-3.5 bg-indigo-50/80 border border-indigo-100 text-indigo-900 rounded-xl text-xs flex items-center gap-2.5 shadow-sm">
           <Shield size={18} className="text-indigo-600 flex-shrink-0" />
           <span>
-            <strong>Directorio de Usuarios de la Empresa:</strong> Modo de consulta. La creación, asignación y restablecimiento de credenciales es administrada por la administración central de Copay.
+            <strong>Directorio de Usuarios de la Empresa:</strong> Modo de consulta. La creación, asignación y restablecimiento de credenciales es administrada por la administración central de Copai.
           </span>
         </div>
       )}
@@ -178,7 +178,7 @@ export default function UsersPage() {
                   {isSuperadmin && (
                     <td className="px-4 py-3 text-slate-700 font-medium">
                       <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-mono">
-                        {u.empresa_nombre || 'Copay Central'}
+                        {u.empresa_nombre || 'Copai Central'}
                       </span>
                     </td>
                   )}
@@ -257,7 +257,7 @@ export default function UsersPage() {
                     onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="">Copay Central (Superadmin / Global)</option>
+                    <option value="">Copai Central (Superadmin / Global)</option>
                     {empresas.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.nombre}</option>
                     ))}

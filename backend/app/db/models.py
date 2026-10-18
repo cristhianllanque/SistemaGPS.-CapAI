@@ -13,8 +13,13 @@ class Empresa(Base):
     documento = Column(String(20), nullable=True) # DNI o RUC para clientes particulares
     telefono = Column(String(50), nullable=True)
     logo_url = Column(String(255))
-    color_primario = Column(String(50))
+    color_primario = Column(String(50), default="#1E40AF")
+    color_secundario = Column(String(50), default="#FFFFFF")
+    color_terciario = Column(String(50), nullable=True)
     limite_velocidad = Column(Integer, default=90)
+    slogan = Column(String(500), nullable=True)
+    banner_url = Column(String(255), nullable=True)
+    servicios = Column(Text, nullable=True)
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

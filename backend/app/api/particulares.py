@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
@@ -8,6 +8,7 @@ import unicodedata
 from app.api.deps import get_db, get_current_user, require_role
 from app.db import models, schemas
 from app.core.security import get_password_hash
+from app.services.email_service import send_welcome_email
 
 router = APIRouter()
 
@@ -16,13 +17,23 @@ def slugify(text: str) -> str:
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     return re.sub(r'[-\s]+', '-', text)
 
+def _limpiar_email_baja(email: str) -> str:
+    return re.sub(r'^baja\d+_', '', email or '')
+
+def _limpiar_placa_baja(placa: str) -> str:
+    return re.sub(r'-B\d+$', '', placa or '')
+
 @router.get("/")
 def list_clientes_particulares(
+    inactivos: bool = False,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    """Lista todos los clientes particulares registrados (personas naturales con vehículos individuales)"""
-    query = db.query(models.Empresa).filter(models.Empresa.tipo == 'particular')
+    """Lista clientes particulares activos (o los dados de baja si inactivos=true, solo superadmin)"""
+    if inactivos and current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Solo el Superadmin puede ver clientes dados de baja.")
+
+    query = db.query(models.Empresa).filter(models.Empresa.tipo == 'particular', models.Empresa.activo == (not inactivos))
     
     if current_user.rol != 'superadmin':
         # Un cliente particular solo puede ver su propia cuenta
@@ -32,8 +43,13 @@ def list_clientes_particulares(
     resultado = []
 
     for p in particulares:
-        vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == p.id, models.Vehiculo.activo == True).first()
-        usuario = db.query(models.Usuario).filter(models.Usuario.empresa_id == p.id, models.Usuario.activo == True).first()
+        vq = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == p.id)
+        uq = db.query(models.Usuario).filter(models.Usuario.empresa_id == p.id)
+        if not inactivos:
+            vq = vq.filter(models.Vehiculo.activo == True)
+            uq = uq.filter(models.Usuario.activo == True)
+        vehiculo = vq.order_by(models.Vehiculo.id.desc()).first()
+        usuario = uq.first()
         
         dispositivo_info = None
         if vehiculo and vehiculo.dispositivo:
@@ -50,7 +66,7 @@ def list_clientes_particulares(
             "nombre": p.nombre,
             "documento": p.documento,
             "telefono": p.telefono,
-            "email": usuario.email if usuario else None,
+            "email": _limpiar_email_baja(usuario.email) if usuario else None,
             "usuario_id": usuario.id if usuario else None,
             "limite_velocidad": p.limite_velocidad or 90,
             "color_primario": p.color_primario or "#0D9488",
@@ -58,7 +74,7 @@ def list_clientes_particulares(
             "created_at": p.created_at,
             "vehiculo": {
                 "id": vehiculo.id if vehiculo else None,
-                "placa": vehiculo.placa if vehiculo else "Sin asignar",
+                "placa": _limpiar_placa_baja(vehiculo.placa) if vehiculo else "Sin asignar",
                 "marca": vehiculo.marca if vehiculo else None,
                 "modelo": vehiculo.modelo if vehiculo else None,
                 "color": vehiculo.color if vehiculo else None,
@@ -73,6 +89,7 @@ def list_clientes_particulares(
 @router.post("/", status_code=201)
 def create_cliente_particular(
     payload: schemas.ClienteParticularCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(require_role(['superadmin']))
 ):
@@ -174,11 +191,22 @@ def create_cliente_particular(
     # Si se asignó dispositivo, actualizar su estado y empresa_id
     if dispositivo:
         dispositivo.empresa_id = empresa_part.id
-        dispositivo.estado = "asignado"
+        dispositivo.estado = "instalado"
 
     db.commit()
     db.refresh(empresa_part)
     db.refresh(vehiculo_part)
+
+    # Disparar correo de bienvenida y credenciales en segundo plano (no bloqueante)
+    desc_vehiculo = f"{placa_clean} ({payload.marca.strip() if payload.marca else 'Vehículo'} {payload.modelo.strip() if payload.modelo else ''})".strip()
+    background_tasks.add_task(
+        send_welcome_email,
+        to_email=email_clean,
+        nombre=payload.nombre.strip(),
+        password_temp=payload.password,
+        entidad_o_placa=desc_vehiculo,
+        tipo="particular"
+    )
 
     return {
         "id": empresa_part.id,
@@ -218,14 +246,64 @@ def delete_cliente_particular(
         if v.dispositivo:
             v.dispositivo.estado = "disponible"
             v.dispositivo.empresa_id = None
+        v.dispositivo_id = None
         v.activo = False
+        # Liberar la placa (unique) para poder re-registrarla en el futuro
+        if not v.placa.endswith(f"-B{v.id}"):
+            v.placa = f"{v.placa[:14]}-B{v.id}"
 
-    # Desactivar usuarios
+    # Desactivar usuarios y liberar su email (unique)
     usuarios = db.query(models.Usuario).filter(models.Usuario.empresa_id == emp.id).all()
     for u in usuarios:
         u.activo = False
+        if not u.email.startswith("baja"):
+            u.email = f"baja{u.id}_{u.email}"
 
     emp.activo = False
     db.commit()
 
     return {"message": f"Cliente particular {emp.nombre} desactivado y GPS liberado."}
+
+
+@router.post("/{particular_id}/reactivar", status_code=200)
+def reactivar_cliente_particular(
+    particular_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
+):
+    """Reactiva un cliente particular dado de baja, restaurando su correo y placa originales.
+    El GPS no se reasigna automáticamente (se vincula luego desde Vinculación o Dispositivos)."""
+    emp = db.query(models.Empresa).filter(
+        models.Empresa.id == particular_id,
+        models.Empresa.tipo == 'particular',
+        models.Empresa.activo == False
+    ).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Cliente dado de baja no encontrado.")
+
+    usuarios = db.query(models.Usuario).filter(models.Usuario.empresa_id == emp.id).all()
+    vehiculos = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == emp.id).all()
+
+    # Validar que correo y placa originales sigan libres antes de tocar nada
+    for u in usuarios:
+        original = _limpiar_email_baja(u.email)
+        choque = db.query(models.Usuario).filter(models.Usuario.email == original, models.Usuario.id != u.id).first()
+        if choque:
+            raise HTTPException(status_code=400, detail=f"No se puede reactivar: el correo {original} ya fue registrado por otro usuario.")
+    for v in vehiculos:
+        original = _limpiar_placa_baja(v.placa)
+        choque = db.query(models.Vehiculo).filter(models.Vehiculo.placa == original, models.Vehiculo.id != v.id).first()
+        if choque:
+            raise HTTPException(status_code=400, detail=f"No se puede reactivar: la placa {original} ya fue registrada en otro cliente.")
+
+    for u in usuarios:
+        u.email = _limpiar_email_baja(u.email)
+        u.activo = True
+    for v in vehiculos:
+        v.placa = _limpiar_placa_baja(v.placa)
+        v.activo = True
+    emp.activo = True
+    db.commit()
+
+    return {"message": f"Cliente particular {emp.nombre} reactivado. Recuerda vincularle un GPS."}
+

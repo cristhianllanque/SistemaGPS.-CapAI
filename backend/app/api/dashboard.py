@@ -29,7 +29,7 @@ def get_dashboard_stats(
 
     total_dispositivos = disp_query.count()
     dispositivos_disponibles = disp_query.filter(models.Dispositivo.estado == 'disponible').count()
-    dispositivos_asignados = disp_query.filter(models.Dispositivo.estado == 'instalado').count()
+    dispositivos_asignados = disp_query.filter(models.Dispositivo.estado.in_(['instalado', 'asignado'])).count()
 
     total_vehiculos = veh_query.count()
     vehiculos_activos = veh_query.filter(models.Vehiculo.estado == 'activo').count()

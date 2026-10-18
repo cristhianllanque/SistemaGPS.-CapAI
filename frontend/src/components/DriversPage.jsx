@@ -135,7 +135,7 @@ export default function DriversPage() {
           <div>
             <p className="font-semibold text-violet-950">Padrón Oficial de Conductores</p>
             <p className="text-xs text-violet-700 mt-0.5">
-              Modo de solo lectura. Visualizando el padrón de conductores autorizados. Las altas, modificaciones y bajas son administradas por Copay Telematics (Central).
+              Modo de solo lectura. Visualizando el padrón de conductores autorizados. Las altas, modificaciones y bajas son administradas por Copai Telematics (Central).
             </p>
           </div>
         </div>
@@ -189,7 +189,7 @@ export default function DriversPage() {
                     <Users size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay conductores registrados</p>
                     <p className="text-xs mt-1">
-                      {isSuperAdmin ? 'Registre su primer conductor' : 'Comuníquese con Copay para dar de alta conductores'}
+                      {isSuperAdmin ? 'Registre su primer conductor' : 'Comuníquese con Copai para dar de alta conductores'}
                     </p>
                   </td>
                 </tr>

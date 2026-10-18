@@ -19,7 +19,10 @@ def list_dispositivos(
     if current_user.rol != 'superadmin':
         query = query.filter(models.Dispositivo.empresa_id == current_user.empresa_id)
     if estado:
-        query = query.filter(models.Dispositivo.estado == estado)
+        if estado in ('asignado', 'instalado'):
+            query = query.filter(models.Dispositivo.estado.in_(['asignado', 'instalado']))
+        else:
+            query = query.filter(models.Dispositivo.estado == estado)
     if search:
         query = query.filter(
             (models.Dispositivo.imei.contains(search)) |
@@ -83,7 +86,7 @@ def create_dispositivo(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
     # Check unique IMEI
     exists = db.query(models.Dispositivo).filter(models.Dispositivo.imei == payload.imei).first()
@@ -109,7 +112,7 @@ def update_dispositivo(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
     d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
     if not d:
@@ -152,7 +155,7 @@ def delete_dispositivo(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
     d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
     if not d:

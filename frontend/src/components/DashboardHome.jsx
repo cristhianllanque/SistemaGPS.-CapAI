@@ -106,7 +106,7 @@ export default function DashboardHome() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
-            {isSuperAdmin ? 'Centro de Control Copay' : 'Panel de Control'}
+            {isSuperAdmin ? 'Centro de Control Copai' : 'Panel de Control'}
           </h1>
           <p className="text-slate-500 mt-1">
             {isSuperAdmin

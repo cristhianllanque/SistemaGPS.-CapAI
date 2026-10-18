@@ -32,7 +32,7 @@ class ConnectionManager:
         """
         Envía telemetría o alertas EXCLUSIVAMENTE a:
         1. Los operadores y administradores de la empresa dueña del vehículo (empresa_id).
-        2. Los Superadministradores de Copay.
+        2. Los Superadministradores de Copai.
         NINGUNA OTRA EMPRESA O CLIENTE PARTICULAR RECIBE ESTE MENSAJE.
         """
         message["empresa_id"] = empresa_id

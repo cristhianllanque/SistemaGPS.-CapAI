@@ -57,17 +57,32 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# Clave SMTP Brevo (leída de variable de entorno o parámetro $1)
+BREVO_KEY="${BREVO_KEY:-$1}"
+if [ -z "$BREVO_KEY" ]; then
+    BREVO_KEY="xsmtp_configure_en_servidor"
+fi
+
 # Crear archivo .env para producción con conexión segura
 cat <<EOT > .env
-PROJECT_NAME="Industrias Copay Telematics"
+PROJECT_NAME="Industrias Copai Telematics"
 DATABASE_URL="mysql+pymysql://copay_user:CopayGps2026_Secure!@localhost:3306/teltonika"
 SECRET_KEY="super_secret_jwt_key_copay_production_2026_xYz987"
 ALGORITHM="HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# Configuración SMTP Brevo (notificaciones@industriascopai.com)
+SMTP_HOST="smtp-relay.brevo.com"
+SMTP_PORT=587
+SMTP_USER="bea0f3001@smtp-brevo.com"
+SMTP_PASSWORD="${BREVO_KEY}"
+EMAIL_FROM="notificaciones@industriascopai.com"
+EMAIL_FROM_NAME="Industrias Copai Telematics"
+FRONTEND_URL="https://industriascopai.com"
 EOT
 
-# Asegurar directorios de uploads
-mkdir -p uploads/logos
+# Asegurar directorios de uploads (logos y banners panorámicos)
+mkdir -p uploads/logos uploads/banners
 chmod -R 775 uploads
 
 # Inicializar tablas y superadmin

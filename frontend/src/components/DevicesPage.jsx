@@ -16,6 +16,7 @@ const OPERADORES = ['Claro', 'Movistar', 'Bitel', 'Entel', 'Multioperador M2M'];
 const ESTADO_COLORS = {
   disponible: 'bg-green-100 text-green-700',
   asignado: 'bg-blue-100 text-blue-700',
+  instalado: 'bg-blue-100 text-blue-700',
   mantenimiento: 'bg-yellow-100 text-yellow-700',
   baja: 'bg-red-100 text-red-700',
 };
@@ -205,7 +206,7 @@ export default function DevicesPage() {
                   {isSuperAdmin && (
                     <td className="px-4 py-3 text-slate-700 font-medium">
                       <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-0.5 rounded font-mono">
-                        {d.empresa_nombre || 'En Stock Copay'}
+                        {d.empresa_nombre || 'En Stock Copai'}
                       </span>
                     </td>
                   )}
@@ -236,7 +237,7 @@ export default function DevicesPage() {
                       <button onClick={() => openEdit(d)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar">
                         <Edit2 size={15} />
                       </button>
-                      {d.estado !== 'asignado' && (
+                      {d.estado !== 'asignado' && d.estado !== 'instalado' && !d.vehiculo_placa && (
                         <button onClick={() => handleDelete(d.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Dar de baja">
                           <Trash2 size={15} />
                         </button>
@@ -276,7 +277,7 @@ export default function DevicesPage() {
                     onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">En Stock Copay (Sin asignar a cliente)</option>
+                    <option value="">En Stock Copai (Sin asignar a cliente)</option>
                     {empresas.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.nombre}</option>
                     ))}

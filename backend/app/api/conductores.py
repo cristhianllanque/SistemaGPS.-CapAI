@@ -93,7 +93,7 @@ def create_conductor(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
     exists = db.query(models.Conductor).filter(models.Conductor.dni == payload.dni).first()
     if exists:
@@ -126,7 +126,7 @@ def update_conductor(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
     c = db.query(models.Conductor).filter(models.Conductor.id == conductor_id).first()
     if not c:
@@ -162,7 +162,7 @@ def delete_conductor(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copay)")
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
     c = db.query(models.Conductor).filter(models.Conductor.id == conductor_id).first()
     if not c:

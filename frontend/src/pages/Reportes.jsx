@@ -1,27 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FileText, Download, Calendar, Truck, AlertTriangle, FileSpreadsheet, Search } from 'lucide-react';
+import { FileText, Download, Calendar, Truck, AlertTriangle, FileSpreadsheet, Search, Building2 } from 'lucide-react';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import { API_BASE_URL as API_URL } from '../config';
 
 export default function Reportes() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(null);
+  const [empresas, setEmpresas] = useState([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState('');
   
   const [fechaInicio, setFechaInicio] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd'T'00:00"));
   const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd'T'23:59"));
   
   const token = localStorage.getItem('token');
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
+  const isSuperAdmin = usuario?.rol === 'superadmin';
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      axios.get(`${API_URL}/api/empresas/`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => setEmpresas(res.data))
+        .catch(console.error);
+    }
+  }, [isSuperAdmin]);
 
   const fetchPreview = async () => {
     setLoading(true);
     try {
+      const params = {
+        fecha_inicio: new Date(fechaInicio).toISOString(),
+        fecha_fin: new Date(fechaFin).toISOString(),
+        formato: 'json'
+      };
+      if (isSuperAdmin && selectedEmpresa) {
+        params.empresa_id = selectedEmpresa;
+      }
       const res = await axios.get(`${API_URL}/api/reportes/consolidado`, {
-        params: {
-          fecha_inicio: new Date(fechaInicio).toISOString(),
-          fecha_fin: new Date(fechaFin).toISOString(),
-          formato: 'json'
-        },
+        params,
         headers: { Authorization: `Bearer ${token}` }
       });
       setData(res.data.data);
@@ -35,30 +52,45 @@ export default function Reportes() {
 
   useEffect(() => {
     fetchPreview();
-  }, []);
+  }, [selectedEmpresa]);
 
   const handleDownload = async (formato) => {
     try {
+      setDownloading(formato);
+      const params = {
+        fecha_inicio: new Date(fechaInicio).toISOString(),
+        fecha_fin: new Date(fechaFin).toISOString(),
+        formato: formato
+      };
+      if (isSuperAdmin && selectedEmpresa) {
+        params.empresa_id = selectedEmpresa;
+      }
       const response = await axios.get(`${API_URL}/api/reportes/consolidado`, {
-        params: {
-          fecha_inicio: new Date(fechaInicio).toISOString(),
-          fecha_fin: new Date(fechaFin).toISOString(),
-          formato: formato
-        },
+        params,
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('link');
+      const mimeType = formato === 'excel' 
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        : 'application/pdf';
+      const blob = new Blob([response.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `reporte_flota.${formato === 'excel' ? 'xlsx' : 'pdf'}`);
+      const extension = formato === 'excel' ? 'xlsx' : 'pdf';
+      link.setAttribute('download', `reporte_flota_${format(new Date(), 'yyyyMMdd_HHmm')}.${extension}`);
       document.body.appendChild(link);
       link.click();
-      link.parentNode.removeChild(link);
+      setTimeout(() => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 300);
     } catch (err) {
       console.error("Error downloading file", err);
       alert('Error al descargar el archivo');
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -75,20 +107,57 @@ export default function Reportes() {
         <div className="flex gap-3">
           <button 
             onClick={() => handleDownload('excel')}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2 transition-colors"
+            disabled={downloading !== null}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
-            <FileSpreadsheet size={18} /> Exportar Excel
+            {downloading === 'excel' ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Generando Excel...</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet size={18} /> Exportar Excel
+              </>
+            )}
           </button>
           <button 
             onClick={() => handleDownload('pdf')}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2 transition-colors"
+            disabled={downloading !== null}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
-            <Download size={18} /> Descargar PDF
+            {downloading === 'pdf' ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Generando PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download size={18} /> Descargar PDF
+              </>
+            )}
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-wrap gap-4 items-end">
+        {isSuperAdmin && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider flex items-center gap-1">
+              <Building2 size={13} /> Empresa
+            </label>
+            <select
+              value={selectedEmpresa}
+              onChange={(e) => setSelectedEmpresa(e.target.value)}
+              className="p-2 border border-slate-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-700 bg-white"
+            >
+              <option value="">Todas las empresas</option>
+              {empresas.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Fecha Inicio</label>
           <input 

@@ -115,7 +115,7 @@ export default function LinkingPage() {
           <div>
             <p className="font-semibold text-blue-950">Asignación de Telemática Centralizada</p>
             <p className="text-xs text-blue-700 mt-0.5">
-              Modo de solo lectura. La asignación física y lógica de dispositivos GPS Teltonika FMC130 a las unidades de transporte es provista y administrada por Copay Telematics (Central).
+              Modo de solo lectura. La asignación física y lógica de dispositivos GPS Teltonika FMC130 a las unidades de transporte es provista y administrada por Copai Telematics (Central).
             </p>
           </div>
         </div>
@@ -255,7 +255,7 @@ export default function LinkingPage() {
                         <div className="flex justify-end">
                           {isReady ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <Shield size={14} className="text-emerald-600" /> Vinculado por Copay
+                              <Shield size={14} className="text-emerald-600" /> Vinculado por Copai
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">

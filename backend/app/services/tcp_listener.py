@@ -191,6 +191,18 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                         ultima_alerta_sab.velocidad = curr_speed
                     # If it was marked as 'falsa_alarma' or 'atendida', respect operator resolution:
                     # do NOT reopen, do NOT re-trigger siren!
+            elif bateria_ext_v is not None and bateria_ext_v >= 9.0:
+                # Normal power restored: record note in pending sabotage alert if any
+                alerta_sab_activa = db.query(models.AlertaPanico).filter(
+                    models.AlertaPanico.vehiculo_id == vehiculo_id,
+                    models.AlertaPanico.estado == 'pendiente',
+                    models.AlertaPanico.tipo == 'sabotaje'
+                ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
+                if alerta_sab_activa and "Energía restablecida" not in (alerta_sab_activa.observaciones_atencion or ""):
+                    alerta_sab_activa.observaciones_atencion = (
+                        (alerta_sab_activa.observaciones_atencion or "") +
+                        f" | Energía restablecida ({bateria_ext_v}V a las {ts.strftime('%H:%M:%S')})"
+                    ).strip(" | ")
                 
         db.commit()
 
@@ -210,7 +222,7 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             'bateria_ext': l.bateria_ext,
             'bateria_int': l.bateria_int,
             'bateria_porcentaje': l.bateria_porcentaje,
-            'sabotaje': has_pending_sab,
+            'sabotaje': has_pending_sab and (l.bateria_ext is None or l.bateria_ext < 7.0),
             'online': True,
             'timestamp': (l.timestamp.isoformat() + 'Z') if l.timestamp else None
         } for l in inserted_lecturas]

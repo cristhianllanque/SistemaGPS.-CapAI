@@ -1,4 +1,5 @@
 import io
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -19,6 +20,7 @@ def get_reporte_consolidado(
     fecha_inicio: str = Query(...),
     fecha_fin: str = Query(...),
     formato: str = Query(..., description="excel, pdf, o json"),
+    empresa_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
@@ -32,10 +34,13 @@ def get_reporte_consolidado(
         raise HTTPException(status_code=400, detail="Formato de fecha inválido")
 
     # Get vehicles
-    vehiculos = db.query(models.Vehiculo).filter(
-        models.Vehiculo.empresa_id == current_user.empresa_id,
-        models.Vehiculo.activo == True
-    ).all()
+    veh_query = db.query(models.Vehiculo).filter(models.Vehiculo.activo == True)
+    if current_user.rol != 'superadmin':
+        veh_query = veh_query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
+    elif empresa_id:
+        veh_query = veh_query.filter(models.Vehiculo.empresa_id == empresa_id)
+
+    vehiculos = veh_query.all()
 
     report_data = []
 
@@ -122,7 +127,8 @@ def get_reporte_consolidado(
         elements = []
 
         elements.append(Paragraph("Reporte Consolidado de Flota", styles['Title']))
-        elements.append(Paragraph(f"Empresa ID: {current_user.empresa_id}", styles['Normal']))
+        empresa_nombre = current_user.empresa.nombre if current_user.empresa else ("Todas las Empresas (Copai)" if not empresa_id else f"Empresa #{empresa_id}")
+        elements.append(Paragraph(f"Empresa: {empresa_nombre}", styles['Normal']))
         elements.append(Paragraph(f"Periodo: {inicio.strftime('%d/%m/%Y %H:%M')} a {fin.strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
         elements.append(Spacer(1, 20))
 

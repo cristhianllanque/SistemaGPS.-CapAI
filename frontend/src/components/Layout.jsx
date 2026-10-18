@@ -154,22 +154,22 @@ export default function Layout() {
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           ) : (
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold shadow"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Activity size={20} />
-            </div>
+            <img 
+              src="/logo-copai-white.png" 
+              alt="Industrias CopAI" 
+              className="h-8 max-w-[36px] object-contain flex-shrink-0"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
           )}
           {!collapsed && (
             <div className="overflow-hidden">
               <h1 className="text-sm font-bold leading-tight truncate text-white">
-                {empresa?.nombre || (usuario?.rol === 'superadmin' ? 'Copay Central' : 'Copay GPS')}
+                {empresa?.nombre || (usuario?.rol === 'superadmin' ? 'Copai Central' : 'Copai GPS')}
               </h1>
               <p className="text-[10px] text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
                 <span>
-                  {usuario?.rol === 'superadmin' ? 'Superadmin Copay' : (usuario?.rol === 'admin' ? 'Gerencia / Admin' : 'Operador')}
+                  {usuario?.rol === 'superadmin' ? 'Superadmin Copai' : (usuario?.rol === 'admin' ? 'Gerencia / Admin' : 'Operador')}
                 </span>
               </p>
             </div>

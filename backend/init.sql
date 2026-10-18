@@ -16,8 +16,17 @@ CREATE TABLE empresas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
+    tipo VARCHAR(20) DEFAULT 'flota',
+    documento VARCHAR(20) NULL,
+    telefono VARCHAR(50) NULL,
     logo_url VARCHAR(255),
-    color_primario VARCHAR(50),
+    color_primario VARCHAR(50) DEFAULT '#1E40AF',
+    color_secundario VARCHAR(50) DEFAULT '#FFFFFF',
+    color_terciario VARCHAR(50) NULL,
+    limite_velocidad INT DEFAULT 90,
+    slogan VARCHAR(500) NULL,
+    banner_url VARCHAR(255) NULL,
+    servicios TEXT NULL,
     activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -29,7 +38,7 @@ CREATE TABLE usuarios (
     nombre VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    rol ENUM('admin', 'operador') NOT NULL,
+    rol ENUM('superadmin', 'admin', 'operador') NOT NULL,
     activo BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 );
@@ -47,7 +56,7 @@ CREATE TABLE dispositivos (
     tiene_boton_panico BOOLEAN DEFAULT TRUE,
     fecha_compra DATE,
     notas TEXT,
-    estado ENUM('disponible', 'asignado', 'mantenimiento', 'baja') DEFAULT 'disponible',
+    estado ENUM('disponible', 'instalado', 'asignado', 'mantenimiento', 'baja') DEFAULT 'disponible',
     activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_dispositivo_empresa (empresa_id),
@@ -94,7 +103,7 @@ CREATE TABLE vehiculos (
     FOREIGN KEY (conductor_id) REFERENCES conductores(id) ON DELETE SET NULL
 );
 
--- Tabla lecturas_gps
+-- Tabla lecturas_gps (Telemetría de alta resolución Teltonika FMC130)
 CREATE TABLE lecturas_gps (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     vehiculo_id INT,
@@ -103,37 +112,36 @@ CREATE TABLE lecturas_gps (
     velocidad SMALLINT,
     ignicion BOOLEAN,
     boton_panico BOOLEAN,
+    bateria_ext FLOAT NULL,
+    bateria_int FLOAT NULL,
+    bateria_porcentaje SMALLINT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_lectura_vehiculo_ts (vehiculo_id, timestamp),
     FOREIGN KEY (vehiculo_id) REFERENCES vehiculos(id) ON DELETE CASCADE
 );
 
--- Tabla alertas_panico
+-- Tabla alertas_panico y eventos críticos
 CREATE TABLE alertas_panico (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     vehiculo_id INT,
     latitud DECIMAL(10,8) NOT NULL,
     longitud DECIMAL(11,8) NOT NULL,
     estado ENUM('pendiente', 'atendida', 'falsa_alarma') DEFAULT 'pendiente',
+    tipo VARCHAR(50) DEFAULT 'panico',
+    velocidad SMALLINT NULL,
     fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     usuario_atendio_id INT NULL,
     observaciones_atencion TEXT NULL,
     fecha_atencion TIMESTAMP NULL,
     INDEX idx_alerta_estado (estado),
+    INDEX ix_alertas_vehiculo_estado (vehiculo_id, estado),
     FOREIGN KEY (vehiculo_id) REFERENCES vehiculos(id) ON DELETE CASCADE,
     FOREIGN KEY (usuario_atendio_id) REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
 -- ============================================
--- DATOS SEMILLA (Seed Data)
+-- NOTA DE PRODUCCIÓN:
+-- La base de datos nace limpia (sin empresas ni datos ficticios).
+-- Las cuentas maestras iniciales se aprovisionan automáticamente mediante:
+--   python3 create_superadmin.py
 -- ============================================
-
--- 2 Empresas
-INSERT INTO empresas (id, nombre, slug, color_primario) VALUES
-(1, 'Transportes Huaynarroque', 'huaynarroque', '#1E40AF'),
-(2, 'Jesús de Nazareth', 'jesus-nazareth', '#047857');
-
--- 2 Usuarios Admin (password: admin123 — hash will be set by update_passwords.py)
-INSERT INTO usuarios (id, empresa_id, nombre, email, password_hash, rol) VALUES
-(1, 1, 'Admin Huaynarroque', 'admin@huaynarroque.com', 'PLACEHOLDER_RUN_UPDATE_PASSWORDS', 'admin'),
-(2, 2, 'Admin Nazareth', 'admin@nazareth.com', 'PLACEHOLDER_RUN_UPDATE_PASSWORDS', 'admin');

@@ -157,7 +157,7 @@ export default function VehiclesPage() {
           <div>
             <p className="font-semibold text-emerald-950">Flota Oficial Asignada</p>
             <p className="text-xs text-emerald-700 mt-0.5">
-              Modo de solo lectura. Visualizando las unidades autorizadas para su empresa. Las altas, bajas y modificaciones de flota son gestionadas exclusivamente por Copay Telematics (Central).
+              Modo de solo lectura. Visualizando las unidades autorizadas para su empresa. Las altas, bajas y modificaciones de flota son gestionadas exclusivamente por Copai Telematics (Central).
             </p>
           </div>
         </div>
@@ -216,7 +216,7 @@ export default function VehiclesPage() {
                     <Truck size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay vehículos registrados</p>
                     <p className="text-xs mt-1">
-                      {isSuperAdmin ? 'Registre su primer vehículo' : 'Comuníquese con Copay para dar de alta unidades'}
+                      {isSuperAdmin ? 'Registre su primer vehículo' : 'Comuníquese con Copai para dar de alta unidades'}
                     </p>
                   </td>
                 </tr>
