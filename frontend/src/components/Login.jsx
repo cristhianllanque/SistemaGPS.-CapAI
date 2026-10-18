@@ -36,6 +36,13 @@ function detectTenantSlug() {
   return null;
 }
 
+// Helper para verificar si la URL multimedia corresponde a un video en bucle
+function isVideoUrl(url) {
+  if (!url) return false;
+  const clean = url.split('?')[0].toLowerCase();
+  return clean.endsWith('.mp4') || clean.endsWith('.webm');
+}
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
