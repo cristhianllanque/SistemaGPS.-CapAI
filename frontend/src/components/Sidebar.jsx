@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown } from 'lucide-react';
+import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X } from 'lucide-react';
 
 export default function Sidebar({
   vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90,
   showEmpresaFilter = false, empresas = [], empresaFilter = 'all', onEmpresaFilterChange,
-  filterCounts = {}, hasParticulares = false
+  filterCounts = {}, hasParticulares = false,
+  collapsed = false, onToggleCollapse
 }) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -14,12 +15,42 @@ export default function Sidebar({
   );
 
   return (
-    <div className="w-80 bg-white shadow-xl flex flex-col h-full z-20 border-r border-slate-200">
-      <div className="p-4 border-b border-slate-100">
-        <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-          <Navigation size={18} style={{ color }} />
-          Flota Activa ({vehiculos.length})
-        </h2>
+    <>
+      {/* Backdrop en dispositivos móviles cuando el panel esté abierto */}
+      {!collapsed && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 md:hidden animate-in fade-in duration-200"
+          onClick={onToggleCollapse}
+        />
+      )}
+
+      {/* Contenedor Principal del Panel de Flota */}
+      <div 
+        className={`
+          bg-white shadow-2xl md:shadow-xl flex flex-col h-full z-40 border-r border-slate-200 transition-all duration-300 ease-in-out
+          fixed md:relative inset-y-0 left-0
+          ${collapsed 
+            ? '-translate-x-full md:translate-x-0 md:w-0 md:min-w-0 md:max-w-0 md:opacity-0 md:overflow-hidden md:border-none pointer-events-none' 
+            : 'translate-x-0 w-[310px] sm:w-80 min-w-[300px] sm:min-w-[320px] max-w-[85vw] opacity-100'
+          }
+        `}
+      >
+        <div className="p-4 border-b border-slate-100 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+              <Navigation size={17} style={{ color }} />
+              <span>Flota Activa ({vehiculos.length})</span>
+            </h2>
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all cursor-pointer border border-slate-200/70 shadow-xs"
+              title="Colapsar lista de vehículos para ver mapa completo"
+            >
+              <ChevronLeft size={15} />
+              <span>Colapsar</span>
+            </button>
+          </div>
         <div className="relative">
           <input 
             type="text" 
@@ -111,7 +142,12 @@ export default function Sidebar({
           return (
             <div 
               key={v.id} 
-              onClick={() => onSelectVehicle && onSelectVehicle(v.id)}
+              onClick={() => {
+                if (onSelectVehicle) onSelectVehicle(v.id);
+                if (typeof window !== 'undefined' && window.innerWidth < 768 && onToggleCollapse) {
+                  onToggleCollapse();
+                }
+              }}
               className={`p-3 rounded-lg border ${statusColor} transition-all hover:shadow-md cursor-pointer group`}
             >
               <div className="flex justify-between items-start mb-2">
@@ -197,5 +233,6 @@ export default function Sidebar({
         )}
       </div>
     </div>
-  );
+  </>
+);
 }

@@ -95,35 +95,35 @@ export default function LiveMap({
     <div className="h-full w-full relative">
       {/* Floating Emergency Status Banner */}
       {emergencyVehicleId && trackedVehicle && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-red-600 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-3 border-2 border-white animate-pulse">
-          <AlertTriangle size={20} className="animate-bounce" />
-          <span className="font-bold text-sm tracking-wide">
-            SEGUIMIENTO DE EMERGENCIA: {trackedVehicle.placa} ({trackedVehicle.conductor?.nombre || 'Sin conductor'})
+        <div className="absolute top-16 md:top-4 left-1/2 -translate-x-1/2 z-[1000] bg-red-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-2xl flex items-center gap-2.5 sm:gap-3 border-2 border-white animate-pulse max-w-[92vw]">
+          <AlertTriangle size={18} className="animate-bounce shrink-0" />
+          <span className="font-bold text-xs sm:text-sm tracking-wide truncate">
+            EMERGENCIA: {trackedVehicle.placa} ({trackedVehicle.conductor?.nombre || 'Sin conductor'})
           </span>
           <button 
             onClick={onClearFocus}
-            className="ml-2 bg-white/20 hover:bg-white/30 text-xs px-3 py-1 rounded-full transition-colors font-medium flex items-center gap-1"
+            className="ml-2 bg-white/20 hover:bg-white/30 text-xs px-2.5 py-1 rounded-full transition-colors font-medium flex items-center gap-1 shrink-0 cursor-pointer"
             title="Ver toda la flota"
           >
             <RotateCcw size={12} />
-            Ver flota
+            <span className="hidden sm:inline">Ver flota</span>
           </button>
         </div>
       )}
 
       {/* Floating Normal Follow Banner */}
       {!emergencyVehicleId && selectedVehicleId && trackedVehicle && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/90 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-3 border border-slate-700 text-sm">
-          <Navigation size={16} className="text-blue-400" />
-          <span>Siguiendo: <strong>{trackedVehicle.placa}</strong></span>
+        <div className="absolute top-16 md:top-4 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/90 backdrop-blur-sm text-white px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-xl flex items-center gap-2 sm:gap-3 border border-slate-700 text-xs sm:text-sm max-w-[92vw]">
+          <Navigation size={15} className="text-blue-400 shrink-0" />
+          <span className="truncate">Siguiendo: <strong>{trackedVehicle.placa}</strong></span>
           {isTrackedSpeeding && (
-            <span className="text-xs bg-amber-500/30 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
+            <span className="text-[10px] sm:text-xs bg-amber-500/30 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse shrink-0">
               ⚡ {trackedVehicle.ultima_lectura?.velocidad} km/h (&gt;{limiteVelocidad}k)
             </span>
           )}
           <button 
             onClick={onClearFocus}
-            className="ml-2 text-xs text-slate-300 hover:text-white bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-600 transition-colors"
+            className="ml-1 sm:ml-2 text-xs text-slate-300 hover:text-white bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-600 transition-colors shrink-0 cursor-pointer"
           >
             Restablecer
           </button>

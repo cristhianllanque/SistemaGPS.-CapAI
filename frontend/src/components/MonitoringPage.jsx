@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
-import { Gauge, Sliders, Check, X } from 'lucide-react';
+import { Gauge, Sliders, Check, X, Navigation, ChevronRight } from 'lucide-react';
 import LiveMap from './LiveMap';
 import Sidebar from './Sidebar';
 import PanicAlert from './PanicAlert';
@@ -15,6 +15,12 @@ export default function MonitoringPage() {
   const [alertas, setAlertas] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [emergencyVehicleId, setEmergencyVehicleId] = useState(null);
+  const [isFleetCollapsed, setIsFleetCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024;
+    }
+    return false;
+  });
 
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
   const [empresa, setEmpresa] = useState(() => JSON.parse(localStorage.getItem('empresa') || '{}'));
@@ -233,7 +239,7 @@ export default function MonitoringPage() {
   const primaryColor = empresa.color_primario || '#1E40AF';
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-slate-100 relative">
+    <div className="flex h-full w-full overflow-hidden bg-slate-100 relative">
       {/* Toast Notification */}
       {speedToast && (
         <div className="fixed bottom-6 right-6 z-[9999] bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom">
@@ -255,37 +261,72 @@ export default function MonitoringPage() {
         onEmpresaFilterChange={setEmpresaFilter}
         filterCounts={filterCounts}
         hasParticulares={particularIds.length > 0}
+        collapsed={isFleetCollapsed}
+        onToggleCollapse={() => setIsFleetCollapsed(!isFleetCollapsed)}
       />
 
-      <div className="flex-1 relative">
-        {/* Floating Speed Limit Widget on Map */}
-        <div className="absolute top-4 left-4 z-[1000] bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-xl shadow-xl border border-slate-200/80 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-            <Gauge size={18} />
-          </div>
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Límite de Velocidad</div>
-            <div className="text-sm font-black text-slate-800 flex items-center gap-1.5">
-              <span>{limiteVelocidad} km/h</span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                Activo
-              </span>
-            </div>
-          </div>
-          {canEditSpeedLimit && (
+      <div className="flex-1 relative h-full w-full overflow-hidden">
+        {/* Floating Top Controls (Botón de Reapertura y Widget Límite de Velocidad) */}
+        <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2.5 flex-wrap pointer-events-none">
+          {/* Botón flotante para reabrir panel de flota */}
+          {isFleetCollapsed && (
             <button
-              onClick={() => {
-                setTempSpeed(limiteVelocidad);
-                setShowSpeedModal(true);
-              }}
-              className="ml-2 text-xs font-semibold px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all shadow-sm shadow-amber-500/30 flex items-center gap-1 active:scale-95"
-              title="Ajustar límite de velocidad"
+              onClick={() => setIsFleetCollapsed(false)}
+              className="pointer-events-auto bg-white/95 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-xl shadow-xl border border-slate-200/90 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer text-slate-800 animate-in fade-in slide-in-from-left duration-200"
+              title="Mostrar lista de vehículos"
             >
-              <Sliders size={13} />
-              <span>Ajustar</span>
+              <div 
+                className="w-7 h-7 rounded-lg flex items-center justify-center font-bold shadow-xs" 
+                style={{ backgroundColor: `${primaryColor}18`, color: primaryColor }}
+              >
+                <Navigation size={14} />
+              </div>
+              <span className="font-bold text-xs tracking-wide">Flota ({vehiculosFiltrados.length})</span>
+              <ChevronRight size={15} className="text-slate-400" />
             </button>
           )}
+
+          {/* Floating Speed Limit Widget on Map */}
+          <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl shadow-xl border border-slate-200/80 flex items-center gap-2 sm:gap-3">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+              <Gauge size={16} />
+            </div>
+            <div>
+              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Límite</div>
+              <div className="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-1">
+                <span>{limiteVelocidad} km/h</span>
+                <span className="hidden sm:inline text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  Activo
+                </span>
+              </div>
+            </div>
+            {canEditSpeedLimit && (
+              <button
+                onClick={() => {
+                  setTempSpeed(limiteVelocidad);
+                  setShowSpeedModal(true);
+                }}
+                className="ml-1 sm:ml-2 text-[11px] sm:text-xs font-semibold px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all shadow-sm shadow-amber-500/30 flex items-center gap-1 active:scale-95 cursor-pointer"
+                title="Ajustar límite de velocidad"
+              >
+                <Sliders size={12} />
+                <span className="hidden sm:inline">Ajustar</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Botón flotante inferior para Móviles cuando la flota esté colapsada */}
+        {isFleetCollapsed && (
+          <button
+            onClick={() => setIsFleetCollapsed(false)}
+            className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1001] bg-slate-900/95 backdrop-blur-md text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2.5 font-bold text-xs tracking-wide active:scale-95 border border-slate-700 animate-in fade-in slide-in-from-bottom duration-300 cursor-pointer"
+          >
+            <Navigation size={15} style={{ color: primaryColor }} />
+            <span>Ver Flota ({vehiculosFiltrados.length})</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+          </button>
+        )}
 
         {/* Live Map */}
         <LiveMap 
