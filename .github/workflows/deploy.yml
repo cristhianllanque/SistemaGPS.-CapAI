@@ -23,7 +23,7 @@ jobs:
       - name: Instalar y Compilar Frontend
         working-directory: ./frontend
         run: |
-          npm ci
+          npm install --legacy-peer-deps
           npm run build
 
       - name: Configurar Python
@@ -82,7 +82,7 @@ jobs:
             echo "⚛️ Compilando Frontend de Producción..."
             cd ../frontend
             export PATH=$PATH:/usr/local/bin:/usr/bin:~/.nvm/versions/node/$(ls ~/.nvm/versions/node 2>/dev/null | tail -n 1)/bin
-            npm install --silent
+            npm install --legacy-peer-deps --silent
             npm run build
 
             # 5. Publicar archivos en el directorio web de Nginx

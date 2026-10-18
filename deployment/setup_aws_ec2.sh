@@ -99,7 +99,7 @@ sudo systemctl restart copay-backend
 # 8. Compilar frontend de producción
 echo "⚛️ Compilando frontend..."
 cd "$APP_DIR/frontend"
-npm install
+npm install --legacy-peer-deps
 npm run build
 sudo cp -r dist/* /var/www/copay/html/
 sudo chown -R www-data:www-data /var/www/copay/html
