@@ -10,3 +10,5 @@ pydantic
 pydantic-settings
 pydantic[email]
 python-multipart
+openpyxl
+reportlab
