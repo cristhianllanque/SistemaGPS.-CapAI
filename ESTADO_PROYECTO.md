@@ -30,13 +30,27 @@
    - El frontend detecta automáticamente el subdominio (`huaynaroque`), carga su portal white-label exclusivo y autentica exclusivamente a los usuarios de esa empresa.
    - La sesión de Superadmin en `industriascopai.com` queda 100% aislada y ya no invade los portales de las empresas.
 
-2. **Carga y Visualización de Logos y Fotos de Portada / Flota**:
-   - Solucionado el error 404 al solicitar imágenes en `/uploads/logos` y `/uploads/banners`.
-   - Nginx ahora delega `/uploads/` directamente al motor de FastAPI `StaticFiles`, eliminando incompatibilidades con `alias` y permisos en Linux.
-   - La función `getAssetUrl()` normaliza las rutas a rutas relativas para que funcionen bajo cualquier subdominio sin bloqueos CORS ni mixed-content.
-   - Las imágenes subidas por el usuario reemplazan inmediatamente cualquier foto por defecto.
+2. **Personalización Dinámica con Paleta de 3 Colores (Cero Tonos Ajenos)**:
+   - Los portales white-label ahora se adaptan con fidelidad 100% a la paleta contratada:
+     - Primario (ej. `#16A34A` para Huayna Roque): botones, insignias, iconos satelitales, velocidad y acentos.
+     - Secundario (ej. `#FFFFFF`): textos de contraste, fondos de tarjetas y tipografías legibles.
+     - Fondo / Terciario (ej. `#CCF5DC`): fondo limpio, suave y fresco del portal, sin tintes negros forzados ni tonos oscuros espaciales que parecían "IA genérica".
+   - Eliminados todos los tonos amarillos/ámbar o púrpuras que desentonaban; cada portal respeta estrictamente los colores de la empresa cliente.
 
-3. **Isotipo Oficial y Marca Corporativa COPAI**:
+3. **Soporte Multimedia Dual: Foto Panorámica y Video en Bucle (MP4 / WEBM)**:
+   - Se habilitó la subida tanto de imágenes (`.png`, `.jpg`, `.webp`) como de videos en bucle (`.mp4`, `.webm`) para el fondo del hero principal (ideal para videos de 10 segundos).
+   - Nginx configurado con el modificador prioritario `location ^~ /uploads/` y `client_max_body_size 60M`, resolviendo definitivamente los errores 404 al solicitar fotos o videos de la flota.
+   - La foto real del vehículo (miniván Mercedes-Benz de Huayna Roque) y su logotipo oficial cargan inmediatamente en alta resolución.
+
+4. **Navegación Corporativa Dedicada por Empresa**:
+   - Barra superior con menú de secciones ejecutivas: `Inicio`, `Rutas & Cobertura`, `Telemetría GPS`, `Seguridad` y `Contacto`.
+   - Navegación fluida con scroll suave a cada pilar tecnológico de la empresa.
+
+5. **Corrección de Enlaces desde el Superadmin**:
+   - Corregido el botón de previsualización en el modal de empresas para que no envíe el formulario ni redirija al usuario al Dashboard.
+   - Incorporado botón directo **"Ver Portal Web ↗"** en la cabecera del modal de edición que abre el subdominio de la empresa en una nueva pestaña.
+
+6. **Isotipo Oficial y Marca Corporativa COPAI**:
    - Eliminado el icono genérico de Vite (el rayito morado `favicon.svg`) y la palabra "frontend" en la pestaña.
    - Integrado el isotipo oficial "C" de red neuronal en alta definición con fondo transparente (`copai-symbol.png`, `favicon.png`, `favicon.ico`).
    - El título en la pestaña del navegador ahora muestra **`COPAI`** en el portal central y `${empresa} | Telematics GPS` en subdominios de clientes.
@@ -44,18 +58,14 @@
 
 ---
 
-## 🎯 3. Pendientes y Mejoras Programadas para Mañana
+## 🎯 3. Siguientes Pasos Programados
 
 - [ ] **Prueba de Transmisión del Dispositivo GPS Teltonika**:
-  - Vincular el dispositivo GPS físico que tienes encendido y verificar en los registros del servidor (`sudo journalctl -u copay-backend -f`) o en la base de datos la llegada de coordenadas y paquetes AVL por el puerto 5000.
+  - Probar con el equipo GPS físico encendido la llegada de tramas AVL por el puerto TCP 5000 (`copay-backend.service`).
 - [ ] **Panel de Monitoreo en Vivo (Mapa Satelital)**:
-  - Revisar y pulir la experiencia visual del mapa en tiempo real (`/monitoreo`) con los marcadores de vehículos y estados de motor/velocidad.
-- [ ] **Historial de Rutas y Telemetría**:
-  - Optimizar el reproductor de rutas y filtrado por fechas.
-- [ ] **Alertas y Geocercas**:
-  - Ajustar avisos sonoros y notificaciones automáticas ante eventos de exceso de velocidad o corte de batería.
-- [ ] **Nuevas mejoras de diseño**:
-  - Cualquier ajuste estético o de interfaz que desees afinar en el panel interior o en los módulos de administración.
+  - Verificar la recepción en tiempo real de coordenadas y telemetría sobre el mapa interactivo.
+- [ ] **Historial de Rutas y Alertas**:
+  - Validación del trazado histórico y las alertas de velocidad configuradas por empresa.
 
 ---
 
