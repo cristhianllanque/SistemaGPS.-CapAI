@@ -445,11 +445,18 @@ export default function CompaniesPage() {
                           )}
                         </div>
 
-                        {/* Subdomain Badge */}
-                        <div className="flex items-center gap-1 text-[11px] text-indigo-700 font-mono mt-1 bg-indigo-50/70 border border-indigo-200/60 px-2 py-0.5 rounded-md w-fit">
+                        {/* Subdomain Badge (Clickeable al Portal Web) */}
+                        <a
+                          href={`/?empresa=${emp.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-[11px] text-indigo-700 hover:text-indigo-900 font-mono mt-1 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200/70 px-2 py-0.5 rounded-md w-fit transition-all shadow-xs group/badge"
+                          title={`Abrir portal web de ${emp.nombre}`}
+                        >
                           <Globe size={11} className="text-indigo-600 shrink-0" />
-                          <span>{emp.slug}.industriascopai.com</span>
-                        </div>
+                          <span className="underline decoration-indigo-300 underline-offset-2">{emp.slug}.industriascopai.com</span>
+                          <ExternalLink size={10} className="text-indigo-400 group-hover/badge:text-indigo-700 transition-colors" />
+                        </a>
                       </div>
                     </div>
 

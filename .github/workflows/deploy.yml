@@ -91,7 +91,11 @@ jobs:
             sudo cp -r dist/* /var/www/copay/html/
             sudo chown -R www-data:www-data /var/www/copay/html
 
-            # 6. Recargar Nginx suavemente
+            # 6. Actualizar configuración de Nginx para soporte de subdominios y recargar
+            echo "🌐 Actualizando configuración de Nginx..."
+            sudo cp /home/ubuntu/copay-telematics/deployment/nginx_industriascopai.conf /etc/nginx/sites-available/industriascopai.com
+            sudo ln -sf /etc/nginx/sites-available/industriascopai.com /etc/nginx/sites-enabled/
+            sudo nginx -t
             sudo systemctl reload nginx
 
             echo "✅ [CI/CD] ¡Despliegue completado con éxito en industriascopai.com!"
