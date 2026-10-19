@@ -26,7 +26,10 @@ def extract_subdomain(host: str) -> Optional[str]:
 def build_manifest_data(empresa: Optional[Empresa], host: str) -> dict:
     if empresa:
         app_name = f"{empresa.nombre} - Telematics GPS"
-        short_name = empresa.nombre[:18]
+        # Nombre corto optimizado para el icono en la pantalla de inicio del celular
+        import re
+        clean_short = re.sub(r'^(empresa\s+de\s+transportes\s+|transportes\s+|empresa\s+)', '', empresa.nombre, flags=re.I).strip()
+        short_name = clean_short[:18] if clean_short else empresa.nombre[:18]
         theme_color = empresa.color_primario or "#16A34A"
         bg_color = empresa.color_terciario or "#CCF5DC"
         description = empresa.slogan or f"Sistema de Rastreo Satelital y Telemetría de {empresa.nombre}"
