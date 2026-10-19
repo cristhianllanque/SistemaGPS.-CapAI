@@ -5,9 +5,11 @@ import {
   ShieldAlert, Radio, Bot, Brain, FileCode, Lock, Mail, X, CheckCircle2, 
   ArrowRight, Eye, EyeOff, Sparkles, ShieldCheck, Cpu, Activity, 
   Satellite, Navigation, Layers, ChevronRight, Check, Building2, Phone,
-  FileText, ExternalLink, MapPin, Gauge, Shield, Truck, Route
+  FileText, ExternalLink, MapPin, Gauge, Shield, Truck, Route, Smartphone, Download
 } from 'lucide-react';
 import { API_BASE_URL, getAssetUrl } from '../config';
+import { usePWA } from '../pwa/usePWA';
+import InstallPwaModal from '../pwa/InstallPwaModal';
 
 // Detecta si la petición proviene de un subdominio de cliente o parámetro local
 function detectTenantSlug() {
@@ -57,6 +59,18 @@ export default function Login() {
 
   // Modal de Login
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // Hook de PWA oficial para Android e iOS
+  const {
+    isInstallable,
+    isStandalone,
+    isIOS,
+    isAndroid,
+    showPrompt,
+    setShowPrompt,
+    triggerInstall,
+    dismissPrompt
+  } = usePWA(companyPortal);
   
   // Modal de Recuperación de Contraseña
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -352,6 +366,23 @@ export default function Login() {
                   <img src="/copai-symbol.png" alt="COPAI" className="h-4 w-4 object-contain" />
                   <span>Red COPAI ↗</span>
                 </a>
+
+                {!isStandalone && (
+                  <button
+                    onClick={() => setShowPrompt(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs"
+                    style={{
+                      backgroundColor: isLightPortal ? '#FFFFFF' : 'rgba(255,255,255,0.08)',
+                      color: cPrimario,
+                      borderColor: `${cPrimario}40`
+                    }}
+                    title="Instalar App Oficial en tu teléfono (Android o iPhone)"
+                  >
+                    <Smartphone size={14} />
+                    <span className="hidden sm:inline">Instalar App</span>
+                    <span className="sm:hidden">App</span>
+                  </button>
+                )}
 
                 {/* BOTÓN SUPERIOR DERECHO: ACCESO CENTRAL DE DESPACHO */}
                 <button
@@ -911,8 +942,19 @@ export default function Login() {
                 </a>
               </nav>
 
-              {/* BOTÓN SUPERIOR DERECHO: INICIAR SESIÓN */}
+              {/* BOTÓN SUPERIOR DERECHO: INICIAR SESIÓN Y APP */}
               <div className="flex items-center gap-3">
+                {!isStandalone && (
+                  <button
+                    onClick={() => setShowPrompt(true)}
+                    className="hidden sm:flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Instalar App Oficial COPAI en tu Celular"
+                  >
+                    <Smartphone size={14} className="text-blue-600" />
+                    <span>Instalar App</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
                     setShowLoginModal(true);
@@ -1401,6 +1443,18 @@ export default function Login() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE INSTALACIÓN PWA MULTI-TENANT (Android / iPhone) */}
+      <InstallPwaModal
+        show={showPrompt}
+        onClose={dismissPrompt}
+        onInstall={triggerInstall}
+        isIOS={isIOS}
+        isAndroid={isAndroid}
+        companyName={companyPortal ? companyPortal.nombre : 'COPAI Telematics'}
+        logoUrl={companyPortal ? getAssetUrl(companyPortal.logo_url) : '/copai-symbol.png'}
+        primaryColor={cPrimario}
+      />
 
     </div>
   );

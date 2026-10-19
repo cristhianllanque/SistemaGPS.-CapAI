@@ -143,12 +143,16 @@ def send_welcome_email(
                                     </tr>
                                 </table>
 
-                                <!-- Botón CTA -->
+                                <!-- Botones de Acceso y App Móvil -->
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0 25px;">
                                     <tr>
                                         <td align="center">
-                                            <a href="{login_url}" target="_blank" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 700; padding: 14px 36px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+                                            <a href="{login_url}" target="_blank" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 700; padding: 14px 32px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); margin-bottom: 12px;">
                                                 {btn_label}
+                                            </a>
+                                            <br>
+                                            <a href="{login_url.replace('/login?login=true', '')}?install=true" target="_blank" style="background-color: #0f172a; color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 11px 24px; border-radius: 9px; display: inline-block; border: 1px solid #1e293b;">
+                                                📲 Instalar App Móvil Oficial en Celular (Android / iOS)
                                             </a>
                                         </td>
                                     </tr>

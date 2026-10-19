@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Radio, Truck, Users, Link2, Map, AlertTriangle, Route,
-  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car
+  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car, Smartphone
 } from 'lucide-react';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { siren } from '../utils/sound';
 import { WS_BASE_URL, getAssetUrl } from '../config';
+import { usePWA } from '../pwa/usePWA';
+import InstallPwaModal from '../pwa/InstallPwaModal';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin'] },
@@ -36,6 +38,17 @@ export default function Layout() {
   const primaryColor = empresa?.color_primario || '#4F46E5';
 
   const [activeAlert, setActiveAlert] = useState(null);
+
+  // Hook de PWA oficial para Android e iOS
+  const {
+    isStandalone,
+    isIOS,
+    isAndroid,
+    showPrompt,
+    setShowPrompt,
+    triggerInstall,
+    dismissPrompt
+  } = usePWA(empresa);
 
   // Authenticated WebSocket connection with JWT token query parameter
   const activeEmpresaId = empresa?.id || 1;
@@ -221,6 +234,20 @@ export default function Layout() {
           </button>
         </div>
 
+        {/* Botón Instalar App en Celular si no está instalada */}
+        {!isStandalone && (
+          <div className="px-2 pb-2">
+            <button
+              onClick={() => setShowPrompt(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors text-xs font-bold cursor-pointer"
+              title="Instalar App Oficial en Celular (Android / iPhone)"
+            >
+              <Smartphone size={16} />
+              {!collapsed && <span>Instalar App Móvil</span>}
+            </button>
+          </div>
+        )}
+
         {/* User Info */}
         <div className="border-t border-slate-700/50 p-3">
           <div className="flex items-center gap-3">
@@ -250,6 +277,17 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      {/* Modal de Instalación PWA */}
+      <InstallPwaModal
+        show={showPrompt}
+        onClose={dismissPrompt}
+        onInstall={triggerInstall}
+        isIOS={isIOS}
+        isAndroid={isAndroid}
+        companyName={empresa?.nombre || 'COPAI Telematics'}
+        logoUrl={empresa?.logo_url ? getAssetUrl(empresa.logo_url) : '/copai-symbol.png'}
+        primaryColor={primaryColor}
+      />
     </div>
   );
 }

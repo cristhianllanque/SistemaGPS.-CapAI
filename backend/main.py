@@ -5,7 +5,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from jose import jwt, JWTError
-from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios, empresas, particulares
+from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios, empresas, particulares, pwa
 from app.websockets.manager import manager
 from app.core.config import settings
 from app.db.database import engine, Base
@@ -53,6 +53,7 @@ app.include_router(vehiculos.router, prefix="/api/vehiculos", tags=["vehiculos"]
 app.include_router(alertas.router, prefix="/api/alertas", tags=["alertas"])
 app.include_router(reportes.router, prefix="/api/reportes", tags=["reportes"])
 app.include_router(usuarios.router, prefix="/api/usuarios", tags=["usuarios"])
+app.include_router(pwa.router, prefix="/api/pwa", tags=["pwa"])
 
 
 @app.websocket("/ws/flota/{empresa_id}")

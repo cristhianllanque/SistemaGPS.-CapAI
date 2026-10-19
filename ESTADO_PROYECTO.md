@@ -65,6 +65,14 @@
    - Auto-recálculo de Leaflet (`map.invalidateSize()`) tras colapsar/expandir para que el mapa no se corte ni se desplace.
    - Widget flotante de límite de velocidad integrado sobre el mapa con opción de ajuste rápido según permisos.
 
+8. **Aplicación Móvil PWA Multi-Tenant Instalable (Android & iOS - Costo $0)**:
+   - **Manifiesto Dinámico por Empresa (`/api/pwa/manifest.json`)**: El backend de FastAPI detecta el subdominio del cliente (`huaynaroque.industriascopai.com`, `solorzano.industriascopai.com`, etc.) y entrega automáticamente el nombre, icono oficial (`logo_url`) y color de tema correspondientes a esa empresa, o el isotipo oficial `COPAI GPS` en el portal central.
+   - **Instalación Oficial en Android**: Soporte nativo de un toque que añade la aplicación a la pantalla de inicio con su propio icono y abre en modo `standalone` a pantalla completa.
+   - **Instalación Oficial en iPhone (iOS Safari)**: Inyección dinámica de meta-etiquetas (`apple-touch-icon`, `apple-mobile-web-app-title`, `apple-mobile-web-app-capable`) y modal asistido de 3 pasos (Compartir ➔ Agregar a Inicio) para abrir sin barras de Safari.
+   - **Service Worker Activo (`/sw.js`)**: Soporte para notificaciones push en segundo plano (alarmas de pánico, sabotaje y exceso de velocidad) con vibración háptica y redirección directa al vehículo en alerta.
+   - **Botón de Instalación en Correos de Bienvenida**: Añadido el botón directo `[ 📲 Instalar App Móvil Oficial ]` en los correos de credenciales de Brevo SMTP.
+   - **Botón "Instalar App" en Cabeceras y Menú Lateral**: Disponible de forma no intrusiva en el encabezado de cada portal y en la barra lateral del sistema para usuarios autenticados.
+
 ---
 
 ## 🎯 3. Siguientes Pasos Programados (Pruebas de Campo con Vehículos Reales)
