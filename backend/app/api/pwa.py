@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
-from app.db.database import get_db
+from app.api.deps import get_db
 from app.db.models import Empresa
 import os
 
