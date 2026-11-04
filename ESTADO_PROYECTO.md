@@ -1,7 +1,7 @@
 # 📋 Estado del Proyecto: Industrias Copai Telematics GPS
 
 > **Documento de Memoria y Continuidad para la siguiente sesión**  
-> *Última actualización: 18 de Octubre, 2026*
+> *Última actualización: 3 de Noviembre, 2026*
 
 ---
 
@@ -110,9 +110,13 @@
    - Enriquecer la pestaña **"Perfil / Ajustes"** (`/dashboard` en móvil) con información del conductor/gerente, versión del APK instalada (v1.2) y botón de soporte técnico.
    - Ajustar el espaciado de controles táctiles en el mapa (zoom, capas satélite/callejero y centrado de unidad).
 
-2. [ ] **Despliegue de los Nuevos Componentes a Producción (AWS EC2)**:
-   - Hacer commit y push a GitHub (`main`) para que el flujo de GitHub Actions compile y actualice `/var/www/copay/html` en el servidor AWS.
-   - Con esto, si alguien abre la web desde un navegador móvil (Chrome móvil o Safari), también disfrutará de la experiencia adaptada con `MobileLoginView` y `MobileBottomNav`.
+2. [x] **Migración y Despliegue en Nueva Cuenta AWS EC2 (16.58.34.113)**:
+   - Servidor Ubuntu 24.04 LTS (`i-045aa9d782b3730c5` en us-east-2) aprovisionado desde cero.
+   - MariaDB, Nginx, Certbot SSL Let's Encrypt para `industriascopai.com` y `www.industriascopai.com` 100% operativos.
+   - Variables de entorno `.env` con conexión Brevo SMTP y credenciales seguras.
+   - Servicio `copay-backend` en `systemd` activo en puerto 8000 (FastAPI) y puerto 5000 (Teltonika TCP AVL).
+   - Firewall UFW activo con puertos 22, 80, 443, 5000 y 8000.
+   - APKs instaladores (`CopaiGPS.apk` y `HuaynaRoque_GPS.apk`) disponibles en almacenamiento persistente y descargables vía HTTPS en `/descargas/`.
 
 3. [ ] **Soporte y Estrategia para Dispositivos iOS (iPhone)**:
    - Afinar la experiencia de instalación guiada en iOS (Safari PWA de pantalla completa con el icono constelación CopAi / Huayna Roque).
