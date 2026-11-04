@@ -159,7 +159,7 @@ export default function Layout() {
         : (usuario?.rol === 'admin' ? 'Gerencia / Admin' : 'Operador de Despacho'));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-950 md:bg-slate-100">
+    <div className="fixed inset-0 flex overflow-hidden bg-slate-950 md:bg-slate-100 overscroll-none">
       {/* Global Alert Modal */}
       {activeAlert && (
         <AlertaPanicoModal 
@@ -280,10 +280,10 @@ export default function Layout() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-slate-100">
-        {/* Mobile Top Header */}
+      <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-slate-100">
+        {/* Mobile Top Header (100% estático e inmóvil) */}
         <header
-          className="md:hidden h-14 bg-slate-950 text-white flex items-center justify-between px-3.5 border-b border-slate-800/80 flex-shrink-0 z-40 select-none"
+          className="md:hidden h-14 bg-slate-950 text-white flex items-center justify-between px-3.5 border-b border-slate-800/80 flex-shrink-0 z-50 select-none touch-none"
           style={{
             boxShadow: '0 -80px 0 80px #020617'
           }}
@@ -341,8 +341,11 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* Contenido Principal con espacio inferior para el Bottom Navigation en móvil */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0 bg-slate-100">
+        {/* Contenido Principal acotado estrictamente entre el Header superior y el BottomNav inferior */}
+        <main
+          className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden relative bg-slate-100 overscroll-contain"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           <Outlet />
         </main>
 

@@ -192,9 +192,9 @@ export default function MobileBottomNav({
         </div>
       )}
 
-      {/* Barra Inferior Fija pegada al borde inferior de la pantalla */}
+      {/* Barra Inferior Estática en el flujo flex (nunca se mueve ni puede ser tapada por el contenido superior) */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[70] bg-slate-950 border-t border-slate-800/80 px-1.5 py-1.5 select-none"
+        className="md:hidden relative w-full flex-shrink-0 z-[70] bg-slate-950 border-t border-slate-800/80 px-1.5 py-1.5 select-none touch-none"
         style={{
           boxShadow: '0 -8px 25px rgba(0,0,0,0.45), 0 80px 0 80px #020617'
         }}

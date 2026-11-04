@@ -19,15 +19,15 @@ export default function Sidebar({
       {/* Backdrop en dispositivos móviles cuando el panel esté abierto */}
       {!collapsed && (
         <div 
-          className="absolute inset-0 bg-black/40 backdrop-blur-xs z-[1001] md:hidden animate-in fade-in duration-200"
+          className="absolute inset-0 bg-black/40 backdrop-blur-xs z-[1001] md:hidden animate-in fade-in duration-200 touch-none"
           onClick={onToggleCollapse}
         />
       )}
 
-      {/* Contenedor Principal del Panel de Flota */}
+      {/* Contenedor Principal del Panel de Flota (acotado al área entre Header y BottomNav) */}
       <div 
         className={`
-          bg-white shadow-2xl md:shadow-xl flex flex-col h-full z-[1002] md:z-40 border-r border-slate-200 transition-all duration-300 ease-in-out
+          bg-white shadow-2xl md:shadow-xl flex flex-col h-full max-h-full overflow-hidden z-[1002] md:z-40 border-r border-slate-200 transition-all duration-300 ease-in-out
           absolute md:relative inset-y-0 left-0
           ${collapsed 
             ? '-translate-x-full md:translate-x-0 md:w-0 md:min-w-0 md:max-w-0 md:opacity-0 md:overflow-hidden md:border-none pointer-events-none' 
@@ -35,7 +35,7 @@ export default function Sidebar({
           }
         `}
       >
-        <div className="p-4 border-b border-slate-100 flex-shrink-0">
+        <div className="p-3.5 md:p-4 border-b border-slate-100 flex-shrink-0 touch-none">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
               <Navigation size={17} style={{ color }} />
@@ -92,7 +92,10 @@ export default function Sidebar({
         )}
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-2"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {filtered.map(v => {
           const u = v.ultima_lectura;
           const readingDate = u?.timestamp ? new Date(u.timestamp) : null;

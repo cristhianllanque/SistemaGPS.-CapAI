@@ -8,6 +8,7 @@
     background-color: #020617;
     margin: 0;
     padding: 0;
+    overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
   }
 }
@@ -32,9 +33,9 @@
   }
 }
 
-/* En móviles (< 768px), evitar que los botones de zoom (+/-) de Leaflet choquen con la barra flotante superior */
+/* En móviles (< 768px), evitar que los botones de zoom (+/-) de Leaflet en Monitoreo choquen con el botón flotante de Flota */
 @media (max-width: 767px) {
-  .leaflet-top.leaflet-left {
+  .monitoring-map .leaflet-top.leaflet-left {
     margin-top: 52px !important;
   }
   .leaflet-control-attribution {

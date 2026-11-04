@@ -265,7 +265,7 @@ export default function MonitoringPage() {
         onToggleCollapse={() => setIsFleetCollapsed(!isFleetCollapsed)}
       />
 
-      <div className="flex-1 relative h-full w-full overflow-hidden">
+      <div className="monitoring-map flex-1 relative h-full w-full overflow-hidden">
         {/* Floating Top Controls (Botón de Reapertura y Widget Límite de Velocidad) */}
         <div className="absolute top-2.5 left-2.5 right-2.5 md:top-4 md:left-4 md:right-auto z-[1000] flex items-center justify-between md:justify-start gap-2 md:gap-2.5 flex-wrap pointer-events-none">
           {/* Botón flotante para reabrir panel de flota */}

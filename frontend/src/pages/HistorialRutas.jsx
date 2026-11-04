@@ -85,6 +85,7 @@ export default function HistorialRutas() {
   const [activePreset, setActivePreset] = useState('hoy');
   const [loading, setLoading] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(true);
+  const [mobileStatsCollapsed, setMobileStatsCollapsed] = useState(false);
   
   const [historialData, setHistorialData] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -536,12 +537,52 @@ export default function HistorialRutas() {
           </div>
         )}
 
-        {/* Playback Controls & Stats Dashboard Bar (Compacto en Móvil, Completo en Escritorio) */}
+        {/* Playback Controls & Stats Dashboard Bar (Compacto y Plegable en Móvil, Completo en Escritorio) */}
         {historialData && historialData.coordenadas.length > 0 && (
-          <div className="absolute bottom-2.5 left-2.5 right-2.5 md:bottom-4 md:left-4 md:right-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 p-2.5 md:p-4 z-[1000] flex flex-col md:flex-row gap-2.5 md:gap-5 items-center">
-            
-            {/* Key Trip Metrics: 5 columnas ultracompactas en móvil */}
-            <div className="grid grid-cols-5 gap-1.5 md:gap-3 border-b md:border-b-0 md:border-r border-slate-200 pb-2 md:pb-0 md:pr-5 w-full md:w-auto flex-shrink-0 text-center md:text-left">
+          <div
+            className={`${
+              mobileFiltersOpen ? 'hidden md:flex' : 'flex'
+            } absolute bottom-2.5 left-2.5 right-2.5 md:bottom-4 md:left-4 md:right-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 p-2.5 md:p-4 z-[900] flex-col md:flex-row gap-2 md:gap-5 items-center`}
+          >
+            {/* Barra superior móvil del reproductor para minimizar/expandir métricas */}
+            <div className="flex md:hidden items-center justify-between w-full pb-1 border-b border-slate-100 text-[10px]">
+              {currentPoint ? (
+                <div className="flex items-center gap-1.5 font-bold text-indigo-700 truncate">
+                  <span>⏱ {new Date(currentPoint.timestamp).toLocaleTimeString()}</span>
+                  <span>•</span>
+                  <span>{currentPoint.velocidad} km/h</span>
+                  <span>•</span>
+                  <span className={currentPoint.ignicion ? 'text-emerald-600' : 'text-slate-400'}>
+                    {currentPoint.ignicion ? 'ON' : 'OFF'}
+                  </span>
+                  {currentPoint.bateria_ext !== undefined && currentPoint.bateria_ext !== null && (
+                    <>
+                      <span>•</span>
+                      <span className={currentPoint.bateria_ext < 6 ? 'text-rose-600' : 'text-slate-600'}>
+                        ⚡ {currentPoint.bateria_ext}V
+                      </span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <span className="font-bold text-slate-600">Reproductor de Recorrido</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setMobileStatsCollapsed(!mobileStatsCollapsed)}
+                className="flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold cursor-pointer flex-shrink-0"
+              >
+                <span>{mobileStatsCollapsed ? 'Ver datos' : 'Minimizar'}</span>
+                {mobileStatsCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+            </div>
+
+            {/* Key Trip Metrics: Plegables en móvil para no tapar el mapa */}
+            <div
+              className={`${
+                mobileStatsCollapsed ? 'hidden md:grid' : 'grid'
+              } grid-cols-5 gap-1.5 md:gap-3 border-b md:border-b-0 md:border-r border-slate-200 pb-2 md:pb-0 md:pr-5 w-full md:w-auto flex-shrink-0 text-center md:text-left`}
+            >
               <div className="bg-slate-50 p-1.5 md:p-2 rounded-lg border border-slate-100">
                 <p className="text-[8px] md:text-[10px] text-slate-400 uppercase font-bold truncate">Distancia</p>
                 <p className="text-xs md:text-base font-extrabold text-slate-800 leading-tight">
@@ -576,7 +617,7 @@ export default function HistorialRutas() {
 
             {/* Playback Controls & Timeline Slider */}
             <div className="flex-1 w-full flex flex-col justify-center">
-              <div className="flex items-center gap-2 md:gap-3 mb-1.5 md:mb-2">
+              <div className="flex items-center gap-2 md:gap-3 mb-0 md:mb-2">
                 <button 
                   onClick={togglePlay}
                   className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md transition-all active:scale-95 flex-shrink-0 cursor-pointer"
@@ -621,14 +662,14 @@ export default function HistorialRutas() {
                 </div>
               </div>
               
-              {/* Telemetry Footer of Playback */}
-              <div className="flex justify-between items-center text-[10px] md:text-xs text-slate-500 font-medium gap-1">
-                <span className="hidden sm:inline">
+              {/* Telemetry Footer of Playback (Solo en Escritorio, ya que en móvil va integrado arriba) */}
+              <div className="hidden md:flex justify-between items-center text-xs text-slate-500 font-medium gap-1">
+                <span>
                   {new Date(startPoint.timestamp).toLocaleTimeString()} ({new Date(startPoint.timestamp).toLocaleDateString()})
                 </span>
                 
                 {currentPoint && (
-                  <div className="w-full sm:w-auto flex items-center justify-center gap-1.5 md:gap-2 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-indigo-700 font-bold text-[10px] md:text-xs truncate">
+                  <div className="flex items-center justify-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-indigo-700 font-bold text-xs">
                     <span>⏱ {new Date(currentPoint.timestamp).toLocaleTimeString()}</span>
                     <span>•</span>
                     <span className="flex items-center gap-0.5"><Gauge size={11} /> {currentPoint.velocidad} km/h</span>
@@ -647,7 +688,7 @@ export default function HistorialRutas() {
                   </div>
                 )}
                 
-                <span className="hidden sm:inline">
+                <span>
                   {new Date(endPoint.timestamp).toLocaleTimeString()} ({new Date(endPoint.timestamp).toLocaleDateString()})
                 </span>
               </div>

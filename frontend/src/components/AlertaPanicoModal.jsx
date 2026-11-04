@@ -56,22 +56,22 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
     : (isSpeed ? 'border-amber-500 animate-pulse-border-amber' : 'border-red-600 animate-pulse-border');
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border-4 ${borderClass}`}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+      <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden border-4 ${borderClass}`}>
         
         {/* Header */}
-        <div className={`${headerBg} text-white p-4 flex justify-between items-start`}>
+        <div className={`${headerBg} text-white p-3.5 sm:p-4 flex justify-between items-start flex-shrink-0`}>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-full animate-pulse">
-              {isSabotage ? <ShieldAlert size={32} /> : (isSpeed ? <Zap size={32} /> : <AlertTriangle size={32} />)}
+            <div className="p-2 bg-white/20 rounded-full animate-pulse flex-shrink-0">
+              {isSabotage ? <ShieldAlert size={26} /> : (isSpeed ? <Zap size={26} /> : <AlertTriangle size={26} />)}
             </div>
             <div>
-              <h2 className="text-xl font-bold uppercase tracking-wider">
+              <h2 className="text-base sm:text-xl font-bold uppercase tracking-wider leading-tight">
                 {isSabotage 
                   ? '¡ALERTA DE SABOTAJE / CORTE DE BATERÍA!' 
                   : (isSpeed ? '¡ALERTA DE EXCESO DE VELOCIDAD!' : '¡ALERTA DE PÁNICO!')}
               </h2>
-              <p className={isSabotage ? 'text-rose-100 text-sm' : (isSpeed ? 'text-amber-100 text-sm' : 'text-red-100 text-sm')}>
+              <p className={isSabotage ? 'text-rose-100 text-xs sm:text-sm mt-0.5' : (isSpeed ? 'text-amber-100 text-xs sm:text-sm mt-0.5' : 'text-red-100 text-xs sm:text-sm mt-0.5')}>
                 {isSabotage
                   ? 'Batería principal desconectada (0.0 V). Posible intento de robo.'
                   : (isSpeed 
@@ -80,13 +80,13 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
-            <X size={24} />
+          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1">
+            <X size={22} />
           </button>
         </div>
 
         {/* Info */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-y-auto">
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
               <p className="text-xs text-slate-500 font-semibold uppercase mb-1">Vehículo (Placa)</p>
