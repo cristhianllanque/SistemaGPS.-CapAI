@@ -57,10 +57,13 @@ export default function Login() {
   const [tenantSlug, setTenantSlug] = useState(() => detectTenantSlug());
   const [companyPortal, setCompanyPortal] = useState(() => {
     const slug = detectTenantSlug();
-    if (!slug) {
+    if (!slug && isNativeApp) {
       try {
         const last = localStorage.getItem('last_empresa');
-        if (last) return JSON.parse(last);
+        if (last) {
+          const parsed = JSON.parse(last);
+          if (parsed && parsed.id && parsed.id !== 0) return parsed;
+        }
       } catch (e) {}
     }
     return null;
@@ -133,6 +136,8 @@ export default function Login() {
         .finally(() => {
           setPortalLoading(false);
         });
+    } else if (!isNativeApp) {
+      setCompanyPortal(null);
     }
   }, [location.search]);
 
@@ -177,14 +182,18 @@ export default function Login() {
         return;
       }
 
-      // Si es superadmin entrando a un subdominio de cliente, contextualizar la empresa activa a este tenant
-      const activeEmpresa = (companyPortal && (usuario.rol === 'superadmin' || !empresa || empresa.id === 0))
+      // Si es superadmin entrando a un subdominio de cliente real, contextualizar la empresa activa a este tenant
+      const activeEmpresa = (tenantSlug && companyPortal && (usuario.rol === 'superadmin' || !empresa || empresa.id === 0))
         ? companyPortal
         : (empresa || { id: 0, nombre: 'COPAI', color_primario: '#2563EB' });
 
       localStorage.setItem('token', access_token);
       localStorage.setItem('empresa', JSON.stringify(activeEmpresa));
-      localStorage.setItem('last_empresa', JSON.stringify(activeEmpresa));
+      if (isNativeApp && activeEmpresa && activeEmpresa.id !== 0) {
+        localStorage.setItem('last_empresa', JSON.stringify(activeEmpresa));
+      } else {
+        localStorage.removeItem('last_empresa');
+      }
       localStorage.setItem('usuario', JSON.stringify(usuario));
       
       // Navegar a dashboard

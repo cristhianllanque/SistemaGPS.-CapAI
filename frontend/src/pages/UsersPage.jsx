@@ -88,7 +88,10 @@ export default function UsersPage() {
       }
       
       if (editingId) {
-        await axios.put(`${API}/api/usuarios/${editingId}`, payload, { headers });
+        const res = await axios.put(`${API}/api/usuarios/${editingId}`, payload, { headers });
+        if (Number(editingId) === Number(currentUser.id) && res.data) {
+          localStorage.setItem('usuario', JSON.stringify(res.data));
+        }
       } else {
         await axios.post(`${API}/api/usuarios/`, payload, { headers });
       }

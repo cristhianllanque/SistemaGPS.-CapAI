@@ -1,4 +1,6 @@
+import os
 import re
+import subprocess
 import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -16,6 +18,66 @@ def slugify(text: str) -> str:
     text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     return re.sub(r'[-\s]+', '-', text)
+
+def ensure_subdomain_ssl(slug: str, db: Session) -> bool:
+    """
+    Asegura automáticamente que el subdominio <slug>.industriascopai.com esté incluido
+    en el certificado SSL Let's Encrypt del servidor y recarga Nginx al crear/editar empresa.
+    """
+    if not slug or os.name == 'nt':
+        return False
+
+    clean_slug = re.sub(r'[^a-z0-9-]', '', slug.lower().strip()).strip('-')
+    if not clean_slug or clean_slug in ('www', 'copai', 'copai-central', 'industriascopai'):
+        return False
+
+    target_domain = f"{clean_slug}.industriascopai.com"
+    cert_path = "/etc/letsencrypt/live/industriascopai.com/fullchain.pem"
+
+    try:
+        check_res = subprocess.run(
+            ["sudo", "-n", "openssl", "x509", "-in", cert_path, "-noout", "-ext", "subjectAltName"],
+            capture_output=True, text=True, timeout=5
+        )
+        existing_domains = set()
+        if check_res.returncode == 0 and check_res.stdout:
+            for match in re.findall(r'DNS:([a-z0-9.-]+)', check_res.stdout.lower()):
+                existing_domains.add(match)
+            if target_domain in existing_domains:
+                return True
+
+        domains = {"industriascopai.com", "www.industriascopai.com", target_domain}
+        domains.update(existing_domains)
+
+        for row in db.query(models.Empresa.slug).all():
+            emp_slug = re.sub(r'[^a-z0-9-]', '', (row[0] or '').lower().strip()).strip('-')
+            if emp_slug and emp_slug not in ('www', 'copai', 'copai-central', 'industriascopai'):
+                domains.add(f"{emp_slug}.industriascopai.com")
+
+        ordered_domains = ["industriascopai.com", "www.industriascopai.com"] + sorted(
+            d for d in domains if d not in ("industriascopai.com", "www.industriascopai.com")
+        )
+
+        cmd = [
+            "sudo", "-n", "certbot", "certonly", "--webroot", "-w", "/var/www/copay/html",
+            "--cert-name", "industriascopai.com", "--expand",
+            "--agree-tos", "--email", "cristhianllanque65@gmail.com", "--non-interactive"
+        ]
+        for d in ordered_domains:
+            cmd.extend(["-d", d])
+
+        print(f"[COPAI SSL] Emitiendo/ampliando certificado HTTPS para: {target_domain}...", flush=True)
+        cert_res = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
+        if cert_res.returncode == 0:
+            subprocess.run(["sudo", "-n", "systemctl", "reload", "nginx"], timeout=10)
+            print(f"[COPAI SSL] Certificado HTTPS activado y Nginx recargado para {target_domain}", flush=True)
+            return True
+        else:
+            print(f"[COPAI SSL WARN] No se pudo ampliar certificado para {target_domain}: {cert_res.stderr}", flush=True)
+            return False
+    except Exception as exc:
+        print(f"[COPAI SSL ERROR] Excepción al aprovisionar SSL para {target_domain}: {exc}", flush=True)
+        return False
 
 @router.get("/", response_model=List[schemas.EmpresaOut])
 def list_empresas(
@@ -200,6 +262,9 @@ def create_empresa(
     db.commit()
     db.refresh(nueva_empresa)
 
+    # Aprovisionar automáticamente SSL HTTPS para el nuevo subdominio <slug>.industriascopai.com
+    ensure_subdomain_ssl(nueva_empresa.slug, db)
+
     # Optional: Automatically create the Gerente user for this company
     if payload.gerente_email and payload.gerente_password:
         existing_user = db.query(models.Usuario).filter(models.Usuario.email == payload.gerente_email).first()
@@ -279,6 +344,9 @@ def update_empresa(
 
     db.commit()
     db.refresh(emp)
+
+    # Asegurar SSL HTTPS si el subdominio fue modificado o aún no tenía certificado
+    ensure_subdomain_ssl(emp.slug, db)
 
     total_veh = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == emp.id, models.Vehiculo.activo == True).count()
     total_disp = db.query(models.Dispositivo).filter(models.Dispositivo.empresa_id == emp.id, models.Dispositivo.activo == True).count()

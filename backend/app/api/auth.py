@@ -22,7 +22,7 @@ def login_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordR
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        data={"sub": user.email, "empresa_id": user.empresa_id, "rol": user.rol}, expires_delta=access_token_expires
+        data={"sub": user.email, "user_id": user.id, "empresa_id": user.empresa_id, "rol": user.rol}, expires_delta=access_token_expires
     )
     
     user_out = schemas.UsuarioOut.model_validate(user)

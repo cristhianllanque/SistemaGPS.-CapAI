@@ -25,11 +25,16 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
-        if email is None:
+        user_id = payload.get("user_id")
+        if email is None and user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = db.query(models.Usuario).filter(models.Usuario.email == email).first()
+    user = None
+    if email:
+        user = db.query(models.Usuario).filter(models.Usuario.email == email).first()
+    if user is None and user_id is not None:
+        user = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
     return user
