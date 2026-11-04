@@ -133,6 +133,8 @@ class UsuarioOut(UsuarioBase):
     id: int
     empresa_id: Optional[int] = None
     empresa_nombre: Optional[str] = None
+    empresa_slug: Optional[str] = None
+    empresa_tipo: Optional[str] = None
     activo: bool
     class Config:
         from_attributes = True

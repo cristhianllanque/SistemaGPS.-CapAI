@@ -235,6 +235,24 @@ def create_empresa(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(require_role(['superadmin']))
 ):
+    # Validar primero que el correo del gerente no sea un Superadmin ni esté vinculado a otra empresa
+    gerente_email_clean = None
+    if payload.gerente_email:
+        gerente_email_clean = payload.gerente_email.strip().lower()
+        existing_user = db.query(models.Usuario).filter(models.Usuario.email == gerente_email_clean).first()
+        if existing_user:
+            if existing_user.rol == 'superadmin':
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"El correo '{gerente_email_clean}' pertenece a un Superadministrador Global (Copai Central). Por seguridad no puede asignarse como Gerente de una empresa."
+                )
+            emp_actual = existing_user.empresa.nombre if existing_user.empresa else "Copai Central"
+            rol_label = "Gerente" if existing_user.rol == "admin" else "Operador"
+            raise HTTPException(
+                status_code=400,
+                detail=f"El correo '{gerente_email_clean}' ya está vinculado a '{existing_user.nombre}' ({rol_label}) en la empresa '{emp_actual}'."
+            )
+
     # Generate unique slug (respecting custom slug if specified)
     base_slug = slugify(payload.slug) if payload.slug else slugify(payload.nombre)
     slug = base_slug
@@ -265,32 +283,26 @@ def create_empresa(
     # Aprovisionar automáticamente SSL HTTPS para el nuevo subdominio <slug>.industriascopai.com
     ensure_subdomain_ssl(nueva_empresa.slug, db)
 
-    # Optional: Automatically create the Gerente user for this company and send welcome email
-    if payload.gerente_email:
-        gerente_email_clean = payload.gerente_email.strip().lower()
+    # Crear el usuario Gerente (rol='admin') vinculado a esta nueva empresa y enviar correo de bienvenida
+    if gerente_email_clean:
         gerente_pass = payload.gerente_password or "Copai2026!"
-        existing_user = db.query(models.Usuario).filter(models.Usuario.email == gerente_email_clean).first()
-        if not existing_user:
-            nuevo_gerente = models.Usuario(
-                empresa_id=nueva_empresa.id,
-                nombre=payload.gerente_nombre or f"Gerente {payload.nombre}",
-                email=gerente_email_clean,
-                rol='admin',
-                password_hash=security.get_password_hash(gerente_pass),
-                activo=True
-            )
-            db.add(nuevo_gerente)
-            db.commit()
-            print(f"[COPAI NOTIFICACIÓN] Creado usuario Gerente ({gerente_email_clean}) para la empresa '{payload.nombre}'. Enlace de bienvenida enviado por correo.", flush=True)
-        else:
-            print(f"[COPAI NOTIFICACIÓN] El correo {gerente_email_clean} ya existe; enviando notificación de portal '{nueva_empresa.slug}.industriascopai.com' igualmente.", flush=True)
+        nuevo_gerente = models.Usuario(
+            empresa_id=nueva_empresa.id,
+            nombre=payload.gerente_nombre or f"Gerente {payload.nombre}",
+            email=gerente_email_clean,
+            rol='admin',
+            password_hash=security.get_password_hash(gerente_pass),
+            activo=True
+        )
+        db.add(nuevo_gerente)
+        db.commit()
+        print(f"[COPAI NOTIFICACIÓN] Creado usuario Gerente ({gerente_email_clean}) para la empresa '{payload.nombre}'. Enlace de bienvenida enviado por correo.", flush=True)
 
-        # Enviar siempre correo de bienvenida con acceso directo al nuevo portal de la empresa
         background_tasks.add_task(
             send_welcome_email,
             to_email=gerente_email_clean,
-            nombre=payload.gerente_nombre or (existing_user.nombre if existing_user else f"Gerente {payload.nombre}"),
-            password_temp=payload.gerente_password or "(Tu contraseña actual)",
+            nombre=nuevo_gerente.nombre,
+            password_temp=gerente_pass,
             entidad_o_placa=payload.nombre,
             tipo="empresa",
             empresa_slug=nueva_empresa.slug
@@ -299,7 +311,7 @@ def create_empresa(
     emp_dict = schemas.EmpresaOut.model_validate(nueva_empresa)
     emp_dict.total_vehiculos = 0
     emp_dict.total_dispositivos = 0
-    emp_dict.total_usuarios = 1 if payload.gerente_email else 0
+    emp_dict.total_usuarios = 1 if gerente_email_clean else 0
     return emp_dict
 
 @router.put("/{empresa_id}", response_model=schemas.EmpresaOut)

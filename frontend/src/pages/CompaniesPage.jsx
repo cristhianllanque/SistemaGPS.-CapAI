@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { 
   Building2, Plus, Edit3, Users, Truck, Radio, Search, Check, X, 
   ExternalLink, ShieldCheck, Mail, Key, Sparkles, RefreshCw, UploadCloud, Gauge, Image as ImageIcon,
-  Phone, FileText, Globe, Palette
+  Phone, FileText, Globe, Palette, AlertCircle, AlertTriangle, CheckCircle2
 } from 'lucide-react';
 
 import { API_BASE_URL as API, getAssetUrl } from '../config';
@@ -97,8 +97,52 @@ export default function CompaniesPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successToast, setSuccessToast] = useState('');
 
+  // Verificación de correo para Gerente en Nueva Empresa y en Modal +Gerente
+  const [emailCheck, setEmailCheck] = useState(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const emailDebounceRef = useRef(null);
+
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+
+  const verifyGerenteEmail = async (rawEmail) => {
+    const clean = (rawEmail || '').trim().toLowerCase();
+    if (!clean || !clean.includes('@') || clean.split('@')[1]?.indexOf('.') === -1) {
+      setEmailCheck(null);
+      setEmailConfirmed(false);
+      return null;
+    }
+    try {
+      setCheckingEmail(true);
+      const res = await axios.get(`${API}/api/usuarios/verificar-email`, {
+        headers,
+        params: { email: clean }
+      });
+      setEmailCheck(res.data);
+      setEmailConfirmed(res.data.estado === 'disponible_verificado');
+      return res.data;
+    } catch (err) {
+      console.error("Error verificando correo:", err);
+      return null;
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  const triggerDebouncedEmailCheck = (newEmail) => {
+    setEmailConfirmed(false);
+    setErrorMsg('');
+    if (emailDebounceRef.current) clearTimeout(emailDebounceRef.current);
+    const clean = (newEmail || '').trim().toLowerCase();
+    if (!clean || !clean.includes('@')) {
+      setEmailCheck(null);
+      return;
+    }
+    emailDebounceRef.current = setTimeout(() => {
+      verifyGerenteEmail(clean);
+    }, 550);
+  };
 
   const fetchEmpresas = async () => {
     try {
@@ -227,6 +271,8 @@ export default function CompaniesPage() {
       password: '',
       rol: 'admin'
     });
+    setEmailCheck(null);
+    setEmailConfirmed(false);
     setErrorMsg('');
     setShowGerenteModal(true);
   };
@@ -238,12 +284,35 @@ export default function CompaniesPage() {
       setErrorMsg('El nombre de la empresa es obligatorio');
       return;
     }
+    if (createForm.gerente_email && createForm.gerente_email.trim()) {
+      const cleanEmail = createForm.gerente_email.trim().toLowerCase();
+      let currentCheck = emailCheck;
+      if (!currentCheck || currentCheck.email !== cleanEmail) {
+        currentCheck = await verifyGerenteEmail(cleanEmail);
+      }
+      if (currentCheck && !currentCheck.puede_usar) {
+        setErrorMsg(currentCheck.mensaje || 'El correo del Gerente ya está vinculado a otra cuenta.');
+        return;
+      }
+      if (currentCheck && currentCheck.requiere_confirmacion && !emailConfirmed) {
+        setErrorMsg('Por favor revisa el aviso de verificación del correo del Gerente y confirma si deseas continuar con ese correo.');
+        return;
+      }
+    }
     try {
       setSaving(true);
       setErrorMsg('');
-      const res = await axios.post(`${API}/api/empresas/`, createForm, { headers });
+      const payload = {
+        ...createForm,
+        gerente_email: createForm.gerente_email?.trim() || null,
+        gerente_nombre: createForm.gerente_nombre?.trim() || null,
+        gerente_password: createForm.gerente_password || null
+      };
+      const res = await axios.post(`${API}/api/empresas/`, payload, { headers });
       showToast(`Empresa "${res.data.nombre}" creada con éxito.`);
       setShowCreateModal(false);
+      setEmailCheck(null);
+      setEmailConfirmed(false);
       setCreateForm({
         nombre: '',
         documento: '',
@@ -294,15 +363,31 @@ export default function CompaniesPage() {
       setErrorMsg('Todos los campos son obligatorios');
       return;
     }
+    const cleanEmail = gerenteForm.email.trim().toLowerCase();
+    let currentCheck = emailCheck;
+    if (!currentCheck || currentCheck.email !== cleanEmail) {
+      currentCheck = await verifyGerenteEmail(cleanEmail);
+    }
+    if (currentCheck && !currentCheck.puede_usar) {
+      setErrorMsg(currentCheck.mensaje || 'Este correo ya está vinculado a otra cuenta.');
+      return;
+    }
+    if (currentCheck && currentCheck.requiere_confirmacion && !emailConfirmed) {
+      setErrorMsg('Por favor revisa el aviso de verificación del correo y confirma si deseas continuar con este correo.');
+      return;
+    }
     try {
       setSaving(true);
       setErrorMsg('');
       await axios.post(`${API}/api/usuarios/`, {
         ...gerenteForm,
+        email: cleanEmail,
         empresa_id: selectedEmpresa.id
       }, { headers });
-      showToast(`Gerente creado con éxito para ${selectedEmpresa.nombre}.`);
+      showToast(`Usuario creado con éxito para ${selectedEmpresa.nombre}.`);
       setShowGerenteModal(false);
+      setEmailCheck(null);
+      setEmailConfirmed(false);
       fetchEmpresas();
     } catch (err) {
       setErrorMsg(err.response?.data?.detail || 'Error al crear el gerente');
@@ -343,6 +428,8 @@ export default function CompaniesPage() {
         <button
           onClick={() => {
             setErrorMsg('');
+            setEmailCheck(null);
+            setEmailConfirmed(false);
             setShowCreateModal(true);
           }}
           className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all active:scale-95 text-sm"
@@ -1009,23 +1096,77 @@ export default function CompaniesPage() {
                         <label className="block text-[11px] font-semibold text-slate-600 mb-1">Nombre Gerente</label>
                         <input
                           type="text"
-                          placeholder="Ej. Juan Pérez"
+                          placeholder="Ej. Jesús Alfredo"
                           value={createForm.gerente_nombre}
                           onChange={(e) => setCreateForm({ ...createForm, gerente_nombre: e.target.value })}
                           className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">Correo Electrónico</label>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center justify-between">
+                          <span>Correo Electrónico</span>
+                          {checkingEmail && (
+                            <span className="text-[10px] text-indigo-600 flex items-center gap-1">
+                              <RefreshCw size={10} className="animate-spin" /> Verificando...
+                            </span>
+                          )}
+                        </label>
                         <input
                           type="email"
-                          placeholder="gerencia@empresa.com"
+                          placeholder="gerencia@gmail.com"
                           value={createForm.gerente_email}
-                          onChange={(e) => setCreateForm({ ...createForm, gerente_email: e.target.value })}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCreateForm({ ...createForm, gerente_email: val });
+                            triggerDebouncedEmailCheck(val);
+                          }}
+                          onBlur={() => verifyGerenteEmail(createForm.gerente_email)}
                           className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                         />
                       </div>
                     </div>
+
+                    {/* Aviso de Verificación de Correo del Gerente */}
+                    {createForm.gerente_email && emailCheck && (
+                      <div className="mt-2">
+                        {!emailCheck.puede_usar && (
+                          <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-[11px] text-red-800 space-y-1">
+                            <p className="font-bold flex items-center gap-1 text-red-700">
+                              <AlertCircle size={13} /> Correo ya vinculado
+                            </p>
+                            <p>{emailCheck.mensaje}</p>
+                          </div>
+                        )}
+                        {emailCheck.puede_usar && emailCheck.requiere_confirmacion && !emailConfirmed && (
+                          <div className={`p-2.5 rounded-xl border text-[11px] space-y-2 ${
+                            emailCheck.estado === 'no_existe_buzon'
+                              ? 'bg-amber-50 border-amber-300 text-amber-900'
+                              : 'bg-indigo-50/80 border-indigo-200 text-indigo-950'
+                          }`}>
+                            <div className="flex items-start gap-1.5">
+                              <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                              <p>{emailCheck.mensaje}</p>
+                            </div>
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setEmailConfirmed(true)}
+                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-lg flex items-center gap-1 cursor-pointer"
+                              >
+                                <Check size={12} /> Sí, seguir con este correo y crear normal
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {emailCheck.puede_usar && (emailConfirmed || !emailCheck.requiere_confirmacion) && (
+                          <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 flex items-center gap-1.5 font-medium">
+                            <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                            <span>Correo verificado y confirmado para el Gerente de esta empresa.</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="mt-2">
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">Contraseña Inicial</label>
                       <input
@@ -1559,6 +1700,18 @@ export default function CompaniesPage() {
               )}
 
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Rol en {selectedEmpresa.nombre}</label>
+                <select
+                  value={gerenteForm.rol}
+                  onChange={(e) => setGerenteForm({ ...gerenteForm, rol: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+                >
+                  <option value="admin">🏢 Gerente de Empresa (Admin)</option>
+                  <option value="operador">🖥️ Operador de Monitoreo</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo</label>
                 <input
                   type="text"
@@ -1571,15 +1724,66 @@ export default function CompaniesPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Correo Electrónico</span>
+                  {checkingEmail && (
+                    <span className="text-[11px] text-indigo-600 flex items-center gap-1">
+                      <RefreshCw size={11} className="animate-spin" /> Verificando...
+                    </span>
+                  )}
+                </label>
                 <input
                   type="email"
                   required
-                  placeholder="gerencia@transporte.com"
+                  placeholder="gerencia@gmail.com"
                   value={gerenteForm.email}
-                  onChange={(e) => setGerenteForm({ ...gerenteForm, email: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setGerenteForm({ ...gerenteForm, email: val });
+                    triggerDebouncedEmailCheck(val);
+                  }}
+                  onBlur={() => verifyGerenteEmail(gerenteForm.email)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                 />
+                {gerenteForm.email && emailCheck && (
+                  <div className="mt-2">
+                    {!emailCheck.puede_usar && (
+                      <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 space-y-1">
+                        <p className="font-bold flex items-center gap-1 text-red-700">
+                          <AlertCircle size={14} /> Correo ya vinculado
+                        </p>
+                        <p>{emailCheck.mensaje}</p>
+                      </div>
+                    )}
+                    {emailCheck.puede_usar && emailCheck.requiere_confirmacion && !emailConfirmed && (
+                      <div className={`p-2.5 rounded-xl border text-xs space-y-2 ${
+                        emailCheck.estado === 'no_existe_buzon'
+                          ? 'bg-amber-50 border-amber-300 text-amber-900'
+                          : 'bg-indigo-50/80 border-indigo-200 text-indigo-950'
+                      }`}>
+                        <div className="flex items-start gap-1.5">
+                          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                          <p>{emailCheck.mensaje}</p>
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEmailConfirmed(true)}
+                            className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <Check size={12} /> Sí, seguir con este correo y crear normal
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {emailCheck.puede_usar && (emailConfirmed || !emailCheck.requiere_confirmacion) && (
+                      <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-1.5 font-medium">
+                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                        <span>Correo verificado y confirmado para {selectedEmpresa.nombre}.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

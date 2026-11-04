@@ -1,16 +1,21 @@
+import os
 import re
 import smtplib
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from email.utils import formatdate, make_msgid
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+LOGO_ASSET_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "copai-email-logo.jpg")
+
 def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
     """
-    Envía un correo electrónico HTML transaccional vía Brevo SMTP de forma segura.
+    Envía un correo electrónico HTML transaccional vía Brevo SMTP de forma segura,
+    adjuntando el logotipo oficial de Industrias Copai de manera embebida (CID).
     Retorna True si fue exitoso o False en caso de error, sin levantar excepciones.
     """
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
@@ -19,22 +24,37 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
 
     try:
         to_clean = to_email.strip()
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>"
-        msg['To'] = to_clean
-        msg['Reply-To'] = settings.EMAIL_FROM
-        msg['Date'] = formatdate(localtime=True)
-        msg['Message-ID'] = make_msgid(domain='industriascopai.com')
+        msg_root = MIMEMultipart('related')
+        msg_root['Subject'] = subject
+        msg_root['From'] = f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>"
+        msg_root['To'] = to_clean
+        msg_root['Reply-To'] = settings.EMAIL_FROM
+        msg_root['Date'] = formatdate(localtime=True)
+        msg_root['Message-ID'] = make_msgid(domain='industriascopai.com')
+
+        msg_alt = MIMEMultipart('alternative')
+        msg_root.attach(msg_alt)
 
         # Versión texto plano (mejora entregabilidad anti-spam en Gmail/Outlook)
         plain_text = re.sub(r'<[^>]+>', ' ', html_content)
         plain_text = re.sub(r'\s+', ' ', plain_text).strip()
-        msg.attach(MIMEText(plain_text, 'plain', 'utf-8'))
+        msg_alt.attach(MIMEText(plain_text, 'plain', 'utf-8'))
 
         # Versión HTML enriquecida
         part = MIMEText(html_content, 'html', 'utf-8')
-        msg.attach(part)
+        msg_alt.attach(part)
+
+        # Adjuntar logotipo oficial de Industrias Copai embebido (CID) si está referenciado
+        if 'cid:copai_logo' in html_content and os.path.isfile(LOGO_ASSET_PATH):
+            try:
+                with open(LOGO_ASSET_PATH, 'rb') as img_file:
+                    img_data = img_file.read()
+                mime_img = MIMEImage(img_data, _subtype='jpeg')
+                mime_img.add_header('Content-ID', '<copai_logo>')
+                mime_img.add_header('Content-Disposition', 'inline', filename='copai-logo.jpg')
+                msg_root.attach(mime_img)
+            except Exception as img_err:
+                logger.warning(f"[EMAIL] No se pudo adjuntar logo CID: {img_err}")
 
         # Conectar a Brevo SMTP Relay
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
@@ -42,7 +62,7 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
             server.starttls()
             server.ehlo()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.EMAIL_FROM, [to_clean], msg.as_string())
+            server.sendmail(settings.EMAIL_FROM, [to_clean], msg_root.as_string())
 
         logger.info(f"[EMAIL] Correo enviado exitosamente a {to_clean} (Asunto: '{subject}')")
         print(f"[EMAIL] [OK] Correo enviado exitosamente a {to_clean}", flush=True)
@@ -103,6 +123,9 @@ def send_welcome_email(
                         <!-- Header Corporativo -->
                         <tr>
                             <td align="center" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); padding: 35px 25px; text-align: center;">
+                                <div style="margin-bottom: 14px;">
+                                    <img src="cid:copai_logo" alt="Industrias Copai" width="84" height="84" style="width: 84px; height: 84px; border-radius: 20px; background-color: #ffffff; padding: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); display: inline-block; object-fit: contain;" />
+                                </div>
                                 <div style="display: inline-block; background: rgba(255, 255, 255, 0.1); padding: 8px 16px; border-radius: 30px; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.15);">
                                     <span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Copai Telematics IoT</span>
                                 </div>
@@ -193,6 +216,7 @@ def send_welcome_email(
                         <!-- Footer -->
                         <tr>
                             <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                <img src="cid:copai_logo" alt="Copai" width="38" height="38" style="width: 38px; height: 38px; border-radius: 10px; background-color: #ffffff; padding: 3px; border: 1px solid #e2e8f0; margin-bottom: 8px; display: inline-block; object-fit: contain;" />
                                 <p style="color: #0f172a; font-size: 13px; font-weight: 700; margin: 0 0 4px;">Industrias Copai Telematics</p>
                                 <p style="color: #64748b; font-size: 11px; margin: 0 0 10px;">Soluciones Integrales de Rastreo Satelital & Seguridad Vehicular</p>
                                 <p style="color: #94a3b8; font-size: 10px; margin: 0;">
@@ -225,8 +249,13 @@ def send_password_reset_email(to_email: str, nombre: str, reset_link: str) -> bo
     <body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 30px 15px;">
         <table align="center" width="100%" style="max-width: 550px; background-color: #ffffff; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0;">
             <tr>
+                <td align="center" style="padding-bottom: 18px;">
+                    <img src="cid:copai_logo" alt="Industrias Copai" width="72" height="72" style="width: 72px; height: 72px; border-radius: 16px; background-color: #ffffff; padding: 4px; border: 1px solid #e2e8f0; display: inline-block; object-fit: contain;" />
+                </td>
+            </tr>
+            <tr>
                 <td>
-                    <h2 style="color: #0f172a; margin-top: 0;">Recuperación de Contraseña</h2>
+                    <h2 style="color: #0f172a; margin-top: 0; text-align: center;">Recuperación de Contraseña</h2>
                     <p style="color: #475569; font-size: 14px;">Hola <strong>{nombre}</strong>,</p>
                     <p style="color: #475569; font-size: 14px;">Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en <strong>Industrias Copai Telematics</strong>.</p>
                     <p style="text-align: center; margin: 30px 0;">
