@@ -35,19 +35,14 @@ export default function MobileLoginView({
 
   return (
     <div
-      className="min-h-dvh-screen bg-slate-950 text-white flex flex-col justify-between px-5 relative overflow-x-hidden select-none"
+      className="min-h-screen bg-slate-950 text-white flex flex-col justify-between px-5 py-6 relative overflow-hidden select-none"
       style={{
-        paddingTop: isIOS && isStandalone
-          ? 'max(env(safe-area-inset-top, 0px), 50px)'
-          : 'max(env(safe-area-inset-top, 0px), 20px)',
-        paddingBottom: isIOS && isStandalone
-          ? 'max(env(safe-area-inset-bottom, 0px), 26px)'
-          : 'max(env(safe-area-inset-bottom, 0px), 20px)'
+        boxShadow: '0 -100px 0 100px #020617, 0 100px 0 100px #020617'
       }}
     >
       
-      {/* Luces y degradados de fondo inmersivos */}
-      <div className="absolute top-[-10%] left-[10%] w-[350px] h-[350px] rounded-full blur-[120px] opacity-25 pointer-events-none"
+      {/* Luces y degradados de fondo inmersivos (alejados del borde superior para mantener el status bar 100% oscuro) */}
+      <div className="absolute top-[18%] left-[10%] w-[320px] h-[320px] rounded-full blur-[120px] opacity-15 pointer-events-none"
         style={{ backgroundColor: primaryColor }}
       />
       <div className="absolute bottom-[-10%] right-[10%] w-[300px] h-[300px] rounded-full blur-[120px] bg-blue-600 opacity-20 pointer-events-none" />

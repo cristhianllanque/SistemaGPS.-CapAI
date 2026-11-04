@@ -64,14 +64,12 @@ export function usePWA(companyData = null) {
 
   // 5. Inyectar dinámicamente metadatos de Apple y Favicon según la empresa
   useEffect(() => {
-    if (!companyData) return;
-
-    const appTitle = companyData.nombre ? `${companyData.nombre}` : 'COPAI GPS';
-    const logoUrl = companyData.logo_url || '/copai-symbol.png';
     const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 768;
-    const themeColor = isMobileViewport ? '#020617' : (companyData.color_primario || '#020617');
+    const appTitle = companyData?.nombre ? `${companyData.nombre}` : 'COPAI GPS';
+    const logoUrl = companyData?.logo_url || '/copai-symbol.png';
+    const themeColor = isMobileViewport ? '#020617' : (companyData?.color_primario || '#020617');
 
-    // Meta Theme Color
+    // Meta Theme Color (En móvil siempre #020617 oscuro para eliminar niebla blanca superior en iOS)
     let metaTheme = document.querySelector('meta[name="theme-color"]');
     if (!metaTheme) {
       metaTheme = document.createElement('meta');
@@ -79,6 +77,8 @@ export function usePWA(companyData = null) {
       document.head.appendChild(metaTheme);
     }
     metaTheme.content = themeColor;
+
+    if (!companyData) return;
 
     // Apple Mobile Web App Title
     let metaTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');

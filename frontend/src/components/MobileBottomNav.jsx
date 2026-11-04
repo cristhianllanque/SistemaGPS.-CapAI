@@ -102,12 +102,7 @@ export default function MobileBottomNav({
           <div className="flex-1" onClick={() => setMenuOpen(false)} />
 
           <div
-            className="bg-slate-900 text-white rounded-t-3xl border-t border-slate-700/80 shadow-2xl px-4 pt-3 max-h-[82dvh] flex flex-col animate-in slide-in-from-bottom duration-200"
-            style={{
-              paddingBottom: isIOS && isStandalone
-                ? 'calc(4.5rem + max(env(safe-area-inset-bottom, 0px), 20px))'
-                : 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
-            }}
+            className="bg-slate-900 text-white rounded-t-3xl border-t border-slate-700/80 shadow-2xl px-4 pt-3 pb-20 max-h-[82vh] flex flex-col animate-in slide-in-from-bottom duration-200"
           >
             {/* Indicador superior de arrastre */}
             <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-3 flex-shrink-0" />
@@ -197,13 +192,11 @@ export default function MobileBottomNav({
         </div>
       )}
 
-      {/* Barra Inferior Fija con Safe-Area para iPhone y Android */}
+      {/* Barra Inferior Fija pegada al borde inferior de la pantalla */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[70] bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-1.5 pt-1.5 shadow-[0_-8px_25px_rgba(0,0,0,0.45)] select-none"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[70] bg-slate-950 border-t border-slate-800/80 px-1.5 py-1.5 select-none"
         style={{
-          paddingBottom: isIOS && isStandalone
-            ? 'max(env(safe-area-inset-bottom, 0px), 20px)'
-            : 'max(env(safe-area-inset-bottom, 0px), 6px)'
+          boxShadow: '0 -8px 25px rgba(0,0,0,0.45), 0 80px 0 80px #020617'
         }}
       >
         <div className="flex items-center justify-around max-w-lg mx-auto">

@@ -4,11 +4,10 @@
 
 @layer base {
   html,
-  body,
-  #root {
-    height: 100%;
-    height: 100dvh;
-    overscroll-behavior-y: none;
+  body {
+    background-color: #020617;
+    margin: 0;
+    padding: 0;
     -webkit-tap-highlight-color: transparent;
   }
 }
@@ -19,20 +18,6 @@
   }
   .slide-in-from-right {
     animation-name: slide-in-right;
-  }
-  .pt-safe {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .h-dvh-screen {
-    height: 100vh;
-    height: 100dvh;
-  }
-  .min-h-dvh-screen {
-    min-height: 100vh;
-    min-height: 100dvh;
   }
   
   @keyframes slide-in-right {
