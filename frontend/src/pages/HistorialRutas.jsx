@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { 
-  Search, Play, Pause, RotateCcw, MapPin, Flag, 
-  Clock, Gauge, Power, Battery, Calendar, AlertTriangle 
+  Search, Play, Pause, RotateCcw, Gauge, AlertTriangle,
+  SlidersHorizontal, ChevronUp, ChevronDown, Truck
 } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -82,7 +82,9 @@ export default function HistorialRutas() {
 
   const [fechaInicio, setFechaInicio] = useState(formatLocalInput(startOfDay));
   const [fechaFin, setFechaFin] = useState(formatLocalInput(endOfDay));
+  const [activePreset, setActivePreset] = useState('hoy');
   const [loading, setLoading] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(true);
   
   const [historialData, setHistorialData] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -113,6 +115,7 @@ export default function HistorialRutas() {
   };
 
   const setPreset = (type) => {
+    setActivePreset(type);
     const cur = new Date();
     if (type === 'hoy') {
       const s = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 0, 0, 0);
@@ -155,6 +158,10 @@ export default function HistorialRutas() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setHistorialData(res.data);
+      // En móvil, contraer automáticamente el panel de filtros para dejar el mapa libre
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        setMobileFiltersOpen(false);
+      }
     } catch (error) {
       console.error(error);
       alert("Error al cargar historial. Verifique el rango de fechas.");
@@ -203,10 +210,21 @@ export default function HistorialRutas() {
     return `${m} min`;
   };
 
+  const selectedVehObj = vehiculos.find(v => String(v.id) === String(selectedVehiculo));
+  const presetLabelMap = {
+    hoy: 'Hoy',
+    ayer: 'Ayer',
+    '24h': 'Últimas 24h',
+    '7d': '7 días',
+    custom: 'Personalizado'
+  };
+
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50 overflow-hidden">
-      {/* Top Filter and Controls Bar */}
-      <div className="bg-white p-3 md:p-4 shadow-sm border-b border-slate-200 z-10 flex flex-wrap gap-3 items-end justify-between">
+    <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+      {/* ===================================================================== */}
+      {/* BARRA DE FILTROS ESCRITORIO (md:flex - Intacta para PC/Laptop)         */}
+      {/* ===================================================================== */}
+      <div className="hidden md:flex bg-white p-4 shadow-sm border-b border-slate-200 z-10 flex-wrap gap-3 items-end justify-between">
         <div className="flex flex-wrap gap-3 items-end">
           <div className="w-44">
             <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Vehículo</label>
@@ -227,7 +245,7 @@ export default function HistorialRutas() {
               type="datetime-local" 
               className="p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-700"
               value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
+              onChange={(e) => { setActivePreset('custom'); setFechaInicio(e.target.value); }}
             />
           </div>
           
@@ -237,14 +255,14 @@ export default function HistorialRutas() {
               type="datetime-local" 
               className="p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-700"
               value={fechaFin}
-              onChange={(e) => setFechaFin(e.target.value)}
+              onChange={(e) => { setActivePreset('custom'); setFechaFin(e.target.value); }}
             />
           </div>
 
           <button 
             onClick={handleSearch}
             disabled={!selectedVehiculo || loading}
-            className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2 text-sm shadow-sm"
+            className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2 text-sm shadow-sm cursor-pointer"
           >
             <Search size={16} /> {loading ? 'Cargando Recorrido...' : 'Consultar'}
           </button>
@@ -252,31 +270,142 @@ export default function HistorialRutas() {
 
         {/* Quick Date Presets */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold self-end">
-          <button 
-            onClick={() => setPreset('hoy')} 
-            className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors"
-          >
-            Hoy
-          </button>
-          <button 
-            onClick={() => setPreset('ayer')} 
-            className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors"
-          >
-            Ayer
-          </button>
-          <button 
-            onClick={() => setPreset('24h')} 
-            className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors"
-          >
-            Últimas 24h
-          </button>
-          <button 
-            onClick={() => setPreset('7d')} 
-            className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors"
-          >
-            Últimos 7 días
-          </button>
+          <button onClick={() => setPreset('hoy')} className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors cursor-pointer">Hoy</button>
+          <button onClick={() => setPreset('ayer')} className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors cursor-pointer">Ayer</button>
+          <button onClick={() => setPreset('24h')} className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors cursor-pointer">Últimas 24h</button>
+          <button onClick={() => setPreset('7d')} className="px-2.5 py-1.5 rounded hover:bg-white text-slate-600 transition-colors cursor-pointer">Últimos 7 días</button>
         </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* BARRA DE FILTROS MÓVIL COLAPSABLE (md:hidden - Optimizada para iPhone/Android) */}
+      {/* ===================================================================== */}
+      <div className="md:hidden bg-white border-b border-slate-200 shadow-xs z-20 flex-shrink-0">
+        {/* Barra Resumen Compacta de 1 línea */}
+        <div className="flex items-center justify-between px-3 py-2 gap-2">
+          <div
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+              <Truck size={15} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-slate-800 truncate">
+                  {selectedVehObj ? selectedVehObj.placa : 'Seleccionar Unidad'}
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                  {presetLabelMap[activePreset] || 'Rango'}
+                </span>
+                {historialData?.estadisticas && (
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                    {historialData.estadisticas.distancia_km} km
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {!mobileFiltersOpen && (
+              <button
+                type="button"
+                onClick={handleSearch}
+                disabled={!selectedVehiculo || loading}
+                className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
+              >
+                <Search size={12} />
+                <span>{loading ? '...' : 'Actualizar'}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <SlidersHorizontal size={12} />
+              <span>{mobileFiltersOpen ? 'Ocultar' : 'Filtros'}</span>
+              {mobileFiltersOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Panel Desplegable de Filtros en Móvil */}
+        {mobileFiltersOpen && (
+          <div className="px-3 pb-3 pt-1 border-t border-slate-100 space-y-2.5 animate-in fade-in duration-150">
+            {/* Selector de Vehículo y Accesos Rápidos de Fecha */}
+            <div className="grid grid-cols-1 gap-2">
+              <select
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-bold text-slate-800 bg-slate-50"
+                value={selectedVehiculo}
+                onChange={(e) => setSelectedVehiculo(e.target.value)}
+              >
+                {vehiculos.map(v => (
+                  <option key={v.id} value={v.id}>
+                    🚐 {v.placa} — {v.empresa?.nombre || 'Mi Flota'}
+                  </option>
+                ))}
+              </select>
+
+              {/* Chips Rápidos de Tiempo */}
+              <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
+                {[
+                  { id: 'hoy', label: 'Hoy' },
+                  { id: 'ayer', label: 'Ayer' },
+                  { id: '24h', label: '24 Horas' },
+                  { id: '7d', label: '7 Días' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setPreset(item.id)}
+                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                      activePreset === item.id
+                        ? 'bg-white text-indigo-600 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fechas Desde y Hasta en 2 columnas paralelas */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Desde</label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50"
+                  value={fechaInicio}
+                  onChange={(e) => { setActivePreset('custom'); setFechaInicio(e.target.value); }}
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Hasta</label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50"
+                  value={fechaFin}
+                  onChange={(e) => { setActivePreset('custom'); setFechaFin(e.target.value); }}
+                />
+              </div>
+            </div>
+
+            {/* Botón Consultar */}
+            <button
+              type="button"
+              onClick={handleSearch}
+              disabled={!selectedVehiculo || loading}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-extrabold text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <Search size={15} />
+              <span>{loading ? 'Buscando Recorrido...' : 'Consultar Recorrido en Mapa'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Content Area */}
@@ -361,23 +490,28 @@ export default function HistorialRutas() {
         {historialData && historialData.paradas && historialData.paradas.length > 0 && (
           <button
             onClick={() => setShowStopsList(!showStopsList)}
-            className="absolute top-4 right-4 bg-white/95 backdrop-blur shadow-md border border-slate-200 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 z-[1000] flex items-center gap-2 transition-all"
+            className="absolute top-3 right-3 md:top-4 md:right-4 bg-white/95 backdrop-blur shadow-md border border-slate-200 px-3 py-1.5 md:py-2 rounded-lg text-[11px] md:text-xs font-bold text-slate-700 hover:bg-slate-50 z-[1000] flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            🛑 {showStopsList ? 'Ocultar Paradas' : `Ver Paradas (${historialData.paradas.length})`}
+            🛑 {showStopsList ? 'Ocultar Paradas' : `Paradas (${historialData.paradas.length})`}
           </button>
         )}
 
         {/* Stops Floating List */}
         {showStopsList && historialData?.paradas && (
-          <div className="absolute top-16 right-4 w-72 max-h-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200 p-3 z-[1000] overflow-y-auto space-y-2 text-xs">
+          <div className="absolute top-12 right-3 md:top-16 md:right-4 w-64 md:w-72 max-h-64 md:max-h-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200 p-3 z-[1000] overflow-y-auto space-y-2 text-xs">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 font-bold text-slate-800">
               <span>Paradas Registradas ({historialData.paradas.length})</span>
-              <button onClick={() => setShowStopsList(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+              <button onClick={() => setShowStopsList(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">✕</button>
             </div>
             {historialData.paradas.map((p, idx) => (
               <div 
                 key={idx}
-                onClick={() => setFlyToTarget([p.latitud, p.longitud])}
+                onClick={() => {
+                  setFlyToTarget([p.latitud, p.longitud]);
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setShowStopsList(false);
+                  }
+                }}
                 className="p-2 rounded-lg bg-amber-50/60 border border-amber-200/80 hover:bg-amber-100/70 cursor-pointer transition-colors flex justify-between items-center"
               >
                 <div>
@@ -396,45 +530,45 @@ export default function HistorialRutas() {
 
         {/* Empty State Banner */}
         {historialData && historialData.coordenadas.length === 0 && (
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur shadow-lg border border-slate-200 px-6 py-3 rounded-xl z-[1000] text-sm text-slate-600 flex items-center gap-3">
-            <AlertTriangle className="text-amber-500" size={20} />
-            <span>No se encontraron recorridos para este vehículo en el rango de fechas seleccionado.</span>
+          <div className="absolute top-4 left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bg-white/95 backdrop-blur shadow-lg border border-slate-200 px-4 py-2.5 md:px-6 md:py-3 rounded-xl z-[1000] text-xs md:text-sm text-slate-600 flex items-center gap-2.5">
+            <AlertTriangle className="text-amber-500 flex-shrink-0" size={18} />
+            <span>No se encontraron recorridos en el rango seleccionado.</span>
           </div>
         )}
 
-        {/* Playback Controls & Stats Dashboard Bar */}
+        {/* Playback Controls & Stats Dashboard Bar (Compacto en Móvil, Completo en Escritorio) */}
         {historialData && historialData.coordenadas.length > 0 && (
-          <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 p-4 z-[1000] flex flex-col md:flex-row gap-5 items-center">
+          <div className="absolute bottom-2.5 left-2.5 right-2.5 md:bottom-4 md:left-4 md:right-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 p-2.5 md:p-4 z-[1000] flex flex-col md:flex-row gap-2.5 md:gap-5 items-center">
             
-            {/* Key Trip Metrics */}
-            <div className="grid grid-cols-3 md:grid-cols-5 gap-3 border-b md:border-b-0 md:border-r border-slate-200 pb-3 md:pb-0 md:pr-5 w-full md:w-auto flex-shrink-0 text-center md:text-left">
-              <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase font-bold">Distancia</p>
-                <p className="text-base font-extrabold text-slate-800">
-                  {historialData.estadisticas.distancia_km} <span className="text-[11px] font-normal text-slate-500">km</span>
+            {/* Key Trip Metrics: 5 columnas ultracompactas en móvil */}
+            <div className="grid grid-cols-5 gap-1.5 md:gap-3 border-b md:border-b-0 md:border-r border-slate-200 pb-2 md:pb-0 md:pr-5 w-full md:w-auto flex-shrink-0 text-center md:text-left">
+              <div className="bg-slate-50 p-1.5 md:p-2 rounded-lg border border-slate-100">
+                <p className="text-[8px] md:text-[10px] text-slate-400 uppercase font-bold truncate">Distancia</p>
+                <p className="text-xs md:text-base font-extrabold text-slate-800 leading-tight">
+                  {historialData.estadisticas.distancia_km} <span className="text-[9px] md:text-[11px] font-normal text-slate-500">km</span>
                 </p>
               </div>
-              <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase font-bold">Vel. Máx</p>
-                <p className="text-base font-extrabold text-slate-800">
-                  {historialData.estadisticas.velocidad_maxima} <span className="text-[11px] font-normal text-slate-500">km/h</span>
+              <div className="bg-slate-50 p-1.5 md:p-2 rounded-lg border border-slate-100">
+                <p className="text-[8px] md:text-[10px] text-slate-400 uppercase font-bold truncate">Vel. Máx</p>
+                <p className="text-xs md:text-base font-extrabold text-slate-800 leading-tight">
+                  {historialData.estadisticas.velocidad_maxima} <span className="text-[9px] md:text-[11px] font-normal text-slate-500">k/h</span>
                 </p>
               </div>
-              <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                <p className="text-[10px] text-slate-400 uppercase font-bold">Vel. Prom</p>
-                <p className="text-base font-extrabold text-slate-800">
-                  {historialData.estadisticas.velocidad_promedio} <span className="text-[11px] font-normal text-slate-500">km/h</span>
+              <div className="bg-slate-50 p-1.5 md:p-2 rounded-lg border border-slate-100">
+                <p className="text-[8px] md:text-[10px] text-slate-400 uppercase font-bold truncate">Promedio</p>
+                <p className="text-xs md:text-base font-extrabold text-slate-800 leading-tight">
+                  {historialData.estadisticas.velocidad_promedio} <span className="text-[9px] md:text-[11px] font-normal text-slate-500">k/h</span>
                 </p>
               </div>
-              <div className="bg-emerald-50/70 p-2 rounded-lg border border-emerald-100">
-                <p className="text-[10px] text-emerald-700 uppercase font-bold">Motor ON</p>
-                <p className="text-base font-extrabold text-emerald-900">
+              <div className="bg-emerald-50/70 p-1.5 md:p-2 rounded-lg border border-emerald-100">
+                <p className="text-[8px] md:text-[10px] text-emerald-700 uppercase font-bold truncate">Motor ON</p>
+                <p className="text-xs md:text-base font-extrabold text-emerald-900 leading-tight">
                   {formatMinutes(historialData.estadisticas.tiempo_encendido_minutos)}
                 </p>
               </div>
-              <div className="bg-amber-50/70 p-2 rounded-lg border border-amber-100">
-                <p className="text-[10px] text-amber-700 uppercase font-bold">Paradas</p>
-                <p className="text-base font-extrabold text-amber-900">
+              <div className="bg-amber-50/70 p-1.5 md:p-2 rounded-lg border border-amber-100">
+                <p className="text-[8px] md:text-[10px] text-amber-700 uppercase font-bold truncate">Paradas</p>
+                <p className="text-xs md:text-base font-extrabold text-amber-900 leading-tight">
                   {historialData.estadisticas.total_paradas || historialData.paradas?.length || 0}
                 </p>
               </div>
@@ -442,20 +576,20 @@ export default function HistorialRutas() {
 
             {/* Playback Controls & Timeline Slider */}
             <div className="flex-1 w-full flex flex-col justify-center">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-2 md:gap-3 mb-1.5 md:mb-2">
                 <button 
                   onClick={togglePlay}
-                  className="w-10 h-10 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md transition-all active:scale-95 flex-shrink-0"
+                  className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-md transition-all active:scale-95 flex-shrink-0 cursor-pointer"
                 >
-                  {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+                  {isPlaying ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
                 </button>
 
                 <button
                   onClick={() => { setIsPlaying(false); setCurrentIndex(0); }}
-                  className="p-2 hover:bg-slate-100 text-slate-500 rounded-lg transition-colors"
+                  className="p-1.5 md:p-2 hover:bg-slate-100 text-slate-500 rounded-lg transition-colors cursor-pointer"
                   title="Reiniciar ruta"
                 >
-                  <RotateCcw size={16} />
+                  <RotateCcw size={14} />
                 </button>
                 
                 {/* Timeline Slider */}
@@ -469,17 +603,17 @@ export default function HistorialRutas() {
                       setIsPlaying(false);
                       setCurrentIndex(parseInt(e.target.value));
                     }}
-                    className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    className="w-full h-2 md:h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                   />
                 </div>
                 
                 {/* Playback Speeds */}
-                <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-0.5 flex-shrink-0">
+                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 md:p-1 gap-0.5 flex-shrink-0">
                   {[1, 2, 5, 10].map(speed => (
                     <button
                       key={speed}
                       onClick={() => setPlaybackSpeed(speed)}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${playbackSpeed === speed ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                      className={`px-1.5 md:px-2.5 py-0.5 md:py-1 text-[10px] md:text-xs font-bold rounded-md transition-colors cursor-pointer ${playbackSpeed === speed ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                     >
                       {speed}x
                     </button>
@@ -488,30 +622,34 @@ export default function HistorialRutas() {
               </div>
               
               {/* Telemetry Footer of Playback */}
-              <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                <span>{new Date(startPoint.timestamp).toLocaleTimeString()} ({new Date(startPoint.timestamp).toLocaleDateString()})</span>
+              <div className="flex justify-between items-center text-[10px] md:text-xs text-slate-500 font-medium gap-1">
+                <span className="hidden sm:inline">
+                  {new Date(startPoint.timestamp).toLocaleTimeString()} ({new Date(startPoint.timestamp).toLocaleDateString()})
+                </span>
                 
                 {currentPoint && (
-                  <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-indigo-700 font-bold">
+                  <div className="w-full sm:w-auto flex items-center justify-center gap-1.5 md:gap-2 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-indigo-700 font-bold text-[10px] md:text-xs truncate">
                     <span>⏱ {new Date(currentPoint.timestamp).toLocaleTimeString()}</span>
                     <span>•</span>
-                    <span className="flex items-center gap-1"><Gauge size={13} /> {currentPoint.velocidad} km/h</span>
+                    <span className="flex items-center gap-0.5"><Gauge size={11} /> {currentPoint.velocidad} km/h</span>
                     <span>•</span>
                     <span className={currentPoint.ignicion ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
-                      {currentPoint.ignicion ? 'Motor ON' : 'Motor OFF'}
+                      {currentPoint.ignicion ? 'ON' : 'OFF'}
                     </span>
                     {currentPoint.bateria_ext !== undefined && currentPoint.bateria_ext !== null && (
                       <>
                         <span>•</span>
                         <span className={currentPoint.bateria_ext < 6 ? 'text-rose-600 font-bold' : 'text-slate-600'}>
-                          ⚡ {currentPoint.bateria_ext} V
+                          ⚡ {currentPoint.bateria_ext}V
                         </span>
                       </>
                     )}
                   </div>
                 )}
                 
-                <span>{new Date(endPoint.timestamp).toLocaleTimeString()} ({new Date(endPoint.timestamp).toLocaleDateString()})</span>
+                <span className="hidden sm:inline">
+                  {new Date(endPoint.timestamp).toLocaleTimeString()} ({new Date(endPoint.timestamp).toLocaleDateString()})
+                </span>
               </div>
             </div>
 

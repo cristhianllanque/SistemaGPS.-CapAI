@@ -120,22 +120,34 @@ export default function InstallPwaModal({
         <div className="p-4 pt-2 bg-slate-50 border-t border-slate-100 flex flex-col gap-2">
           {!isIOS ? (
             <div className="flex flex-col gap-2">
-              <a
-                href="/descargas/HuaynaRoque_GPS.apk"
-                download="HuaynaRoque_GPS.apk"
-                onClick={onClose}
-                className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center no-underline"
-                style={{ backgroundColor: primaryColor }}
-              >
-                <Download size={18} />
-                <span>Descargar APK Instalador (5.8 MB)</span>
-              </a>
+              {(() => {
+                const isHuayna = Boolean(
+                  companyName?.toLowerCase().includes('huayna') ||
+                  (typeof window !== 'undefined' && window.location.hostname.toLowerCase().includes('huayna'))
+                );
+                const apkUrl = isHuayna ? '/descargas/HuaynaRoque_GPS.apk' : '/descargas/CopaiGPS.apk';
+                const apkName = isHuayna ? 'HuaynaRoque_GPS.apk' : 'CopaiGPS.apk';
+                return (
+                  <a
+                    href={apkUrl}
+                    download={apkName}
+                    onClick={onClose}
+                    className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center no-underline"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <Download size={18} />
+                    <span>
+                      {isHuayna ? 'Descargar APK Huayna Roque (Android)' : 'Descargar APK Oficial Android'}
+                    </span>
+                  </a>
+                );
+              })()}
               {onInstall && (
                 <button
                   onClick={onInstall}
                   className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  O instalar versión ligera sin descarga
+                  O instalar acceso directo en pantalla de inicio
                 </button>
               )}
             </div>
@@ -145,7 +157,7 @@ export default function InstallPwaModal({
               className="w-full py-3 px-4 rounded-xl text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
               style={{ backgroundColor: primaryColor }}
             >
-              <span>¡Entendido! Lo instalaré ahora</span>
+              <span>¡Entendido! Lo instalaré en mi iPhone</span>
             </button>
           )}
 
@@ -153,7 +165,7 @@ export default function InstallPwaModal({
             onClick={onClose}
             className="w-full py-2 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors text-center cursor-pointer"
           >
-            Continuar en el navegador web
+            Continuar ahora
           </button>
         </div>
       </div>

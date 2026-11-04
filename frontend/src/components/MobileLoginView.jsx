@@ -17,14 +17,34 @@ export default function MobileLoginView({
   onViewWebPortal,
   onOpenInstallModal,
   isStandalone,
+  isIOS,
+  isAndroid,
   onResetCompany
 }) {
   const primaryColor = companyPortal?.color_primario || '#0284c7';
   const companyName = companyPortal?.nombre || 'COPAI Telematics GPS';
   const logoSrc = companyPortal?.logo_url ? getAssetUrl(companyPortal.logo_url) : '/copai-symbol.png';
+  const isHuayna = Boolean(
+    companyPortal?.slug?.toLowerCase().includes('huayna') ||
+    companyName.toLowerCase().includes('huayna')
+  );
+  const apkHref = isHuayna
+    ? 'https://industriascopai.com/descargas/HuaynaRoque_GPS.apk'
+    : 'https://industriascopai.com/descargas/CopaiGPS.apk';
+  const apkFileName = isHuayna ? 'HuaynaRoque_GPS.apk' : 'CopaiGPS.apk';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between px-5 py-8 relative overflow-hidden select-none">
+    <div
+      className="min-h-dvh-screen bg-slate-950 text-white flex flex-col justify-between px-5 relative overflow-x-hidden select-none"
+      style={{
+        paddingTop: isIOS && isStandalone
+          ? 'max(env(safe-area-inset-top, 0px), 50px)'
+          : 'max(env(safe-area-inset-top, 0px), 20px)',
+        paddingBottom: isIOS && isStandalone
+          ? 'max(env(safe-area-inset-bottom, 0px), 26px)'
+          : 'max(env(safe-area-inset-bottom, 0px), 20px)'
+      }}
+    >
       
       {/* Luces y degradados de fondo inmersivos */}
       <div className="absolute top-[-10%] left-[10%] w-[350px] h-[350px] rounded-full blur-[120px] opacity-25 pointer-events-none"
@@ -175,20 +195,42 @@ export default function MobileLoginView({
         </div>
       </div>
 
-      {/* Pie de Página Móvil: Descarga de APK y Ver Portal Web */}
-      <div className="relative z-10 flex flex-col items-center gap-3 pt-2">
-        {!isNativeApp && (
-          <a
-            href="https://industriascopai.com/descargas/CopaiGPS.apk"
-            download="CopaiGPS.apk"
-            className="w-full py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 no-underline"
-          >
-            <Download size={16} className="text-emerald-400" />
-            <span>Descargar App Oficial Android (.APK)</span>
-          </a>
+      {/* Pie de Página Móvil: Instalación Inteligente según iOS / Android y Ver Portal Web */}
+      <div className="relative z-10 flex flex-col items-center gap-2.5 pt-2">
+        {!isNativeApp && !isStandalone && (
+          isIOS ? (
+            <button
+              type="button"
+              onClick={onOpenInstallModal}
+              className="w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg"
+            >
+              <Smartphone size={16} className="text-sky-400" />
+              <span>Instalar App en mi iPhone (Pantalla Completa)</span>
+            </button>
+          ) : (
+            <div className="w-full flex flex-col gap-2">
+              <a
+                href={apkHref}
+                download={apkFileName}
+                className="w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-100 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 no-underline shadow-lg"
+              >
+                <Download size={16} className="text-emerald-400" />
+                <span>
+                  {isHuayna ? 'Descargar App Android Huayna Roque (.APK)' : 'Descargar App Oficial Android (.APK)'}
+                </span>
+              </a>
+            </div>
+          )
         )}
 
-        {companyPortal && (
+        {(isNativeApp || isStandalone) && (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400">
+            <ShieldCheck size={12} />
+            <span>Aplicativo Móvil Oficial Activo</span>
+          </div>
+        )}
+
+        {companyPortal && !isStandalone && !isNativeApp && (
           <button
             type="button"
             onClick={onViewWebPortal}

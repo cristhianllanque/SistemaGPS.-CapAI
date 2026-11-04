@@ -267,33 +267,33 @@ export default function MonitoringPage() {
 
       <div className="flex-1 relative h-full w-full overflow-hidden">
         {/* Floating Top Controls (Botón de Reapertura y Widget Límite de Velocidad) */}
-        <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2.5 flex-wrap pointer-events-none">
+        <div className="absolute top-2.5 left-2.5 right-2.5 md:top-4 md:left-4 md:right-auto z-[1000] flex items-center justify-between md:justify-start gap-2 md:gap-2.5 flex-wrap pointer-events-none">
           {/* Botón flotante para reabrir panel de flota */}
           {isFleetCollapsed && (
             <button
               onClick={() => setIsFleetCollapsed(false)}
-              className="pointer-events-auto bg-white/95 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-xl shadow-xl border border-slate-200/90 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer text-slate-800 animate-in fade-in slide-in-from-left duration-200"
+              className="pointer-events-auto bg-white/95 hover:bg-white backdrop-blur-md px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl shadow-xl border border-slate-200/90 flex items-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer text-slate-800 animate-in fade-in slide-in-from-left duration-200"
               title="Mostrar lista de vehículos"
             >
               <div 
-                className="w-7 h-7 rounded-lg flex items-center justify-center font-bold shadow-xs" 
+                className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center font-bold shadow-xs" 
                 style={{ backgroundColor: `${primaryColor}18`, color: primaryColor }}
               >
-                <Navigation size={14} />
+                <Navigation size={13} />
               </div>
               <span className="font-bold text-xs tracking-wide">Flota ({vehiculosFiltrados.length})</span>
-              <ChevronRight size={15} className="text-slate-400" />
+              <ChevronRight size={14} className="text-slate-400" />
             </button>
           )}
 
           {/* Floating Speed Limit Widget on Map */}
-          <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl shadow-xl border border-slate-200/80 flex items-center gap-2 sm:gap-3">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-              <Gauge size={16} />
+          <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl shadow-xl border border-slate-200/80 flex items-center gap-2 sm:gap-3">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+              <Gauge size={15} />
             </div>
             <div>
-              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Límite</div>
-              <div className="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-1">
+              <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">Límite</div>
+              <div className="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-1 leading-tight mt-0.5">
                 <span>{limiteVelocidad} km/h</span>
                 <span className="hidden sm:inline text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                   Activo
@@ -306,7 +306,7 @@ export default function MonitoringPage() {
                   setTempSpeed(limiteVelocidad);
                   setShowSpeedModal(true);
                 }}
-                className="ml-1 sm:ml-2 text-[11px] sm:text-xs font-semibold px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all shadow-sm shadow-amber-500/30 flex items-center gap-1 active:scale-95 cursor-pointer"
+                className="ml-0.5 sm:ml-2 text-[11px] sm:text-xs font-semibold px-2 py-1 sm:px-2.5 sm:py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all shadow-sm shadow-amber-500/30 flex items-center gap-1 active:scale-95 cursor-pointer"
                 title="Ajustar límite de velocidad"
               >
                 <Sliders size={12} />
@@ -320,10 +320,10 @@ export default function MonitoringPage() {
         {isFleetCollapsed && (
           <button
             onClick={() => setIsFleetCollapsed(false)}
-            className="md:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-[1001] bg-slate-900/95 backdrop-blur-md text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2.5 font-bold text-xs tracking-wide active:scale-95 border border-slate-700 animate-in fade-in slide-in-from-bottom duration-300 cursor-pointer"
+            className="md:hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-[500] bg-slate-900/95 backdrop-blur-md text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 font-bold text-xs tracking-wide active:scale-95 border border-slate-700 animate-in fade-in slide-in-from-bottom duration-300 cursor-pointer"
           >
-            <Navigation size={15} style={{ color: primaryColor }} />
-            <span>Ver Flota ({vehiculosFiltrados.length})</span>
+            <Navigation size={14} style={{ color: primaryColor }} />
+            <span>Ver Unidades ({vehiculosFiltrados.length})</span>
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
           </button>
         )}
@@ -339,7 +339,7 @@ export default function MonitoringPage() {
         />
         
         {/* Alerts Overlay (Panic & Speed alerts) */}
-        <div className="absolute top-4 right-4 z-[1000] space-y-4 max-w-sm w-full">
+        <div className="absolute top-14 left-2.5 right-2.5 sm:top-4 sm:left-auto sm:right-4 z-[1000] space-y-2.5 sm:space-y-4 sm:max-w-sm">
           {alertas.map((alerta, idx) => (
             <PanicAlert 
               key={idx} 

@@ -7,7 +7,7 @@ import {
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { siren } from '../utils/sound';
-import { WS_BASE_URL, getAssetUrl } from '../config';
+import { WS_BASE_URL, getAssetUrl, isNativeApp } from '../config';
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
 import MobileBottomNav from './MobileBottomNav';
@@ -151,8 +151,15 @@ export default function Layout() {
     setActiveAlert(null);
   };
 
+  const isParticular = empresa?.tipo === 'particular';
+  const roleLabel = isParticular
+    ? 'Cliente Particular'
+    : (usuario?.rol === 'superadmin'
+        ? 'Superadmin'
+        : (usuario?.rol === 'admin' ? 'Gerencia / Admin' : 'Operador de Despacho'));
+
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100">
+    <div className="flex h-dvh-screen overflow-hidden bg-slate-100">
       {/* Global Alert Modal */}
       {activeAlert && (
         <AlertaPanicoModal 
@@ -274,53 +281,79 @@ export default function Layout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Top Header */}
-        <header className="md:hidden h-14 bg-slate-950 text-white flex items-center justify-between px-3 border-b border-slate-800/80 flex-shrink-0 z-40 select-none">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            {empresa?.logo_url ? (
-              <img 
-                src={getAssetUrl(empresa.logo_url)} 
-                alt={empresa.nombre || 'Empresa'} 
-                className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
-                onError={(e) => { e.target.src = '/copai-symbol.png'; }}
-              />
-            ) : (
-              <img 
-                src="/copai-symbol.png" 
-                alt="COPAI" 
-                className="w-8 h-8 object-contain flex-shrink-0 drop-shadow"
-              />
-            )}
-            <div className="overflow-hidden">
-              <h1 className="text-xs font-black tracking-tight leading-tight truncate text-white">
-                {empresa?.nombre && empresa.id !== 0 ? empresa.nombre : 'COPAI TELEMATICS'}
-              </h1>
-              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
-                <span>{usuario?.rol === 'superadmin' ? 'Superadmin' : (usuario?.rol === 'admin' ? 'Gerencia / Admin' : 'Operador')}</span>
-              </p>
+        {/* Mobile Top Header con soporte Safe-Area para Notch / Dynamic Island en iPhone y Android */}
+        <header
+          className="md:hidden bg-slate-950 text-white border-b border-slate-800/80 flex-shrink-0 z-40 select-none"
+          style={{
+            paddingTop: isIOS && isStandalone
+              ? 'max(env(safe-area-inset-top, 0px), 47px)'
+              : 'env(safe-area-inset-top, 0px)'
+          }}
+        >
+          <div className="h-14 flex items-center justify-between px-3.5">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              {empresa?.logo_url ? (
+                <img 
+                  src={getAssetUrl(empresa.logo_url)} 
+                  alt={empresa.nombre || 'Empresa'} 
+                  className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
+                  onError={(e) => { e.target.src = '/copai-symbol.png'; }}
+                />
+              ) : (
+                <img 
+                  src="/copai-symbol.png" 
+                  alt="COPAI" 
+                  className="w-8 h-8 object-contain flex-shrink-0 drop-shadow"
+                />
+              )}
+              <div className="overflow-hidden">
+                <h1 className="text-xs font-black tracking-tight leading-tight truncate text-white">
+                  {empresa?.nombre && empresa.id !== 0 ? empresa.nombre : 'COPAI TELEMATICS'}
+                </h1>
+                <p className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: primaryColor }} />
+                  <span className="truncate">{roleLabel}</span>
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {activeAlert && (
-              <span className="flex items-center gap-1 text-[10px] font-extrabold bg-red-600 text-white px-2 py-0.5 rounded-full animate-pulse shadow-xs">
-                <AlertTriangle size={12} />
-                <span>¡ALERTA!</span>
-              </span>
-            )}
-            <button
-              onClick={handleLogout}
-              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-              title="Cerrar sesión"
-            >
-              <LogOut size={16} />
-            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {activeAlert && (
+                <span className="flex items-center gap-1 text-[10px] font-extrabold bg-red-600 text-white px-2 py-0.5 rounded-full animate-pulse shadow-xs">
+                  <AlertTriangle size={12} />
+                  <span>¡SOS!</span>
+                </span>
+              )}
+              {!isStandalone && !isNativeApp && (
+                <button
+                  onClick={() => setShowPrompt(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-emerald-400 transition-colors cursor-pointer"
+                  title="Instalar Aplicativo en el teléfono"
+                >
+                  <Smartphone size={13} />
+                  <span>App</span>
+                </button>
+              )}
+              <button
+                onClick={handleLogout}
+                className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
           </div>
         </header>
 
-        {/* Contenido Principal con espacio inferior para el Bottom Navigation en móvil */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        {/* Contenido Principal con espacio inferior exacto para el Bottom Navigation + Safe Area en móvil */}
+        <main
+          className="flex-1 overflow-y-auto md:!pb-0"
+          style={{
+            paddingBottom: isIOS && isStandalone
+              ? 'calc(4rem + max(env(safe-area-inset-bottom, 0px), 20px))'
+              : 'calc(4rem + env(safe-area-inset-bottom, 0px))'
+          }}
+        >
           <Outlet />
         </main>
 
@@ -328,7 +361,12 @@ export default function Layout() {
         <MobileBottomNav 
           usuario={usuario} 
           empresa={empresa} 
-          activeAlertCount={activeAlert ? 1 : 0} 
+          activeAlertCount={activeAlert ? 1 : 0}
+          isIOS={isIOS}
+          isStandalone={isStandalone}
+          isNativeApp={isNativeApp}
+          onOpenInstall={() => setShowPrompt(true)}
+          onLogout={handleLogout}
         />
       </div>
       {/* Modal de Instalación PWA */}

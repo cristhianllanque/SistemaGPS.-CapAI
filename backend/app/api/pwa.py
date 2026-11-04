@@ -54,9 +54,9 @@ def build_manifest_data(empresa: Optional[Empresa], host: str) -> dict:
             "start_url": start_url,
             "scope": "/",
             "display": "standalone",
-            "orientation": "any",
-            "background_color": bg_color,
-            "theme_color": theme_color,
+            "orientation": "portrait",
+            "background_color": "#020617",
+            "theme_color": "#020617",
             "lang": "es-PE",
             "icons": [
                 {

@@ -68,7 +68,8 @@ export function usePWA(companyData = null) {
 
     const appTitle = companyData.nombre ? `${companyData.nombre}` : 'COPAI GPS';
     const logoUrl = companyData.logo_url || '/copai-symbol.png';
-    const themeColor = companyData.color_primario || '#16A34A';
+    const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 768;
+    const themeColor = isMobileViewport ? '#020617' : (companyData.color_primario || '#020617');
 
     // Meta Theme Color
     let metaTheme = document.querySelector('meta[name="theme-color"]');

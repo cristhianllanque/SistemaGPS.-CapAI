@@ -19,7 +19,7 @@ export default function Sidebar({
       {/* Backdrop en dispositivos móviles cuando el panel esté abierto */}
       {!collapsed && (
         <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 md:hidden animate-in fade-in duration-200"
+          className="absolute inset-0 bg-black/40 backdrop-blur-xs z-[1001] md:hidden animate-in fade-in duration-200"
           onClick={onToggleCollapse}
         />
       )}
@@ -27,11 +27,11 @@ export default function Sidebar({
       {/* Contenedor Principal del Panel de Flota */}
       <div 
         className={`
-          bg-white shadow-2xl md:shadow-xl flex flex-col h-full z-40 border-r border-slate-200 transition-all duration-300 ease-in-out
-          fixed md:relative inset-y-0 left-0
+          bg-white shadow-2xl md:shadow-xl flex flex-col h-full z-[1002] md:z-40 border-r border-slate-200 transition-all duration-300 ease-in-out
+          absolute md:relative inset-y-0 left-0
           ${collapsed 
             ? '-translate-x-full md:translate-x-0 md:w-0 md:min-w-0 md:max-w-0 md:opacity-0 md:overflow-hidden md:border-none pointer-events-none' 
-            : 'translate-x-0 w-[310px] sm:w-80 min-w-[300px] sm:min-w-[320px] max-w-[85vw] opacity-100'
+            : 'translate-x-0 w-[300px] sm:w-80 min-w-[280px] sm:min-w-[320px] max-w-[85vw] opacity-100'
           }
         `}
       >

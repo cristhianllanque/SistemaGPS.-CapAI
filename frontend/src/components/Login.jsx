@@ -266,6 +266,8 @@ export default function Login() {
           onViewWebPortal={() => setShowFullWebPortal(true)}
           onOpenInstallModal={() => setShowPrompt(true)}
           isStandalone={isStandalone}
+          isIOS={isIOS}
+          isAndroid={isAndroid}
           onResetCompany={() => {
             localStorage.removeItem('last_empresa');
             setCompanyPortal(null);
