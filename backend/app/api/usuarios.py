@@ -37,22 +37,27 @@ def create_usuario(
     payload: schemas.UsuarioCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(require_role(['superadmin']))
+    current_user: models.Usuario = Depends(require_role(['superadmin', 'admin']))
 ):
+    email_clean = payload.email.strip().lower()
     # Check if user already exists
-    exists = db.query(models.Usuario).filter(models.Usuario.email == payload.email).first()
+    exists = db.query(models.Usuario).filter(models.Usuario.email == email_clean).first()
     if exists:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
 
-    # Superadmin assigns to company specified in payload or leaves platform-level
-    empresa_id = payload.empresa_id
+    if current_user.rol != 'superadmin':
+        if payload.rol == 'superadmin':
+            raise HTTPException(status_code=403, detail="Solo el Superadmin puede crear cuentas Superadmin")
+        empresa_id = current_user.empresa_id
+    else:
+        empresa_id = payload.empresa_id
 
     hashed_password = security.get_password_hash(payload.password)
     
     nuevo_usuario = models.Usuario(
         empresa_id=empresa_id,
         nombre=payload.nombre,
-        email=payload.email,
+        email=email_clean,
         rol=payload.rol,
         password_hash=hashed_password
     )
@@ -89,28 +94,60 @@ def create_usuario(
 def update_usuario(
     usuario_id: int,
     payload: schemas.UsuarioUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(require_role(['superadmin']))
+    current_user: models.Usuario = Depends(require_role(['superadmin', 'admin']))
 ):
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
+    if current_user.rol != 'superadmin':
+        if usuario.empresa_id != current_user.empresa_id or usuario.rol == 'superadmin':
+            raise HTTPException(status_code=403, detail="No tienes permisos para editar este usuario")
+
     update_data = payload.model_dump(exclude_unset=True)
+    old_email = usuario.email
+    new_plain_password = None
     
-    if 'email' in update_data:
+    if 'email' in update_data and update_data['email']:
+        update_data['email'] = update_data['email'].strip().lower()
         exists = db.query(models.Usuario).filter(models.Usuario.email == update_data['email'], models.Usuario.id != usuario_id).first()
         if exists:
             raise HTTPException(status_code=400, detail="El email ya está registrado por otro usuario")
             
     if 'password' in update_data:
-        usuario.password_hash = security.get_password_hash(update_data.pop('password'))
+        raw_pwd = update_data.pop('password')
+        if raw_pwd:
+            new_plain_password = raw_pwd
+            usuario.password_hash = security.get_password_hash(raw_pwd)
         
     for key, value in update_data.items():
         setattr(usuario, key, value)
 
     db.commit()
     db.refresh(usuario)
+
+    # Si se cambió el correo o se asignó una nueva contraseña, enviar notificación por correo
+    email_changed = (usuario.email != old_email)
+    if email_changed or new_plain_password:
+        empresa_slug = None
+        empresa_nombre = None
+        if usuario.empresa_id:
+            empresa_obj = db.query(models.Empresa).filter(models.Empresa.id == usuario.empresa_id).first()
+            if empresa_obj:
+                empresa_slug = empresa_obj.slug
+                empresa_nombre = empresa_obj.nombre
+
+        background_tasks.add_task(
+            send_welcome_email,
+            to_email=usuario.email,
+            nombre=usuario.nombre,
+            password_temp=new_plain_password or "(Tu contraseña actual)",
+            entidad_o_placa=empresa_nombre or "Industrias Copai",
+            tipo="empresa" if empresa_slug else "plataforma",
+            empresa_slug=empresa_slug
+        )
     
     result = schemas.UsuarioOut.model_validate(usuario)
     if usuario.empresa:

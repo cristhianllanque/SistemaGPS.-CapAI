@@ -265,32 +265,36 @@ def create_empresa(
     # Aprovisionar automáticamente SSL HTTPS para el nuevo subdominio <slug>.industriascopai.com
     ensure_subdomain_ssl(nueva_empresa.slug, db)
 
-    # Optional: Automatically create the Gerente user for this company
-    if payload.gerente_email and payload.gerente_password:
-        existing_user = db.query(models.Usuario).filter(models.Usuario.email == payload.gerente_email).first()
+    # Optional: Automatically create the Gerente user for this company and send welcome email
+    if payload.gerente_email:
+        gerente_email_clean = payload.gerente_email.strip().lower()
+        gerente_pass = payload.gerente_password or "Copai2026!"
+        existing_user = db.query(models.Usuario).filter(models.Usuario.email == gerente_email_clean).first()
         if not existing_user:
             nuevo_gerente = models.Usuario(
                 empresa_id=nueva_empresa.id,
                 nombre=payload.gerente_nombre or f"Gerente {payload.nombre}",
-                email=payload.gerente_email,
+                email=gerente_email_clean,
                 rol='admin',
-                password_hash=security.get_password_hash(payload.gerente_password),
+                password_hash=security.get_password_hash(gerente_pass),
                 activo=True
             )
             db.add(nuevo_gerente)
             db.commit()
-            print(f"[COPAI NOTIFICACIÓN] Creado usuario Gerente ({payload.gerente_email}) para la empresa '{payload.nombre}'. Enlace de bienvenida enviado por correo.", flush=True)
+            print(f"[COPAI NOTIFICACIÓN] Creado usuario Gerente ({gerente_email_clean}) para la empresa '{payload.nombre}'. Enlace de bienvenida enviado por correo.", flush=True)
+        else:
+            print(f"[COPAI NOTIFICACIÓN] El correo {gerente_email_clean} ya existe; enviando notificación de portal '{nueva_empresa.slug}.industriascopai.com' igualmente.", flush=True)
 
-            # Enviar correo de bienvenida al gerente en segundo plano con acceso directo a su portal
-            background_tasks.add_task(
-                send_welcome_email,
-                to_email=payload.gerente_email,
-                nombre=payload.gerente_nombre or f"Gerente {payload.nombre}",
-                password_temp=payload.gerente_password,
-                entidad_o_placa=payload.nombre,
-                tipo="empresa",
-                empresa_slug=nueva_empresa.slug
-            )
+        # Enviar siempre correo de bienvenida con acceso directo al nuevo portal de la empresa
+        background_tasks.add_task(
+            send_welcome_email,
+            to_email=gerente_email_clean,
+            nombre=payload.gerente_nombre or (existing_user.nombre if existing_user else f"Gerente {payload.nombre}"),
+            password_temp=payload.gerente_password or "(Tu contraseña actual)",
+            entidad_o_placa=payload.nombre,
+            tipo="empresa",
+            empresa_slug=nueva_empresa.slug
+        )
 
     emp_dict = schemas.EmpresaOut.model_validate(nueva_empresa)
     emp_dict.total_vehiculos = 0

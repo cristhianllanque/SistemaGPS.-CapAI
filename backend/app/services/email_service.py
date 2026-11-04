@@ -1,7 +1,9 @@
+import re
 import smtplib
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate, make_msgid
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -16,11 +18,19 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
         return False
 
     try:
+        to_clean = to_email.strip()
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From'] = f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>"
-        msg['To'] = to_email
+        msg['To'] = to_clean
         msg['Reply-To'] = settings.EMAIL_FROM
+        msg['Date'] = formatdate(localtime=True)
+        msg['Message-ID'] = make_msgid(domain='industriascopai.com')
+
+        # Versión texto plano (mejora entregabilidad anti-spam en Gmail/Outlook)
+        plain_text = re.sub(r'<[^>]+>', ' ', html_content)
+        plain_text = re.sub(r'\s+', ' ', plain_text).strip()
+        msg.attach(MIMEText(plain_text, 'plain', 'utf-8'))
 
         # Versión HTML enriquecida
         part = MIMEText(html_content, 'html', 'utf-8')
@@ -32,10 +42,10 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
             server.starttls()
             server.ehlo()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.EMAIL_FROM, [to_email], msg.as_string())
+            server.sendmail(settings.EMAIL_FROM, [to_clean], msg.as_string())
 
-        logger.info(f"[EMAIL] Correo enviado exitosamente a {to_email} (Asunto: '{subject}')")
-        print(f"[EMAIL] [OK] Correo enviado exitosamente a {to_email}", flush=True)
+        logger.info(f"[EMAIL] Correo enviado exitosamente a {to_clean} (Asunto: '{subject}')")
+        print(f"[EMAIL] [OK] Correo enviado exitosamente a {to_clean}", flush=True)
         return True
 
     except Exception as e:
