@@ -9,6 +9,11 @@ SUPERADMINS = [
         "password": "974342536_xD",
     },
     {
+        "nombre": "Cristhian Llanque 64 (Superadmin)",
+        "email": "cristhianllanque64@gmail.com",
+        "password": "974342536_xD",
+    },
+    {
         "nombre": "Industrias Copai Central",
         "email": "industriascopai@gmail.com",
         "password": "050421_Edy",
