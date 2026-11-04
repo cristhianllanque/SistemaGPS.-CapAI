@@ -7,9 +7,10 @@ import {
   Satellite, Navigation, Layers, ChevronRight, Check, Building2, Phone,
   FileText, ExternalLink, MapPin, Gauge, Shield, Truck, Route, Smartphone, Download
 } from 'lucide-react';
-import { API_BASE_URL, getAssetUrl } from '../config';
+import { API_BASE_URL, getAssetUrl, isNativeApp } from '../config';
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
+import MobileLoginView from './MobileLoginView';
 
 // Detecta si la petición proviene de un subdominio de cliente o parámetro local
 function detectTenantSlug() {
@@ -54,7 +55,16 @@ export default function Login() {
 
   // Tenant / Empresa White-Label
   const [tenantSlug, setTenantSlug] = useState(() => detectTenantSlug());
-  const [companyPortal, setCompanyPortal] = useState(null);
+  const [companyPortal, setCompanyPortal] = useState(() => {
+    const slug = detectTenantSlug();
+    if (!slug) {
+      try {
+        const last = localStorage.getItem('last_empresa');
+        if (last) return JSON.parse(last);
+      } catch (e) {}
+    }
+    return null;
+  });
   const [portalLoading, setPortalLoading] = useState(false);
 
   // Modal de Login
@@ -80,10 +90,33 @@ export default function Login() {
   const [forgotMsg, setForgotMsg] = useState('');
   const [forgotError, setForgotError] = useState('');
 
+  // Detección de dispositivo móvil vs escritorio (App Nativa siempre es móvil)
+  const [isMobileScreen, setIsMobileScreen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return isNativeApp || window.innerWidth <= 768;
+  });
+  const [showFullWebPortal, setShowFullWebPortal] = useState(false);
+
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Cargar datos de la empresa si existe un tenant detectado
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(isNativeApp || window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Si ya tiene sesión activa, redirigir automáticamente al dashboard
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
+
+  // Cargar datos de la empresa si existe un tenant detectado en subdominio
   useEffect(() => {
     const slug = detectTenantSlug();
     setTenantSlug(slug);
@@ -100,8 +133,6 @@ export default function Login() {
         .finally(() => {
           setPortalLoading(false);
         });
-    } else {
-      setCompanyPortal(null);
     }
   }, [location.search]);
 
@@ -153,6 +184,7 @@ export default function Login() {
 
       localStorage.setItem('token', access_token);
       localStorage.setItem('empresa', JSON.stringify(activeEmpresa));
+      localStorage.setItem('last_empresa', JSON.stringify(activeEmpresa));
       localStorage.setItem('usuario', JSON.stringify(usuario));
       
       // Navegar a dashboard
@@ -205,6 +237,106 @@ export default function Login() {
 
   // Evaluar si el portal de la empresa es de temática clara (ej. fondo menta/blanco) u oscura
   const isLightPortal = companyPortal ? (getLuminance(cTerciario) > 0.45 || (getLuminance(cSecundario) > 0.85 && getLuminance(cTerciario) > 0.35)) : false;
+
+  // EXPERIENCIA MÓVIL DEDICADA (Si está en celular y no ha solicitado ver el portal web de escritorio)
+  if (isMobileScreen && !showFullWebPortal) {
+    return (
+      <>
+        <MobileLoginView
+          companyPortal={companyPortal}
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+          loading={loading}
+          error={error}
+          handleLogin={handleLogin}
+          onOpenForgot={() => setShowForgotModal(true)}
+          onViewWebPortal={() => setShowFullWebPortal(true)}
+          onOpenInstallModal={() => setShowPrompt(true)}
+          isStandalone={isStandalone}
+          onResetCompany={() => {
+            localStorage.removeItem('last_empresa');
+            setCompanyPortal(null);
+          }}
+        />
+
+        {/* Modal de Recuperación de Contraseña si se activa en móvil */}
+        {showForgotModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="relative w-full max-w-md bg-white p-7 rounded-3xl border border-slate-200 shadow-2xl">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Mail size={20} />
+                  <h3 className="font-bold text-base text-slate-900">Recuperar Contraseña</h3>
+                </div>
+                <button 
+                  onClick={() => setShowForgotModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="pt-5">
+                {forgotSuccess ? (
+                  <div className="text-center py-4 space-y-3">
+                    <CheckCircle2 size={48} className="text-emerald-500 mx-auto" />
+                    <p className="text-sm text-slate-800 font-semibold">{forgotMsg}</p>
+                    <button
+                      onClick={() => setShowForgotModal(false)}
+                      className="w-full mt-4 bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm"
+                    >
+                      Volver
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <input
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="tu-correo@empresa.com"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none"
+                    />
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotModal(false)}
+                        className="px-4 py-2 border text-slate-600 text-xs font-semibold rounded-xl"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={forgotLoading}
+                        className="px-5 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl"
+                      >
+                        {forgotLoading ? 'Enviando...' : 'Enviar Enlace'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <InstallPwaModal
+          show={showPrompt}
+          onClose={dismissPrompt}
+          onInstall={triggerInstall}
+          isIOS={isIOS}
+          isAndroid={isAndroid}
+          companyName={companyPortal ? companyPortal.nombre : 'COPAI Telematics'}
+          logoUrl={companyPortal ? getAssetUrl(companyPortal.logo_url) : '/copai-symbol.png'}
+          primaryColor={cPrimario}
+        />
+      </>
+    );
+  }
 
   return (
     <div 

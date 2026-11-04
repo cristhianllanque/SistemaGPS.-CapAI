@@ -32,6 +32,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Android & Capacitor build artifacts
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+*.apk
+
 # IDE & OS files
 .vscode/
 .idea/

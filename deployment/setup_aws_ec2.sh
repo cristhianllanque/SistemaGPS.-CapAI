@@ -1,40 +1,56 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Aprovisionamiento Automatizado para AWS EC2 (Ubuntu 22.04 / 24.04)
+# Script de Aprovisionamiento Automatizado para AWS EC2 (Ubuntu 22.04 / 24.04 LTS)
 # Dominio: industriascopai.com
-# Proyecto: Copay Telematics GPS & IoT Platform
+# Proyecto: Copai Telematics GPS & IoT Platform
 # ==============================================================================
 
 set -e
+export DEBIAN_FRONTEND=noninteractive
 
 echo "🚀 Iniciando configuración inicial del servidor AWS EC2 para industriascopai.com..."
 
-# 1. Actualizar repositorios del sistema
+# 1. Configurar Swap de 2GB (Vital para t2.micro/t3.micro en build de Vite)
+if [ ! -f /swapfile ]; then
+    echo "📦 Creando swapfile de 2GB..."
+    sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    if ! grep -q "/swapfile" /etc/fstab; then
+        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+    fi
+fi
+
+# Configurar needrestart no interactivo en Ubuntu 24.04
+sudo mkdir -p /etc/needrestart
+echo '$nrconf{restart} = "a";' | sudo tee /etc/needrestart/needrestart.conf > /dev/null
+
+# 2. Actualizar repositorios del sistema e instalar paquetes base
 echo "📦 Actualizando paquetes de Ubuntu..."
-sudo apt update && sudo apt upgrade -y
+sudo apt-get update -y
+sudo apt-get install -y git curl wget ufw nginx python3 python3-pip python3-venv mariadb-server certbot python3-certbot-nginx
 
-# 2. Instalar dependencias básicas, Python y Nginx
-echo "🐍 Instalando Python 3, venv, Git, Nginx y utilidades..."
-sudo apt install -y git curl wget ufw nginx python3 python3-pip python3-venv mariadb-server certbot python3-certbot-nginx
-
-# 3. Instalar Node.js 20 LTS (Requerido por Vite 8 y React Router 7)
+# 3. Instalar Node.js 20 LTS (Requerido por Vite 8 y React 19)
 echo "📦 Instalando Node.js 20 LTS..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+if ! command -v node &> /dev/null || ! node -v | grep -q "v20"; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+fi
 
 # 4. Iniciar y asegurar MariaDB/MySQL
 echo "🗄️ Configurando base de datos MySQL/MariaDB..."
-sudo systemctl enable --now mariadb || sudo systemctl enable --now mysql
+sudo systemctl enable --now mariadb
 
-# Crear base de datos teltonika y usuario seguro si no existen
 sudo mysql -e "CREATE DATABASE IF NOT EXISTS teltonika CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 sudo mysql -e "CREATE USER IF NOT EXISTS 'copay_user'@'localhost' IDENTIFIED BY 'CopayGps2026_Secure!';"
+sudo mysql -e "ALTER USER 'copay_user'@'localhost' IDENTIFIED BY 'CopayGps2026_Secure!';"
 sudo mysql -e "GRANT ALL PRIVILEGES ON teltonika.* TO 'copay_user'@'localhost';"
 sudo mysql -e "FLUSH PRIVILEGES;"
 
 # 5. Crear carpetas de despliegue
 echo "📁 Preparando directorios web y servicios..."
-sudo mkdir -p /var/www/copay/html
+sudo mkdir -p /var/www/copay/html /var/www/copay/html/descargas
 sudo chown -R www-data:www-data /var/www/copay
 sudo chmod -R 755 /var/www/copay
 
@@ -121,7 +137,4 @@ echo "y" | sudo ufw enable || true
 
 echo "=============================================================================="
 echo "🎉 ¡Configuración base de AWS EC2 completada con éxito!"
-echo ""
-echo "Para activar el certificado SSL HTTPS gratuito de Let's Encrypt:"
-echo "sudo certbot --nginx -d industriascopai.com -d www.industriascopai.com"
 echo "=============================================================================="

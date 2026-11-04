@@ -178,8 +178,8 @@ def update_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
+    if current_user.rol not in ['superadmin', 'admin']:
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para Administradores de Empresa y Superadmin")
 
     query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
     if current_user.rol != 'superadmin':

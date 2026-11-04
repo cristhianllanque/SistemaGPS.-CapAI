@@ -320,7 +320,7 @@ export default function MonitoringPage() {
         {isFleetCollapsed && (
           <button
             onClick={() => setIsFleetCollapsed(false)}
-            className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1001] bg-slate-900/95 backdrop-blur-md text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2.5 font-bold text-xs tracking-wide active:scale-95 border border-slate-700 animate-in fade-in slide-in-from-bottom duration-300 cursor-pointer"
+            className="md:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-[1001] bg-slate-900/95 backdrop-blur-md text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2.5 font-bold text-xs tracking-wide active:scale-95 border border-slate-700 animate-in fade-in slide-in-from-bottom duration-300 cursor-pointer"
           >
             <Navigation size={15} style={{ color: primaryColor }} />
             <span>Ver Flota ({vehiculosFiltrados.length})</span>

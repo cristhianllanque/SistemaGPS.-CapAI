@@ -151,8 +151,12 @@ def send_welcome_email(
                                                 {btn_label}
                                             </a>
                                             <br>
-                                            <a href="{login_url.replace('/login?login=true', '')}?install=true" target="_blank" style="background-color: #0f172a; color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 700; padding: 11px 24px; border-radius: 9px; display: inline-block; border: 1px solid #1e293b;">
-                                                📲 Instalar App Móvil Oficial en Celular (Android / iOS)
+                                            <a href="https://{empresa_slug + '.' if (es_empresa and empresa_slug) else ''}industriascopai.com/descargas/{'HuaynaRoque_GPS.apk' if (es_empresa and empresa_slug and 'huayna' in empresa_slug.lower()) else 'CopaiGPS.apk'}" target="_blank" style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 26px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25); margin-bottom: 10px;">
+                                                🤖 Descargar App Android Oficial (.APK)
+                                            </a>
+                                            <br>
+                                            <a href="{login_url.replace('/login?login=true', '')}?install=true" target="_blank" style="background-color: #0f172a; color: #38bdf8; text-decoration: none; font-size: 12px; font-weight: 600; padding: 9px 20px; border-radius: 8px; display: inline-block; border: 1px solid #1e293b;">
+                                                📲 Instrucciones para iPhone (iOS)
                                             </a>
                                         </td>
                                     </tr>

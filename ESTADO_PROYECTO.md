@@ -11,8 +11,8 @@
 | :--- | :--- | :--- |
 | **Dominio Principal** | `https://industriascopai.com` | ✅ 100% Operativo con SSL Let's Encrypt |
 | **Subdominios Directos** | `https://*.industriascopai.com` (ej: `huaynaroque.industriascopai.com`) | ✅ Subdominio nativo sin redirección; cada empresa mantiene su URL independiente |
-| **Servidor Cloud** | AWS EC2 Ubuntu 24.04 (`18.225.237.174`) | ✅ Activo y Estable |
-| **IP Elástica Asignada** | `18.225.237.174` (Fija y vinculada a los dominios DNS) | ✅ Vinculada a la instancia EC2 |
+| **Servidor Cloud** | AWS EC2 Ubuntu 24.04 (`16.58.34.113` - `i-045aa9d782b3730c5`) | ✅ Activo y Estable |
+| **IP Elástica Asignada** | `16.58.34.113` (Fija y vinculada a los dominios DNS) | ✅ Vinculada a la instancia EC2 |
 | **Puerto Teltonika GPS** | TCP `5000` (`0.0.0.0:5000`) | ✅ En escucha para tramas Codec 8 / 8 Extended |
 | **Backend REST & WS** | FastAPI + Uvicorn (`copay-backend.service`) | ✅ Activo en `127.0.0.1:8000` |
 | **Servidor Multimedia** | Proxy `/uploads/` en Nginx -> FastAPI StaticFiles | ✅ Logos y fotos panorámicas cargan 200 OK en cualquier subdominio |
@@ -73,19 +73,55 @@
    - **Botón de Instalación en Correos de Bienvenida**: Añadido el botón directo `[ 📲 Instalar App Móvil Oficial ]` en los correos de credenciales de Brevo SMTP.
    - **Botón "Instalar App" en Cabeceras y Menú Lateral**: Disponible de forma no intrusiva en el encabezado de cada portal y en la barra lateral del sistema para usuarios autenticados.
 
+9. **Aplicación Nativa Android APK (Capacitor Standalone v1.2)**:
+   - **Arquitectura Local 100% Empaquetada (Offline-First)**: Eliminada cualquier carga remota de WebView (`server.url` removido de Capacitor). El APK incluye todo el bundle de React (`dist/assets`) instalado físicamente dentro del celular.
+   - **Conexión de Red Centralizada**: El APK utiliza `https://industriascopai.com` para peticiones REST y `wss://industriascopai.com` para telemetría satelital en tiempo real por WebSockets.
+   - **Pantalla de Login Móvil Dedicada (`MobileLoginView.jsx`)**:
+     - Estética Dark Tech / Glassmorphism inmersiva con degradados, destellos y el nuevo logotipo constelación CopAi.
+     - Entradas táctiles para correo y contraseña con visualizador de clave.
+     - Memoria de empresa local (`last_empresa`): Si el chofer o gerente ya inició sesión una vez, la app recuerda su empresa y carga su logo y color oficial al abrirse, con botón para cambiar de empresa.
+     - Cero textos de marketing o landing de escritorio en el celular.
+   - **Navegación Móvil Inferior Nativa (`MobileBottomNav.jsx`)**:
+     - 🗺️ **Mapa:** Pantalla completa limpia (la barra lateral de escritorio se oculta automáticamente en móviles `hidden md:flex`).
+     - 🚛 **Mi Flota:** Lista de vehículos y unidades activas. Los administradores de empresa (`admin`) pueden editar parámetros y límites.
+     - 🚨 **Alertas:** Monitor de alarmas críticas (pánico, exceso de velocidad, sabotaje) con contador dinámico en vivo.
+     - 🛣️ **Historial:** Consulta de recorridos y paradas.
+     - 👤 **Perfil / Ajustes:** Datos de la cuenta activa, rol y cierre de sesión.
+   - **Cabecera Móvil Compacta:** Con el logo oficial del cliente, nombre de la flota y badge de alerta de emergencia.
+   - **Archivos Compilados Listos para Distribución**:
+     - `d:\Teltonika\CopaiGPS.apk` (Versión 1.2, Build 3).
+     - `d:\Teltonika\HuaynaRoque_GPS.apk` (Sincronizado con la misma compilación).
+     - Disponibles en `frontend/dist/descargas/` para descarga web directa.
+   - **Regla de Oro Preservada**: El sitio web de escritorio corporativo en computadoras (`window.innerWidth > 768`) permanece 100% idéntico e inalterado.
+
 ---
 
-## 🎯 3. Siguientes Pasos Programados (Pruebas de Campo con Vehículos Reales)
+## 📌 3. RECORDATORIO DE CONTINUIDAD: DÓNDE NOS QUEDAMOS PARA MAÑANA
 
-- [ ] **Pruebas en Ruta con Vehículo Real en Movimiento**:
-  - Validar la **alarma sonora y notificación acústica** en cabina/despacho al superar el límite de velocidad (ej. > 100 km/h o el estipulado por contrato en el panel).
-  - Verificación en campo del **Botón de Pánico** físico (recepción de la alerta SOS inmediata en el panel de monitoreo).
-  - Verificación de la **Alarma de Sabotaje** (desconexión o corte de alimentación física del GPS Teltonika).
-- [ ] **Validación de Telemetría Continua con GPS Teltonika físico**:
-  - Comprobación de tramas AVL Codec 8 / 8 Extended por el puerto TCP `5000` (`copay-backend.service`).
-  - Trazado en tiempo real sobre el mapa satelital (odómetro, estado de ignición on/off, satélites y nivel de batería).
-- [ ] **Historial de Rutas y Reproductor de Recorridos**:
-  - Comprobación del trazado histórico diario, puntos de parada y tiempos de espera en ruta.
+> [!NOTE]  
+> **Estado de Cierre de Sesión (18/10/2026 - 23:55)**:  
+> El APK nativo Android ya quedó probado exitosamente en el dispositivo por el usuario. Ya no abre el navegador web ni carga la web antigua; ahora se comporta y se ve como una verdadera aplicación móvil nativa con su login táctil, pantalla completa para el mapa y barra de navegación inferior.
+
+### 📋 Roadmap de Mejoras Pendientes para la Siguiente Sesión:
+
+1. [ ] **Pulido y Mejoras de Vistas en la App Móvil**:
+   - Optimizar el diseño táctil de la pantalla **"Mi Flota"** (`/vehiculos`) para que las tarjetas de minivanes/buses se vean como una app de catálogo vehicular nativo.
+   - Adaptar la vista de **"Historial de Rutas"** (`/historial-rutas`) con selector de fecha/hora simplificado para uso con una sola mano.
+   - Enriquecer la pestaña **"Perfil / Ajustes"** (`/dashboard` en móvil) con información del conductor/gerente, versión del APK instalada (v1.2) y botón de soporte técnico.
+   - Ajustar el espaciado de controles táctiles en el mapa (zoom, capas satélite/callejero y centrado de unidad).
+
+2. [ ] **Despliegue de los Nuevos Componentes a Producción (AWS EC2)**:
+   - Hacer commit y push a GitHub (`main`) para que el flujo de GitHub Actions compile y actualice `/var/www/copay/html` en el servidor AWS.
+   - Con esto, si alguien abre la web desde un navegador móvil (Chrome móvil o Safari), también disfrutará de la experiencia adaptada con `MobileLoginView` y `MobileBottomNav`.
+
+3. [ ] **Soporte y Estrategia para Dispositivos iOS (iPhone)**:
+   - Afinar la experiencia de instalación guiada en iOS (Safari PWA de pantalla completa con el icono constelación CopAi / Huayna Roque).
+
+4. [ ] **Pruebas de Campo con Vehículos Reales en Ruta**:
+   - Validar la **alarma sonora y notificación acústica** en cabina/despacho al superar el límite de velocidad fijado para la empresa.
+   - Verificación en campo del **Botón de Pánico físico SOS** del GPS Teltonika.
+   - Verificación de la **Alarma de Sabotaje** (desconexión o corte de alimentación física).
+   - Trazado en tiempo real de tramas Codec 8 / 8 Extended por el puerto TCP `5000` con vehículo en marcha.
 
 ---
 
@@ -101,7 +137,7 @@
      - Las fotos y videos subidos (`/uploads/`).
      - Los certificados de seguridad SSL Let's Encrypt de todos los dominios y subdominios.
      - Las configuraciones de Nginx y servicios del sistema.
-   - **La IP Elástica `18.225.237.174` se mantiene fija y asignada**: No cambiará de dirección IP pública, por lo que tus dominios en Cloudflare/DNS seguirán apuntando exactamente al mismo lugar.
+   - **La IP Elástica `16.58.34.113` se mantiene fija y asignada**: No cambiará de dirección IP pública, por lo que tus dominios en Cloudflare/DNS seguirán apuntando exactamente al mismo lugar.
    - **Ahorro de saldo**: Se detiene por completo el cobro por hora de CPU y memoria RAM de la máquina virtual EC2. (Solo se mantiene el costo mínimo de almacenamiento del disco EBS).
    - Obviamente, mientras la instancia esté detenida (apagada), cualquier persona que ingrese a `industriascopai.com` o `huaynaroque.industriascopai.com` verá un aviso de que no se puede conectar al servidor.
 

@@ -31,6 +31,7 @@ export default function VehiclesPage() {
   const token = localStorage.getItem('token');
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
   const isSuperAdmin = usuario.rol === 'superadmin';
+  const canEdit = isSuperAdmin || usuario.rol === 'admin';
   const headers = { Authorization: `Bearer ${token}` };
 
   const fetchEmpresas = async () => {
@@ -204,7 +205,7 @@ export default function VehiclesPage() {
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Dispositivo GPS</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Conductor</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Estado</th>
-                {isSuperAdmin && (
+                {canEdit && (
                   <th className="text-right px-4 py-3 font-semibold text-slate-600">Acciones</th>
                 )}
               </tr>
@@ -212,7 +213,7 @@ export default function VehiclesPage() {
             <tbody className="divide-y divide-slate-100">
               {vehiculos.length === 0 ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? "10" : "8"} className="text-center py-12 text-slate-400">
+                  <td colSpan={canEdit ? (isSuperAdmin ? "10" : "9") : "8"} className="text-center py-12 text-slate-400">
                     <Truck size={40} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No hay vehículos registrados</p>
                     <p className="text-xs mt-1">
@@ -260,11 +261,13 @@ export default function VehiclesPage() {
                       {v.estado}
                     </span>
                   </td>
-                  {isSuperAdmin && (
+                  {canEdit && (
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openEdit(v)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Editar"><Edit2 size={15} /></button>
-                        <button onClick={() => handleDelete(v.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar"><Trash2 size={15} /></button>
+                        {isSuperAdmin && (
+                          <button onClick={() => handleDelete(v.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar"><Trash2 size={15} /></button>
+                        )}
                       </div>
                     </td>
                   )}
@@ -275,8 +278,8 @@ export default function VehiclesPage() {
         </div>
       </div>
 
-      {/* Modal - Exclusively for Superadmin */}
-      {isSuperAdmin && showModal && (
+      {/* Modal de Edición/Creación */}
+      {canEdit && showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-slate-200">

@@ -119,14 +119,26 @@ export default function InstallPwaModal({
         {/* Botones de Acción */}
         <div className="p-4 pt-2 bg-slate-50 border-t border-slate-100 flex flex-col gap-2">
           {!isIOS ? (
-            <button
-              onClick={onInstall}
-              className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Download size={18} />
-              <span>Instalar Aplicación en Celular</span>
-            </button>
+            <div className="flex flex-col gap-2">
+              <a
+                href="/descargas/HuaynaRoque_GPS.apk"
+                download="HuaynaRoque_GPS.apk"
+                onClick={onClose}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center no-underline"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <Download size={18} />
+                <span>Descargar APK Instalador (5.8 MB)</span>
+              </a>
+              {onInstall && (
+                <button
+                  onClick={onInstall}
+                  className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  O instalar versión ligera sin descarga
+                </button>
+              )}
+            </div>
           ) : (
             <button
               onClick={onClose}

@@ -10,6 +10,7 @@ import { siren } from '../utils/sound';
 import { WS_BASE_URL, getAssetUrl } from '../config';
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
+import MobileBottomNav from './MobileBottomNav';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin'] },
@@ -161,9 +162,9 @@ export default function Layout() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar Desktop */}
       <aside
-        className={`${collapsed ? 'w-[72px]' : 'w-64'} bg-slate-900 text-white flex flex-col transition-all duration-300 ease-in-out flex-shrink-0 z-50`}
+        className={`${collapsed ? 'w-[72px]' : 'w-64'} bg-slate-900 text-white hidden md:flex flex-col transition-all duration-300 ease-in-out flex-shrink-0 z-50`}
       >
         {/* Logo & Corporate Identity Area */}
         <div className="h-16 flex items-center px-4 border-b border-slate-700/50 gap-3">
@@ -273,9 +274,62 @@ export default function Layout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto">
+        {/* Mobile Top Header */}
+        <header className="md:hidden h-14 bg-slate-950 text-white flex items-center justify-between px-3 border-b border-slate-800/80 flex-shrink-0 z-40 select-none">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            {empresa?.logo_url ? (
+              <img 
+                src={getAssetUrl(empresa.logo_url)} 
+                alt={empresa.nombre || 'Empresa'} 
+                className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
+                onError={(e) => { e.target.src = '/copai-symbol.png'; }}
+              />
+            ) : (
+              <img 
+                src="/copai-symbol.png" 
+                alt="COPAI" 
+                className="w-8 h-8 object-contain flex-shrink-0 drop-shadow"
+              />
+            )}
+            <div className="overflow-hidden">
+              <h1 className="text-xs font-black tracking-tight leading-tight truncate text-white">
+                {empresa?.nombre && empresa.id !== 0 ? empresa.nombre : 'COPAI TELEMATICS'}
+              </h1>
+              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
+                <span>{usuario?.rol === 'superadmin' ? 'Superadmin' : (usuario?.rol === 'admin' ? 'Gerencia / Admin' : 'Operador')}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {activeAlert && (
+              <span className="flex items-center gap-1 text-[10px] font-extrabold bg-red-600 text-white px-2 py-0.5 rounded-full animate-pulse shadow-xs">
+                <AlertTriangle size={12} />
+                <span>¡ALERTA!</span>
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title="Cerrar sesión"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </header>
+
+        {/* Contenido Principal con espacio inferior para el Bottom Navigation en móvil */}
+        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           <Outlet />
         </main>
+
+        {/* Barra de Navegación Inferior Móvil (Bottom Bar) */}
+        <MobileBottomNav 
+          usuario={usuario} 
+          empresa={empresa} 
+          activeAlertCount={activeAlert ? 1 : 0} 
+        />
       </div>
       {/* Modal de Instalación PWA */}
       <InstallPwaModal

@@ -87,10 +87,14 @@ jobs:
             npm install --legacy-peer-deps --silent
             npm run build
 
-            # 5. Publicar archivos en el directorio web de Nginx
+            # 5. Publicar archivos en el directorio web de Nginx preservando descargas
             echo "🌐 Publicando archivos estáticos en Nginx..."
+            sudo mkdir -p /tmp/descargas_backup
+            sudo cp -r /var/www/copay/html/descargas/* /tmp/descargas_backup/ 2>/dev/null || true
             sudo rm -rf /var/www/copay/html/*
             sudo cp -r dist/* /var/www/copay/html/
+            sudo mkdir -p /var/www/copay/html/descargas
+            sudo cp -r /tmp/descargas_backup/* /var/www/copay/html/descargas/ 2>/dev/null || true
             sudo chown -R www-data:www-data /var/www/copay/html
 
             # 6. Actualizar configuración de Nginx para soporte de subdominios y recargar
