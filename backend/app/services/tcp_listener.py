@@ -1,6 +1,7 @@
 import asyncio
 import struct
 import logging
+from datetime import datetime
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.db import models
@@ -42,11 +43,17 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
         if vehiculo and vehiculo.empresa and vehiculo.empresa.limite_velocidad:
             limite_velocidad = vehiculo.empresa.limite_velocidad
 
+        now_utc = datetime.utcnow()
         for r in records:
             # Normalize timestamp to naive UTC for MySQL compatibility
             ts = r['timestamp']
             if hasattr(ts, 'tzinfo') and ts.tzinfo is not None:
                 ts = ts.replace(tzinfo=None)
+            # If the Teltonika internal battery drained completely, its RTC resets to 2004-01-01 (31/12/2003 UTC-5).
+            # Fall back to current server UTC time so the reading is never treated as 22 years old (offline).
+            if ts is None or ts.year < 2025:
+                print(f"[TCP] RTC desincronizado detectado ({ts}), usando hora UTC del servidor ({now_utc})", flush=True)
+                ts = now_utc
 
             bateria_ext_v = r.get('bateria_ext')
             bateria_int_v = r.get('bateria_int')

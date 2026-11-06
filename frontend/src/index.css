@@ -31,6 +31,37 @@
       opacity: 1;
     }
   }
+
+  @keyframes copai-float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  @keyframes copai-scan {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.5;
+    }
+    100% {
+      transform: translateY(400%);
+      opacity: 0;
+    }
+  }
+
+  .animate-copai-float {
+    animation: copai-float 5s ease-in-out infinite;
+  }
+
+  .animate-copai-scan {
+    animation: copai-scan 4.5s linear infinite;
+  }
 }
 
 /* En móviles (< 768px), evitar que los botones de zoom (+/-) de Leaflet en Monitoreo choquen con el botón flotante de Flota */

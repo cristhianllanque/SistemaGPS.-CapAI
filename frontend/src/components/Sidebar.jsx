@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X } from 'lucide-react';
+import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X, Compass } from 'lucide-react';
 
 export default function Sidebar({
   vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90,
   showEmpresaFilter = false, empresas = [], empresaFilter = 'all', onEmpresaFilterChange,
   filterCounts = {}, hasParticulares = false,
-  collapsed = false, onToggleCollapse
+  collapsed = false, onToggleCollapse,
+  isMobileApp = false, routeTargetVehicleId = null, onStartRouteToVehicle, onStopRoute
 }) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -224,6 +225,38 @@ export default function Sidebar({
                       🔋 {u.bateria_porcentaje !== null && u.bateria_porcentaje !== undefined ? `${u.bateria_porcentaje}%` : '88%'}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {/* BOTÓN EXCLUSIVO MÓVIL: LLEGAR HASTA EL VEHÍCULO DESDE LA LISTA */}
+              {isMobileApp && u && onStartRouteToVehicle && (
+                <div className="md:hidden mt-2 pt-2 border-t border-slate-200/70">
+                  {routeTargetVehicleId === v.id ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onStopRoute) onStopRoute();
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <X size={13} />
+                      <span>Cerrar ruta al vehículo</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStartRouteToVehicle(v.id);
+                        if (onToggleCollapse) onToggleCollapse();
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <Compass size={13} />
+                      <span>Llegar hasta el vehículo</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

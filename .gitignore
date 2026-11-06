@@ -37,6 +37,7 @@ frontend/android/.gradle/
 frontend/android/build/
 frontend/android/app/build/
 *.apk
+vid-img-copai/
 
 # IDE & OS files
 .vscode/

@@ -1,13 +1,25 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
-import { Gauge, Sliders, Check, X, Navigation, ChevronRight } from 'lucide-react';
+import { Gauge, Sliders, Check, X, Navigation, ChevronRight, LocateFixed } from 'lucide-react';
 import LiveMap from './LiveMap';
 import Sidebar from './Sidebar';
 import PanicAlert from './PanicAlert';
 import { siren } from '../utils/sound';
-import { API_BASE_URL as API, WS_BASE_URL } from '../config';
+import { API_BASE_URL as API, WS_BASE_URL, isNativeApp } from '../config';
+
+// Distancia Haversine en metros entre dos coordenadas
+function calcDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function MonitoringPage() {
   const [searchParams] = useSearchParams();
@@ -43,6 +55,111 @@ export default function MonitoringPage() {
   const [empresaFilter, setEmpresaFilter] = useState('all');
   const [empresasList, setEmpresasList] = useState([]);
   const [particularIds, setParticularIds] = useState([]);
+
+  // ================= ESTADO EXCLUSIVO APLICATIVO MÓVIL: MI UBICACIÓN & RUTA AL VEHÍCULO =================
+  const [isMobileApp, setIsMobileApp] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return isNativeApp || window.innerWidth < 768;
+  });
+  const [userLocation, setUserLocation] = useState(null);
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+  const [routeTargetVehicleId, setRouteTargetVehicleId] = useState(null);
+  const [routePoints, setRoutePoints] = useState([]);
+  const [routeSummary, setRouteSummary] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [fitRouteTrigger, setFitRouteTrigger] = useState(0);
+  const [centerUserTrigger, setCenterUserTrigger] = useState(0);
+
+  const geoWatchIdRef = useRef(null);
+  const lastRoutedCoordsRef = useRef(null);
+
+  useEffect(() => {
+    const onResize = () => {
+      setIsMobileApp(isNativeApp || window.innerWidth < 768);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Limpiar watchPosition al desmontar la página
+  useEffect(() => {
+    return () => {
+      if (geoWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(geoWatchIdRef.current);
+      }
+    };
+  }, []);
+
+  const ensureUserLocationWatching = useCallback((shouldCenterOnUser = false) => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      setSpeedToast('El GPS de este dispositivo no está disponible');
+      setTimeout(() => setSpeedToast(''), 3500);
+      return;
+    }
+
+    setIsLocatingUser(true);
+
+    // Lectura rápida inicial + seguimiento continuo de alta precisión
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy || 20
+        };
+        setUserLocation(coords);
+        setIsLocatingUser(false);
+        if (shouldCenterOnUser) {
+          setCenterUserTrigger((prev) => prev + 1);
+        }
+      },
+      () => {
+        setIsLocatingUser(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+    );
+
+    if (geoWatchIdRef.current === null) {
+      geoWatchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy || 20
+          });
+          setIsLocatingUser(false);
+        },
+        (err) => {
+          console.warn('Aviso GPS móvil:', err?.message);
+          setIsLocatingUser(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 4000 }
+      );
+    }
+  }, []);
+
+  const handleLocateMe = () => {
+    if (userLocation) {
+      setCenterUserTrigger((prev) => prev + 1);
+    }
+    ensureUserLocationWatching(true);
+  };
+
+  const handleStartRouteToVehicle = (vehiculoId) => {
+    setSelectedVehicleId(vehiculoId);
+    setRouteTargetVehicleId(vehiculoId);
+    lastRoutedCoordsRef.current = null;
+    ensureUserLocationWatching(false);
+    setFitRouteTrigger((prev) => prev + 1);
+  };
+
+  const handleStopRoute = () => {
+    setRouteTargetVehicleId(null);
+    setRoutePoints([]);
+    setRouteSummary(null);
+    setRouteLoading(false);
+    lastRoutedCoordsRef.current = null;
+  };
 
   const WS_URL = token 
     ? `${WS_BASE_URL}/ws/flota/${activeEmpresaId}?token=${token}` 
@@ -205,8 +322,96 @@ export default function MonitoringPage() {
   const handleClearFocus = () => {
     setSelectedVehicleId(null);
     setEmergencyVehicleId(null);
+    handleStopRoute();
     siren.stop();
   };
+
+  // Calcular la ruta vial por calles (OSRM) desde el celular hasta el vehículo objetivo
+  useEffect(() => {
+    if (!isMobileApp || !routeTargetVehicleId || !userLocation) return;
+
+    const targetVeh = vehiculos.find((v) => v.id === routeTargetVehicleId);
+    const u = targetVeh?.ultima_lectura;
+    if (!u || u.latitud == null || u.longitud == null) return;
+
+    const uLat = Number(userLocation.lat);
+    const uLng = Number(userLocation.lng);
+    const vLat = Number(u.latitud);
+    const vLng = Number(u.longitud);
+
+    if (isNaN(uLat) || isNaN(uLng) || isNaN(vLat) || isNaN(vLng)) return;
+
+    // Evitar recalcular OSRM si ni el usuario ni el vehículo se han movido al menos 18 metros
+    const prev = lastRoutedCoordsRef.current;
+    if (prev) {
+      const movedUser = calcDistanceMeters(prev.uLat, prev.uLng, uLat, uLng);
+      const movedVeh = calcDistanceMeters(prev.vLat, prev.vLng, vLat, vLng);
+      if (movedUser < 18 && movedVeh < 18) {
+        return;
+      }
+    }
+
+    const isFirstRouteCalc = !prev;
+    lastRoutedCoordsRef.current = { uLat, uLng, vLat, vLng };
+
+    let cancelled = false;
+    setRouteLoading(true);
+
+    const directMeters = calcDistanceMeters(uLat, uLng, vLat, vLng);
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${vLng},${vLat}?overview=full&geometries=geojson`;
+
+    axios
+      .get(osrmUrl, { timeout: 6000 })
+      .then((res) => {
+        if (cancelled) return;
+        const route = res.data?.routes?.[0];
+        if (route && route.geometry?.coordinates?.length >= 2) {
+          const coordsLatLng = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+          setRoutePoints(coordsLatLng);
+          setRouteSummary({
+            distanceMeters: route.distance ?? directMeters,
+            durationSeconds: route.duration ?? Math.max(60, (directMeters / 1000 / 30) * 3600),
+            isDirectFallback: false
+          });
+        } else {
+          setRoutePoints([
+            [uLat, uLng],
+            [vLat, vLng]
+          ]);
+          setRouteSummary({
+            distanceMeters: directMeters,
+            durationSeconds: Math.max(60, (directMeters / 1000 / 30) * 3600),
+            isDirectFallback: true
+          });
+        }
+        if (isFirstRouteCalc) {
+          setFitRouteTrigger((t) => t + 1);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Respaldo instantáneo si no hay respuesta del servidor OSRM
+        setRoutePoints([
+          [uLat, uLng],
+          [vLat, vLng]
+        ]);
+        setRouteSummary({
+          distanceMeters: directMeters,
+          durationSeconds: Math.max(60, (directMeters / 1000 / 30) * 3600),
+          isDirectFallback: true
+        });
+        if (isFirstRouteCalc) {
+          setFitRouteTrigger((t) => t + 1);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setRouteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isMobileApp, routeTargetVehicleId, userLocation, vehiculos]);
 
   const handleSaveSpeedLimit = async (e) => {
     e.preventDefault();
@@ -263,6 +468,10 @@ export default function MonitoringPage() {
         hasParticulares={particularIds.length > 0}
         collapsed={isFleetCollapsed}
         onToggleCollapse={() => setIsFleetCollapsed(!isFleetCollapsed)}
+        isMobileApp={isMobileApp}
+        routeTargetVehicleId={routeTargetVehicleId}
+        onStartRouteToVehicle={handleStartRouteToVehicle}
+        onStopRoute={handleStopRoute}
       />
 
       <div className="monitoring-map flex-1 relative h-full w-full overflow-hidden">
@@ -328,6 +537,20 @@ export default function MonitoringPage() {
           </button>
         )}
 
+        {/* Botón flotante exclusivo Móvil: Ver Mi Ubicación en el Mapa */}
+        <button
+          type="button"
+          onClick={handleLocateMe}
+          className={`md:hidden absolute bottom-3 right-3 z-[500] w-10 h-10 rounded-full shadow-2xl flex items-center justify-center border transition-all active:scale-95 cursor-pointer ${
+            userLocation
+              ? 'bg-blue-600 text-white border-blue-400 shadow-blue-600/40'
+              : 'bg-white/95 text-slate-700 border-slate-200'
+          }`}
+          title="Mostrar mi ubicación actual en el mapa"
+        >
+          <LocateFixed size={18} className={isLocatingUser ? 'animate-spin text-blue-500' : ''} />
+        </button>
+
         {/* Live Map */}
         <LiveMap 
           vehiculos={vehiculosMapa} 
@@ -336,6 +559,17 @@ export default function MonitoringPage() {
           limiteVelocidad={limiteVelocidad}
           onSelectVehicle={(id) => setSelectedVehicleId(id)}
           onClearFocus={handleClearFocus}
+          isMobileApp={isMobileApp}
+          userLocation={userLocation}
+          routeTargetVehicleId={routeTargetVehicleId}
+          routePoints={routePoints}
+          routeSummary={routeSummary}
+          routeLoading={routeLoading}
+          fitRouteTrigger={fitRouteTrigger}
+          centerUserTrigger={centerUserTrigger}
+          onStartRouteToVehicle={handleStartRouteToVehicle}
+          onStopRoute={handleStopRoute}
+          onFitRouteBounds={() => setFitRouteTrigger((t) => t + 1)}
         />
         
         {/* Alerts Overlay (Panic & Speed alerts) */}

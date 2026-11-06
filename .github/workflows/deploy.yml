@@ -61,7 +61,8 @@ jobs:
 
             # 1. Actualizar código desde GitHub
             echo "📥 Descargando últimos cambios desde origin/main..."
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             # 2. Actualizar dependencias de Backend
             echo "🐍 Actualizando backend y entorno virtual..."

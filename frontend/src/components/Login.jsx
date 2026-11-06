@@ -11,6 +11,7 @@ import { API_BASE_URL, getAssetUrl, isNativeApp } from '../config';
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
 import MobileLoginView from './MobileLoginView';
+import CopaiMasterPortal from './CopaiMasterPortal';
 
 // Detecta si la petición proviene de un subdominio de cliente o parámetro local
 function detectTenantSlug() {
@@ -354,31 +355,16 @@ export default function Login() {
       className={`min-h-screen font-sans overflow-x-hidden relative transition-colors duration-300 ${
         companyPortal
           ? (isLightPortal ? 'text-slate-900' : 'text-slate-100')
-          : 'bg-[#F8FAFC] text-slate-800'
+          : 'bg-[#020617] text-slate-100'
       }`}
       style={companyPortal ? {
         backgroundColor: isLightPortal ? cTerciario : '#020617',
         color: isLightPortal ? '#0F172A' : '#F8FAFC'
       } : {
-        background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 40%, #F1F5F9 100%)'
+        backgroundColor: '#020617',
+        color: '#F8FAFC'
       }}
     >
-      
-      {/* Luces sutiles sólo para el portal corporativo CopAI */}
-      {!companyPortal && (
-        <div className="fixed inset-0 pointer-events-none z-0">
-          <div className="absolute top-[-10%] left-[10%] w-[600px] h-[600px] rounded-full blur-[140px] bg-blue-500 opacity-[0.07]" />
-          <div className="absolute top-[20%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[140px] bg-indigo-500 opacity-[0.05]" />
-          <div 
-            className="absolute inset-0 opacity-[0.025]" 
-            style={{ 
-              backgroundImage: 'radial-gradient(circle at 1px 1px, #0284c7 1px, transparent 0)',
-              backgroundSize: '36px 36px' 
-            }} 
-          />
-        </div>
-      )}
-
       {/* ========================================================================= */}
       {/* CASO A: PORTAL WHITE-LABEL DE EMPRESA CLIENTE (Huaynarroque, Nazareth, etc) */}
       {/* ========================================================================= */}
@@ -1044,301 +1030,27 @@ export default function Login() {
         /* ========================================================================= */
         /* CASO B: MASTER CORPORATE PORTAL DE INDUSTRIAS COPAI (Cuando no hay tenant) */
         /* ========================================================================= */
-        <>
-          {/* ================= BARRA SUPERIOR / NAVBAR COPAI ================= */}
-          <header className="fixed top-0 left-0 right-0 z-40 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 transition-all shadow-xs">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-              
-              {/* Logo Oficial COPAI */}
-              <div className="flex items-center gap-4">
-                <a href="#inicio" className="flex items-center gap-3 group">
-                  <img 
-                    src="/copai-symbol.png" 
-                    alt="COPAI" 
-                    className="h-9 w-9 sm:h-10 sm:w-10 object-contain transition-transform group-hover:scale-105"
-                  />
-                  <span className="text-2xl font-black tracking-wider text-slate-900 group-hover:text-blue-600 transition-colors">
-                    COPAI
-                  </span>
-                </a>
-                <div className="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-200">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[11px] font-semibold text-slate-500 tracking-wider uppercase">
-                    Ecosistema Telematics 4.0
-                  </span>
-                </div>
-              </div>
-
-              {/* Enlaces de Navegación */}
-              <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
-                <a href="#telemetria" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                  <Radio size={16} className="text-blue-600" /> Telemetría GPS
-                </a>
-                <a href="#robotica" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                  <Bot size={16} className="text-blue-600" /> Automatización
-                </a>
-                <a href="#ia" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                  <Brain size={16} className="text-blue-600" /> Analítica Predictiva
-                </a>
-                <a href="#contratos" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                  <FileCode size={16} className="text-blue-600" /> Trazabilidad
-                </a>
-              </nav>
-
-              {/* BOTÓN SUPERIOR DERECHO: INICIAR SESIÓN Y APP */}
-              <div className="flex items-center gap-3">
-                {!isStandalone && (
-                  <button
-                    onClick={() => setShowPrompt(true)}
-                    className="hidden sm:flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all cursor-pointer shadow-xs active:scale-95"
-                    title="Instalar App Oficial COPAI en tu Celular"
-                  >
-                    <Smartphone size={14} className="text-blue-600" />
-                    <span>Instalar App</span>
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setShowLoginModal(true);
-                    setError('');
-                  }}
-                  className="px-5 sm:px-6 py-2.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow transition-all duration-200 flex items-center gap-2 cursor-pointer active:scale-95"
-                >
-                  <Lock size={15} />
-                  <span>Iniciar Sesión</span>
-                  <ArrowRight size={15} />
-                </button>
-              </div>
-
-            </div>
-          </header>
-
-          {/* ================= CONTENIDO PRINCIPAL MASTER COPAI ================= */}
-          <main className="relative z-10 pt-28 sm:pt-36 pb-20">
-            
-            {/* HERO SECTION */}
-            <section id="inicio" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 sm:pt-16 pb-16">
-              
-              {/* Badge Natural */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-xs font-semibold text-blue-700 mb-6 shadow-xs">
-                <Radio size={14} className="text-blue-600" />
-                <span>TECNOLOGÍA SATELITAL & GESTIÓN DE FLOTA</span>
-              </div>
-
-              {/* Título Principal */}
-              <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 max-w-4xl mx-auto leading-[1.18]">
-                Innovación sin Límites para la <br className="hidden sm:inline" />
-                <span className="text-blue-600">
-                  Industria del Futuro
-                </span>
-              </h1>
-
-              {/* Bajada Narrativa */}
-              <p className="mt-6 text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
-                En <strong>Industrias CopAI</strong> fusionamos telemetría satelital GPS de grado industrial, robótica autónoma, inteligencia artificial predictiva y arquitectura de contratos inteligentes para liderar la transformación digital del transporte y la industria pesada.
-              </p>
-
-              {/* Botones de Acción */}
-              <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-                <button
-                  onClick={() => {
-                    setShowLoginModal(true);
-                    setError('');
-                  }}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
-                >
-                  <Cpu size={17} />
-                  <span>Acceso a la Plataforma</span>
-                  <ArrowRight size={17} />
-                </button>
-                <a
-                  href="#telemetria"
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-semibold text-sm text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 shadow-xs transition-all flex items-center justify-center gap-2"
-                >
-                  <span>Explorar Tecnologías</span>
-                  <ChevronRight size={17} />
-                </a>
-              </div>
-
-              {/* Indicadores / Metricas Naturales */}
-              <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
-                  <div className="text-3xl font-extrabold text-slate-900">99.98%</div>
-                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Disponibilidad Uptime</div>
-                </div>
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
-                  <div className="text-3xl font-extrabold text-slate-900">&lt; 100ms</div>
-                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Latencia Telemetría</div>
-                </div>
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
-                  <div className="text-3xl font-extrabold text-slate-900">256-bit</div>
-                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Cifrado de Datos</div>
-                </div>
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-sm transition-shadow">
-                  <div className="text-3xl font-extrabold text-blue-600">Multi-Tenant</div>
-                  <div className="text-xs text-slate-500 mt-1 uppercase font-semibold tracking-wider">Portales Dedicados</div>
-                </div>
-              </div>
-
-            </section>
-
-            {/* LAS 4 DIVISIONES TECNOLÓGICAS DE INDUSTRIAS COPAI */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-              <div className="text-center mb-12">
-                <h2 className="text-xs font-bold text-blue-600 tracking-widest uppercase mb-2">
-                  ÁREAS DE EXCELENCIA TÉCNICA
-                </h2>
-                <p className="text-3xl sm:text-4xl font-extrabold text-slate-900">
-                  Pilares de Transformación Operativa
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* 1. TELEMETRÍA GPS INDUSTRIAL */}
-                <div id="telemetria" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-5">
-                    <Radio size={24} />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
-                    Telemetría Satelital GPS & IoT
-                  </h3>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                    Arquitectura de alta concurrencia capaz de procesar miles de tramas TCP por segundo desde dispositivos Teltonika (FMC130, FMM130, etc.). Telemetría en tiempo real de velocidad, odómetro satelital, geocercas poligonales inteligentes y control remoto de corte de ignición.
-                  </p>
-                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-blue-600 flex-shrink-0" /> Protocolo asíncrono Teltonika Codec 8 y Codec 8 Extended
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-blue-600 flex-shrink-0" /> WebSockets bi-direccionales de latencia sub-segundo
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-blue-600 flex-shrink-0" /> Alertas automáticas de velocidad y corte de energía
-                    </li>
-                  </ul>
-                </div>
-
-                {/* 2. ROBÓTICA INDUSTRIAL */}
-                <div id="robotica" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-5">
-                    <Bot size={24} />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
-                    Robótica y Automatización Autónoma
-                  </h3>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                    Diseño, desarrollo e integración de sistemas mecatrónicos y vehículos de guiado automático (AGVs) para logística y almacenes inteligentes. Automatización integral de procesos industriales para eliminar tiempos muertos y maximizar la precisión operativa.
-                  </p>
-                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-indigo-600 flex-shrink-0" /> Integración con PLCs industriales y buses de campo Modbus/CAN
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-indigo-600 flex-shrink-0" /> Control cinemático en tiempo real y visión computacional
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-indigo-600 flex-shrink-0" /> Monitoreo y diagnóstico remoto de salud mecánica
-                    </li>
-                  </ul>
-                </div>
-
-                {/* 3. INTELIGENCIA ARTIFICIAL */}
-                <div id="ia" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5">
-                    <Brain size={24} />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
-                    Inteligencia Artificial Predictiva
-                  </h3>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                    Modelos de Machine Learning entrenados sobre datos de sensores para mantenimiento predictivo de motores, análisis de comportamiento del conductor (frenados bruscos, aceleraciones excesivas) y optimización de rutas y consumo de combustible.
-                  </p>
-                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-emerald-600 flex-shrink-0" /> Detección temprana de anomalías antes de fallas críticas
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-emerald-600 flex-shrink-0" /> Calificación automática de conducción segura
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-emerald-600 flex-shrink-0" /> Optimización de consumo energético y eficiencia térmica
-                    </li>
-                  </ul>
-                </div>
-
-                {/* 4. SMART CONTRACTS */}
-                <div id="contratos" className="p-8 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all duration-300 shadow-xs hover:shadow-md">
-                  <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-5">
-                    <FileCode size={24} />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2.5">
-                    Smart Contracts & Trazabilidad
-                  </h3>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                    Certificación de registros de telemetría y ejecución de auditorías de despacho logístico mediante contratos inteligentes. Garantía técnica de cumplimiento de horarios, temperatura en cadena de frío e itinerarios transparentes.
-                  </p>
-                  <ul className="space-y-2.5 text-xs text-slate-600 font-medium">
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-sky-600 flex-shrink-0" /> Registro inmutable de eventos críticos y kilometraje
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-sky-600 flex-shrink-0" /> Liquidación verificable de servicios contra entrega
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Check size={15} className="text-sky-600 flex-shrink-0" /> Trazabilidad punta a punta para auditorías operativas
-                    </li>
-                  </ul>
-                </div>
-
-              </div>
-            </section>
-
-          </main>
-
-          {/* ================= PIE DE PÁGINA COPAI ================= */}
-          <footer className="relative z-10 border-t border-slate-200 bg-white py-10 px-4 sm:px-6 lg:px-8 text-center sm:text-left">
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
-                <img 
-                  src="/logo-copai.png" 
-                  alt="Industrias CopAI" 
-                  className="h-8 object-contain"
-                />
-                <span className="text-xs text-slate-500">
-                  © 2026 Industrias CopAI. Todos los derechos reservados.
-                </span>
-              </div>
-              <div className="text-xs text-slate-500 flex flex-wrap items-center justify-center gap-6">
-                <span>RUC: 20601847291</span>
-                <span>Puno • Arequipa • Lima, Perú</span>
-                <button
-                  onClick={() => {
-                    setShowLoginModal(true);
-                    setError('');
-                  }}
-                  className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer"
-                >
-                  Acceso a la Central ➔
-                </button>
-              </div>
-            </div>
-          </footer>
-        </>
+        <CopaiMasterPortal
+          isStandalone={isStandalone}
+          onOpenLoginModal={() => {
+            setShowLoginModal(true);
+            setError('');
+          }}
+          onOpenInstallModal={() => setShowPrompt(true)}
+        />
       )}
 
       {/* ========================================================================= */}
       {/* MODAL UNIFICADO DE INICIAR SESIÓN (Adaptado para CopAI o Empresa Cliente) */}
       {/* ========================================================================= */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div 
             className="relative w-full max-w-md p-7 sm:p-9 rounded-3xl border transition-all animate-in zoom-in-95 duration-200 shadow-2xl"
             style={{
-              backgroundColor: isLightPortal || !companyPortal ? '#FFFFFF' : '#0B1320',
-              borderColor: companyPortal ? `${cPrimario}50` : '#E2E8F0',
-              boxShadow: companyPortal ? `0 25px 60px ${cPrimario}30` : '0 20px 45px rgba(15,23,42,0.12)'
+              backgroundColor: companyPortal ? (isLightPortal ? '#FFFFFF' : '#0B1320') : '#081022',
+              borderColor: companyPortal ? `${cPrimario}50` : 'rgba(6, 182, 212, 0.35)',
+              boxShadow: companyPortal ? `0 25px 60px ${cPrimario}30` : '0 25px 70px rgba(6, 182, 212, 0.22)'
             }}
           >
             
@@ -1346,7 +1058,7 @@ export default function Login() {
             <button
               onClick={() => setShowLoginModal(false)}
               className="absolute top-5 right-5 p-2 rounded-xl transition-colors cursor-pointer"
-              style={{ color: isLightPortal || !companyPortal ? '#64748B' : '#94A3B8' }}
+              style={{ color: companyPortal && isLightPortal ? '#64748B' : '#94A3B8' }}
               title="Cerrar ventana"
             >
               <X size={20} />
@@ -1362,24 +1074,19 @@ export default function Login() {
                     className="h-12 object-contain"
                   />
                 ) : (
-                  <div className="flex items-center gap-3">
-                    <img 
-                      src="/copai-symbol.png" 
-                      alt="COPAI" 
-                      className="h-10 w-10 object-contain"
-                    />
-                    <span className="text-2xl font-black tracking-wider" style={{ color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF' }}>
-                      COPAI
-                    </span>
-                  </div>
+                  <img 
+                    src="/copai-media/logo-copai-dark.png" 
+                    alt="CopAI Industrias" 
+                    className="h-12 object-contain"
+                  />
                 )}
               </div>
-              <h2 className="text-2xl font-black tracking-tight" style={{ color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF' }}>
+              <h2 className="text-2xl font-black tracking-tight" style={{ color: companyPortal && isLightPortal ? '#0F172A' : '#FFFFFF' }}>
                 {companyPortal ? `Central: ${companyPortal.nombre}` : 'Acceso a Plataforma COPAI'}
               </h2>
               <p 
                 className="text-xs mt-1 font-semibold tracking-wide"
-                style={{ color: companyPortal ? cPrimario : '#2563EB' }}
+                style={{ color: companyPortal ? cPrimario : '#22D3EE' }}
               >
                 {companyPortal ? 'Autenticación de Flota & Despacho' : 'Autenticación Segura de Clientes & Flota'}
               </p>
@@ -1387,8 +1094,8 @@ export default function Login() {
 
             {/* Error de credenciales */}
             {error && (
-              <div className="mb-5 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2.5 text-xs animate-shake">
-                <ShieldAlert size={18} className="text-red-500 flex-shrink-0" />
+              <div className="mb-5 p-3.5 bg-red-500/15 border border-red-500/40 text-red-300 rounded-xl flex items-center gap-2.5 text-xs animate-shake">
+                <ShieldAlert size={18} className="text-red-400 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
@@ -1396,8 +1103,8 @@ export default function Login() {
             {/* Formulario */}
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold mb-1.5 flex items-center gap-1.5" style={{ color: isLightPortal || !companyPortal ? '#334155' : '#E2E8F0' }}>
-                  <Mail size={13} style={{ color: companyPortal ? cPrimario : '#2563EB' }} />
+                <label className="block text-xs font-bold mb-1.5 flex items-center gap-1.5" style={{ color: companyPortal && isLightPortal ? '#334155' : '#E2E8F0' }}>
+                  <Mail size={13} style={{ color: companyPortal ? cPrimario : '#22D3EE' }} />
                   <span>Correo Electrónico / Usuario</span>
                 </label>
                 <input 
@@ -1408,17 +1115,17 @@ export default function Login() {
                   placeholder="usuario@empresa.com"
                   className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all border"
                   style={{
-                    backgroundColor: isLightPortal || !companyPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.7)',
-                    borderColor: isLightPortal || !companyPortal ? '#E2E8F0' : '#334155',
-                    color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF'
+                    backgroundColor: companyPortal && isLightPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.75)',
+                    borderColor: companyPortal && isLightPortal ? '#E2E8F0' : '#334155',
+                    color: companyPortal && isLightPortal ? '#0F172A' : '#FFFFFF'
                   }}
                 />
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: isLightPortal || !companyPortal ? '#334155' : '#E2E8F0' }}>
-                    <Lock size={13} style={{ color: companyPortal ? cPrimario : '#2563EB' }} />
+                  <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: companyPortal && isLightPortal ? '#334155' : '#E2E8F0' }}>
+                    <Lock size={13} style={{ color: companyPortal ? cPrimario : '#22D3EE' }} />
                     <span>Contraseña</span>
                   </label>
                   <button
@@ -1431,7 +1138,7 @@ export default function Login() {
                       setForgotEmail('');
                     }}
                     className="text-xs font-bold hover:underline transition-colors cursor-pointer"
-                    style={{ color: companyPortal ? cPrimario : '#2563EB' }}
+                    style={{ color: companyPortal ? cPrimario : '#22D3EE' }}
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
@@ -1445,16 +1152,16 @@ export default function Login() {
                     placeholder="••••••••"
                     className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all pr-11 border"
                     style={{
-                      backgroundColor: isLightPortal || !companyPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.7)',
-                      borderColor: isLightPortal || !companyPortal ? '#E2E8F0' : '#334155',
-                      color: isLightPortal || !companyPortal ? '#0F172A' : '#FFFFFF'
+                      backgroundColor: companyPortal && isLightPortal ? '#F8FAFC' : 'rgba(2, 6, 23, 0.75)',
+                      borderColor: companyPortal && isLightPortal ? '#E2E8F0' : '#334155',
+                      color: companyPortal && isLightPortal ? '#0F172A' : '#FFFFFF'
                     }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-                    style={{ color: isLightPortal || !companyPortal ? '#64748B' : '#94A3B8' }}
+                    style={{ color: companyPortal && isLightPortal ? '#64748B' : '#94A3B8' }}
                     title={showPassword ? 'Ocultar' : 'Mostrar'}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1472,10 +1179,10 @@ export default function Login() {
                   borderColor: `${cSecundario}40`,
                   boxShadow: `0 8px 25px ${cPrimario}50`
                 } : {
-                  backgroundColor: '#2563EB',
+                  background: 'linear-gradient(90deg, #2563EB 0%, #06B6D4 100%)',
                   color: '#FFFFFF',
-                  borderColor: '#1D4ED8',
-                  boxShadow: '0 4px 15px rgba(37,99,235,0.3)'
+                  borderColor: 'rgba(34,211,238,0.4)',
+                  boxShadow: '0 8px 25px rgba(6,182,212,0.35)'
                 }}
               >
                 {loading ? (
@@ -1489,11 +1196,11 @@ export default function Login() {
               </button>
             </form>
 
-            <div className="mt-6 pt-5 border-t text-center" style={{ borderColor: isLightPortal || !companyPortal ? '#E2E8F0' : '#1E293B' }}>
-              <p className="text-[11px]" style={{ color: isLightPortal || !companyPortal ? '#64748B' : '#94A3B8' }}>
+            <div className="mt-6 pt-5 border-t text-center" style={{ borderColor: companyPortal && isLightPortal ? '#E2E8F0' : '#1E293B' }}>
+              <p className="text-[11px]" style={{ color: companyPortal && isLightPortal ? '#64748B' : '#94A3B8' }}>
                 {companyPortal 
                   ? `Acceso para operadores autorizados de ${companyPortal.nombre}`
-                  : 'Acceso exclusivo para clientes y operadores de COPAI'}
+                  : 'Acceso exclusivo para clientes y operadores de Industrias CopAI'}
               </p>
             </div>
 
