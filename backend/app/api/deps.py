@@ -24,6 +24,8 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") == "password_reset":
+            raise credentials_exception
         email: str = payload.get("sub")
         user_id = payload.get("user_id")
         if email is None and user_id is None:
@@ -35,7 +37,7 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         user = db.query(models.Usuario).filter(models.Usuario.email == email).first()
     if user is None and user_id is not None:
         user = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
-    if user is None:
+    if user is None or not user.activo:
         raise credentials_exception
     return user
 

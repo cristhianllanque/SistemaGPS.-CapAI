@@ -33,6 +33,7 @@ public class MainActivity extends BridgeActivity {
             String targetUrl = getString(R.string.server_url);
             this.config = new CapConfig.Builder(this)
                 .setServerUrl(targetUrl)
+                .setErrorPath("offline.html")
                 .setAllowNavigation(new String[] { "industriascopai.com", "*.industriascopai.com" })
                 .setBackgroundColor("#020617")
                 .setPluginsConfiguration(pluginsJson)

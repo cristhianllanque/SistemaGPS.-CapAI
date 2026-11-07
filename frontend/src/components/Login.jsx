@@ -54,21 +54,9 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Tenant / Empresa White-Label
+  // Tenant / Empresa White-Label (en la app universal Play Store arranca limpio como COPAI al cerrar sesión)
   const [tenantSlug, setTenantSlug] = useState(() => detectTenantSlug());
-  const [companyPortal, setCompanyPortal] = useState(() => {
-    const slug = detectTenantSlug();
-    if (!slug && isNativeApp) {
-      try {
-        const last = localStorage.getItem('last_empresa');
-        if (last) {
-          const parsed = JSON.parse(last);
-          if (parsed && parsed.id && parsed.id !== 0) return parsed;
-        }
-      } catch (e) {}
-    }
-    return null;
-  });
+  const [companyPortal, setCompanyPortal] = useState(null);
   const [portalLoading, setPortalLoading] = useState(false);
 
   // Modal de Login
@@ -137,7 +125,7 @@ export default function Login() {
         .finally(() => {
           setPortalLoading(false);
         });
-    } else if (!isNativeApp) {
+    } else {
       setCompanyPortal(null);
     }
   }, [location.search]);
@@ -190,11 +178,7 @@ export default function Login() {
 
       localStorage.setItem('token', access_token);
       localStorage.setItem('empresa', JSON.stringify(activeEmpresa));
-      if (isNativeApp && activeEmpresa && activeEmpresa.id !== 0) {
-        localStorage.setItem('last_empresa', JSON.stringify(activeEmpresa));
-      } else {
-        localStorage.removeItem('last_empresa');
-      }
+      localStorage.removeItem('last_empresa');
       localStorage.setItem('usuario', JSON.stringify(usuario));
       
       // Navegar a dashboard vía SPA para transición instantánea y conservar insets de pantalla
@@ -266,13 +250,12 @@ export default function Login() {
           onOpenForgot={() => setShowForgotModal(true)}
           onViewWebPortal={() => setShowFullWebPortal(true)}
           onOpenInstallModal={() => setShowPrompt(true)}
+          onTriggerInstall={triggerInstall}
+          isInstallable={isInstallable}
           isStandalone={isStandalone}
           isIOS={isIOS}
           isAndroid={isAndroid}
-          onResetCompany={() => {
-            localStorage.removeItem('last_empresa');
-            setCompanyPortal(null);
-          }}
+          onResetCompany={null}
         />
 
         {/* Modal de Recuperación de Contraseña si se activa en móvil */}
@@ -339,7 +322,7 @@ export default function Login() {
         <InstallPwaModal
           show={showPrompt}
           onClose={dismissPrompt}
-          onInstall={triggerInstall}
+          onInstall={isInstallable ? triggerInstall : null}
           isIOS={isIOS}
           isAndroid={isAndroid}
           companyName={companyPortal ? companyPortal.nombre : 'COPAI Telematics'}
@@ -1298,7 +1281,7 @@ export default function Login() {
       <InstallPwaModal
         show={showPrompt}
         onClose={dismissPrompt}
-        onInstall={triggerInstall}
+        onInstall={isInstallable ? triggerInstall : null}
         isIOS={isIOS}
         isAndroid={isAndroid}
         companyName={companyPortal ? companyPortal.nombre : 'COPAI Telematics'}

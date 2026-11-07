@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Radio, Truck, Users, Link2, Map, AlertTriangle, Route,
-  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car, Smartphone
+  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car, Smartphone, User
 } from 'lucide-react';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
@@ -30,6 +30,7 @@ const NAV_ITEMS = [
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const rawEmpresa = localStorage.getItem('empresa');
   const empresa = (rawEmpresa && rawEmpresa !== 'null' && rawEmpresa !== 'undefined')
     ? (JSON.parse(rawEmpresa) || {})
@@ -42,6 +43,7 @@ export default function Layout() {
 
   // Hook de PWA oficial para Android e iOS
   const {
+    isInstallable,
     isStandalone,
     isIOS,
     isAndroid,
@@ -137,8 +139,13 @@ export default function Layout() {
 
   const handleLogout = () => {
     siren.stop();
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    localStorage.removeItem('empresa');
+    localStorage.removeItem('last_empresa');
     localStorage.clear();
-    navigate('/login');
+    document.title = 'COPAI';
+    navigate('/login', { replace: true });
   };
 
   const handleAlertClosed = () => {
@@ -258,19 +265,31 @@ export default function Layout() {
 
         {/* User Info */}
         <div className="border-t border-slate-700/50 p-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-              {usuario.nombre?.charAt(0) || 'U'}
-            </div>
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{usuario.nombre}</p>
-                <p className="text-[10px] text-slate-400 truncate">{usuario.rol}</p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/perfil')}
+              className={`flex items-center gap-3 flex-1 min-w-0 p-1.5 -m-1.5 rounded-lg transition-colors text-left cursor-pointer ${
+                location.pathname === '/perfil' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/80'
+              }`}
+              title="Ver Mi Perfil y Cambiar Contraseña"
+            >
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white shadow"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {usuario.nombre?.charAt(0)?.toUpperCase() || 'U'}
               </div>
-            )}
+              {!collapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate text-white">{usuario.nombre}</p>
+                  <p className="text-[10px] text-slate-400 truncate">Mi Perfil • {usuario.rol}</p>
+                </div>
+              )}
+            </button>
             <button
               onClick={handleLogout}
-              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors flex-shrink-0"
+              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors flex-shrink-0 cursor-pointer"
               title="Cerrar sesión"
             >
               <LogOut size={16} />
@@ -334,6 +353,19 @@ export default function Layout() {
               </button>
             )}
             <button
+              type="button"
+              onClick={() => navigate('/perfil')}
+              className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                location.pathname === '/perfil'
+                  ? 'text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+              style={location.pathname === '/perfil' ? { backgroundColor: primaryColor } : {}}
+              title="Mi Perfil y Contraseña"
+            >
+              <User size={16} />
+            </button>
+            <button
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               title="Cerrar sesión"
@@ -367,7 +399,7 @@ export default function Layout() {
       <InstallPwaModal
         show={showPrompt}
         onClose={dismissPrompt}
-        onInstall={triggerInstall}
+        onInstall={isInstallable ? triggerInstall : null}
         isIOS={isIOS}
         isAndroid={isAndroid}
         companyName={empresa?.nombre || 'COPAI Telematics'}

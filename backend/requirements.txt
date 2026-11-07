@@ -12,3 +12,4 @@ pydantic[email]
 python-multipart
 openpyxl
 reportlab
+pillow

@@ -39,7 +39,7 @@ export default function MobileBottomNav({
       { to: '/monitoreo', icon: Map, label: 'Mi Vehículo' },
       { to: '/historial-rutas', icon: Route, label: 'Recorridos' },
       { to: '/alertas', icon: AlertTriangle, label: 'Seguridad', badge: activeAlertCount },
-      { to: '/dashboard', icon: User, label: 'Mi Cuenta' },
+      { to: '/perfil', icon: User, label: 'Mi Perfil' },
     ];
   } else if (rol === 'superadmin') {
     navItems = [
@@ -86,7 +86,7 @@ export default function MobileBottomNav({
       { to: '/vehiculos', icon: Truck, label: 'Unidades' },
       { to: '/alertas', icon: AlertTriangle, label: 'Alertas', badge: activeAlertCount },
       { to: '/historial-rutas', icon: Route, label: 'Historial' },
-      { to: '/dashboard', icon: User, label: 'Despacho' },
+      { to: '/perfil', icon: User, label: 'Mi Perfil' },
     ];
   }
 
@@ -164,6 +164,17 @@ export default function MobileBottomNav({
 
             {/* Acciones Rápidas de Cuenta e Instalación */}
             <div className="pt-2 border-t border-slate-800 flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate('/perfil');
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
+              >
+                <User size={14} />
+                <span>Mi Perfil / Clave</span>
+              </button>
               {!isStandalone && !isNativeApp && onOpenInstall && (
                 <button
                   type="button"
@@ -171,10 +182,10 @@ export default function MobileBottomNav({
                     setMenuOpen(false);
                     onOpenInstall();
                   }}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
+                  className="py-2.5 px-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
                 >
                   <Smartphone size={14} />
-                  <span>Instalar Aplicativo</span>
+                  <span>App</span>
                 </button>
               )}
               {onLogout && (

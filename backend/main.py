@@ -65,6 +65,9 @@ async def websocket_endpoint(websocket: WebSocket, empresa_id: int, token: str =
         
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") == "password_reset":
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
         user_empresa_id = payload.get("empresa_id")
         user_email = payload.get("sub")
         user_rol = payload.get("rol")

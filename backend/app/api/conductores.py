@@ -45,21 +45,22 @@ def list_conductores_disponibles(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     """Conductores que no están asignados a ningún vehículo"""
-    target_empresa_id = current_user.empresa_id
-    if current_user.rol == 'superadmin' and empresa_id:
+    if current_user.rol == 'superadmin':
         target_empresa_id = empresa_id
+    else:
+        target_empresa_id = current_user.empresa_id if current_user.empresa_id is not None else -1
 
     # Get all conductor IDs that are assigned to a vehicle
     assigned_query = db.query(models.Vehiculo.conductor_id).filter(
         models.Vehiculo.conductor_id.isnot(None),
         models.Vehiculo.activo == True
     )
-    if target_empresa_id:
+    if target_empresa_id is not None:
         assigned_query = assigned_query.filter(models.Vehiculo.empresa_id == target_empresa_id)
     assigned_ids = [v.conductor_id for v in assigned_query.all()]
 
     cond_query = db.query(models.Conductor).filter(models.Conductor.activo == True)
-    if target_empresa_id:
+    if target_empresa_id is not None:
         cond_query = cond_query.filter(models.Conductor.empresa_id == target_empresa_id)
     if assigned_ids:
         cond_query = cond_query.filter(~models.Conductor.id.in_(assigned_ids))

@@ -16,6 +16,7 @@ import CompaniesPage from './pages/CompaniesPage';
 import ParticularesPage from './pages/ParticularesPage';
 import ResetPassword from './pages/ResetPassword';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import ProfilePage from './pages/ProfilePage';
 
 /**
  * Sincroniza los márgenes seguros de barras de sistema (3 botones ◁ ○ □ o gestos) EXCLUSIVAMENTE en Android.
@@ -212,6 +213,7 @@ function App() {
           <Route path="alertas" element={<AlertsPage />} />
           <Route path="reportes" element={<Reportes />} />
           <Route path="usuarios" element={<UsersPage />} />
+          <Route path="perfil" element={<ProfilePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

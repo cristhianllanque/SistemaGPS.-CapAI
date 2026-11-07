@@ -78,7 +78,9 @@ export function usePWA(companyData = null) {
   useEffect(() => {
     const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 768;
     const appTitle = companyData?.nombre ? `${companyData.nombre}` : 'COPAI GPS';
-    const logoUrl = companyData?.logo_url || '/copai-symbol.png';
+    const logoUrl = (companyData?.slug && companyData?.logo_url)
+      ? `/api/pwa/icon/${companyData.slug}/192.png`
+      : (companyData?.logo_url || '/copai-symbol.png');
     const themeColor = isMobileViewport ? '#020617' : (companyData?.color_primario || '#020617');
 
     // Meta Theme Color (En móvil siempre #020617 oscuro para eliminar niebla blanca superior en iOS)
@@ -90,9 +92,7 @@ export function usePWA(companyData = null) {
     }
     metaTheme.content = themeColor;
 
-    if (!companyData) return;
-
-    // Apple Mobile Web App Title
+    // Apple Mobile Web App Title (si cerró sesión y companyData es null, regresa a COPAI GPS)
     let metaTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
     if (!metaTitle) {
       metaTitle = document.createElement('meta');
@@ -101,7 +101,7 @@ export function usePWA(companyData = null) {
     }
     metaTitle.content = appTitle;
 
-    // Apple Touch Icon
+    // Apple Touch Icon y Favicon dinámico (se limpia a /copai-symbol.png al cerrar sesión)
     let linkIcon = document.querySelector('link[rel="apple-touch-icon"]');
     if (!linkIcon) {
       linkIcon = document.createElement('link');
@@ -109,6 +109,11 @@ export function usePWA(companyData = null) {
       document.head.appendChild(linkIcon);
     }
     linkIcon.href = logoUrl;
+
+    let favIcon = document.querySelector('link[rel="icon"]');
+    if (favIcon) {
+      favIcon.href = logoUrl;
+    }
 
   }, [companyData]);
 

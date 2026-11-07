@@ -5,6 +5,7 @@
   "server": {
     "url": "https://industriascopai.com",
     "cleartext": false,
+    "errorPath": "offline.html",
     "allowNavigation": [
       "industriascopai.com",
       "*.industriascopai.com"

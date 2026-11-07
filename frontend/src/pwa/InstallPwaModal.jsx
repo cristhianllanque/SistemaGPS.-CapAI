@@ -126,35 +126,38 @@ export default function InstallPwaModal({
         <div className="p-4 pt-2 bg-slate-50 border-t border-slate-100 flex flex-col gap-2">
           {!isIOS ? (
             <div className="flex flex-col gap-2">
-              {(() => {
-                const isHuayna = Boolean(
-                  companyName?.toLowerCase().includes('huayna') ||
-                  (typeof window !== 'undefined' && window.location.hostname.toLowerCase().includes('huayna'))
-                );
-                const apkUrl = isHuayna ? '/descargas/HuaynaRoque_GPS.apk' : '/descargas/CopaiGPS.apk';
-                const apkName = isHuayna ? 'HuaynaRoque_GPS.apk' : 'CopaiGPS.apk';
-                return (
-                  <a
-                    href={apkUrl}
-                    download={apkName}
-                    onClick={onClose}
-                    className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center no-underline"
+              {onInstall ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={onInstall}
+                    className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    <Download size={18} />
-                    <span>
-                      {isHuayna ? 'Descargar APK Huayna Roque (Android)' : 'Descargar APK Oficial Android'}
-                    </span>
+                    <Smartphone size={18} />
+                    <span>Instalar App {companyName}</span>
+                  </button>
+                  <a
+                    href="/descargas/CopaiGPS.apk"
+                    download="CopaiGPS.apk"
+                    onClick={onClose}
+                    className="w-full py-2.5 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center gap-1.5 transition-colors cursor-pointer no-underline"
+                  >
+                    <Download size={14} className="text-emerald-600" />
+                    <span>O descargar App Oficial COPAI (.APK)</span>
                   </a>
-                );
-              })()}
-              {onInstall && (
-                <button
-                  onClick={onInstall}
-                  className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                </>
+              ) : (
+                <a
+                  href="/descargas/CopaiGPS.apk"
+                  download="CopaiGPS.apk"
+                  onClick={onClose}
+                  className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center no-underline"
+                  style={{ backgroundColor: primaryColor }}
                 >
-                  O instalar acceso directo en pantalla de inicio
-                </button>
+                  <Download size={18} />
+                  <span>Descargar App Oficial COPAI (.APK)</span>
+                </a>
               )}
             </div>
           ) : (

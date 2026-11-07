@@ -16,6 +16,8 @@ export default function MobileLoginView({
   onOpenForgot,
   onViewWebPortal,
   onOpenInstallModal,
+  onTriggerInstall,
+  isInstallable,
   isStandalone,
   isIOS,
   isAndroid,
@@ -24,14 +26,8 @@ export default function MobileLoginView({
   const primaryColor = companyPortal?.color_primario || '#0284c7';
   const companyName = companyPortal?.nombre || 'COPAI Telematics GPS';
   const logoSrc = companyPortal?.logo_url ? getAssetUrl(companyPortal.logo_url) : '/copai-symbol.png';
-  const isHuayna = Boolean(
-    companyPortal?.slug?.toLowerCase().includes('huayna') ||
-    companyName.toLowerCase().includes('huayna')
-  );
-  const apkHref = isHuayna
-    ? 'https://industriascopai.com/descargas/HuaynaRoque_GPS.apk'
-    : 'https://industriascopai.com/descargas/CopaiGPS.apk';
-  const apkFileName = isHuayna ? 'HuaynaRoque_GPS.apk' : 'CopaiGPS.apk';
+  const apkHref = 'https://industriascopai.com/descargas/CopaiGPS.apk';
+  const apkFileName = 'CopaiGPS.apk';
 
   return (
     <div
@@ -206,10 +202,16 @@ export default function MobileLoginView({
             </button>
           ) : (
             <div className="w-full flex flex-col gap-2">
-              {companyPortal && !isHuayna && onOpenInstallModal && (
+              {companyPortal && (
                 <button
                   type="button"
-                  onClick={onOpenInstallModal}
+                  onClick={() => {
+                    if (isInstallable && onTriggerInstall) {
+                      onTriggerInstall();
+                    } else if (onOpenInstallModal) {
+                      onOpenInstallModal();
+                    }
+                  }}
                   className="w-full py-3 px-4 rounded-2xl text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg"
                   style={{ backgroundColor: primaryColor }}
                 >
@@ -223,9 +225,7 @@ export default function MobileLoginView({
                 className="w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-100 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 no-underline shadow-lg"
               >
                 <Download size={16} className="text-emerald-400" />
-                <span>
-                  {isHuayna ? 'Descargar App Android Huayna Roque (.APK)' : 'Descargar App Oficial COPAI (.APK)'}
-                </span>
+                <span>Descargar App Oficial COPAI (.APK)</span>
               </a>
             </div>
           )

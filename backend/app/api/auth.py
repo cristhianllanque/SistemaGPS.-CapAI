@@ -136,3 +136,29 @@ def reset_password(
 
     return {"message": "Tu contraseña ha sido restablecida exitosamente. Ya puedes iniciar sesión con tu nueva clave."}
 
+
+@router.post("/change-password")
+def change_password(
+    payload: schemas.ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user)
+):
+    """
+    Permite a cualquier usuario autenticado actualizar su propia contraseña personal.
+    """
+    if not security.verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="La contraseña actual ingresada no es correcta")
+
+    clean_new = (payload.new_password or "").strip()
+    if len(clean_new) < 6:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 6 caracteres")
+
+    if security.verify_password(clean_new, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe ser diferente a la actual")
+
+    current_user.password_hash = security.get_password_hash(clean_new)
+    db.commit()
+
+    return {"message": "Tu contraseña personal ha sido actualizada correctamente."}
+
+

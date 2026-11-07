@@ -14,15 +14,16 @@ def get_dashboard_stats(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    target_eid = current_user.empresa_id
     if current_user.rol == 'superadmin':
         target_eid = empresa_id  # If None, global metrics
+    else:
+        target_eid = current_user.empresa_id if current_user.empresa_id is not None else -1
 
     disp_query = db.query(models.Dispositivo).filter(models.Dispositivo.activo == True)
     veh_query = db.query(models.Vehiculo).filter(models.Vehiculo.activo == True)
     cond_query = db.query(models.Conductor).filter(models.Conductor.activo == True)
 
-    if target_eid:
+    if target_eid is not None:
         disp_query = disp_query.filter(models.Dispositivo.empresa_id == target_eid)
         veh_query = veh_query.filter(models.Vehiculo.empresa_id == target_eid)
         cond_query = cond_query.filter(models.Conductor.empresa_id == target_eid)
@@ -38,7 +39,7 @@ def get_dashboard_stats(
     total_conductores = cond_query.count()
 
     alerta_query = db.query(models.AlertaPanico).filter(models.AlertaPanico.estado == 'pendiente')
-    if target_eid:
+    if target_eid is not None:
         vehiculo_ids = [v.id for v in veh_query.all()]
         if vehiculo_ids:
             alerta_query = alerta_query.filter(models.AlertaPanico.vehiculo_id.in_(vehiculo_ids))

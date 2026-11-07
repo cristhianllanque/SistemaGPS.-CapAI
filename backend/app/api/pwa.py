@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response, RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.api.deps import get_db
 from app.db.models import Empresa
+import io
 import os
 
 router = APIRouter()
@@ -35,16 +36,9 @@ def build_manifest_data(empresa: Optional[Empresa], host: str) -> dict:
         description = empresa.slogan or f"Sistema de Rastreo Satelital y Telemetría de {empresa.nombre}"
         start_url = f"https://{empresa.slug}.industriascopai.com/?source=pwa"
 
-        # Determine icon
-        icon_src = "/copai-symbol.png"
-        if empresa.logo_url:
-            clean_logo = empresa.logo_url.strip()
-            if clean_logo.startswith("http"):
-                icon_src = clean_logo
-            elif clean_logo.startswith("/"):
-                icon_src = clean_logo
-            else:
-                icon_src = f"/uploads/logos/{os.path.basename(clean_logo)}"
+        # Generar URLs cuadradas exactas PNG (192x192 y 512x512) válidas para WebAPK de cualquier empresa
+        icon_192 = f"/api/pwa/icon/{empresa.slug}/192.png" if empresa.logo_url else "/copai-symbol.png"
+        icon_512 = f"/api/pwa/icon/{empresa.slug}/512.png" if empresa.logo_url else "/copai-symbol.png"
 
         return {
             "name": app_name,
@@ -60,16 +54,22 @@ def build_manifest_data(empresa: Optional[Empresa], host: str) -> dict:
             "lang": "es-PE",
             "icons": [
                 {
-                    "src": icon_src,
+                    "src": icon_192,
                     "sizes": "192x192",
                     "type": "image/png",
-                    "purpose": "any maskable"
+                    "purpose": "any"
                 },
                 {
-                    "src": icon_src,
+                    "src": icon_512,
                     "sizes": "512x512",
                     "type": "image/png",
-                    "purpose": "any maskable"
+                    "purpose": "any"
+                },
+                {
+                    "src": icon_512,
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "maskable"
                 }
             ],
             "categories": ["business", "navigation", "utilities"],
@@ -165,3 +165,53 @@ def get_pwa_info(
         "theme_color": manifest["theme_color"],
         "background_color": manifest["background_color"]
     }
+
+
+@router.get("/icon/{slug}/{size}.png")
+def get_dynamic_company_pwa_icon(
+    slug: str,
+    size: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Genera al vuelo un ícono cuadrado exacto (192x192 o 512x512 PNG) a partir del logo
+    de cualquier empresa cliente (x.industriascopai.com), garantizando compatibilidad
+    universal con WebAPK en Android e iOS sin importar si el logo original era JPG o rectangular.
+    """
+    safe_size = 512 if size >= 300 else 192
+    empresa = db.query(Empresa).filter(
+        Empresa.slug == slug.lower().strip(),
+        Empresa.activo == True
+    ).first()
+
+    if not empresa or not empresa.logo_url:
+        return RedirectResponse(url="/copai-symbol.png")
+
+    logo_filename = os.path.basename(empresa.logo_url.strip())
+    local_logo_path = os.path.join("uploads", "logos", logo_filename)
+    if not os.path.exists(local_logo_path):
+        return RedirectResponse(url="/copai-symbol.png")
+
+    try:
+        from PIL import Image
+        img = Image.open(local_logo_path).convert("RGBA")
+        canvas = Image.new("RGBA", (safe_size, safe_size), (255, 255, 255, 255))
+        target_box = int(safe_size * 0.80)
+        iw, ih = img.size
+        ratio = min(target_box / max(1, iw), target_box / max(1, ih))
+        nw, nh = max(1, int(iw * ratio)), max(1, int(ih * ratio))
+        resized = img.resize((nw, nh), Image.Resampling.LANCZOS)
+        ox = (safe_size - nw) // 2
+        oy = (safe_size - nh) // 2
+        canvas.paste(resized, (ox, oy), resized)
+
+        buf = io.BytesIO()
+        canvas.convert("RGB").save(buf, format="PNG", optimize=True)
+        return Response(
+            content=buf.getvalue(),
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=3600"}
+        )
+    except Exception:
+        return RedirectResponse(url="/copai-symbol.png")
+
