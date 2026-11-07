@@ -3,6 +3,23 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --android-safe-top: 0px;
+    --android-safe-bottom: 0px;
+  }
+
+  /* Solo afecta a dispositivos Android (sin tocar ni 1px de iPhone ni PC) */
+  html.is-android-device {
+    --android-safe-top: max(var(--safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+    --android-safe-bottom: max(var(--safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Cuando el contenedor nativo Android ya reservó físicamente los WindowInsets, evita doble margen */
+  html.is-android-native-framed {
+    --android-safe-top: 0px !important;
+    --android-safe-bottom: 0px !important;
+  }
+
   html,
   body {
     background-color: #020617;

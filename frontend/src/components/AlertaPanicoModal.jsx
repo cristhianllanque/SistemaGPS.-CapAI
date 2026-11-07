@@ -56,7 +56,13 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
     : (isSpeed ? 'border-amber-500 animate-pulse-border-amber' : 'border-red-600 animate-pulse-border');
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm px-3 sm:px-4"
+      style={{
+        paddingTop: 'calc(0.75rem + var(--android-safe-top, 0px))',
+        paddingBottom: 'calc(0.75rem + var(--android-safe-bottom, 0px))'
+      }}
+    >
       <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden border-4 ${borderClass}`}>
         
         {/* Header */}

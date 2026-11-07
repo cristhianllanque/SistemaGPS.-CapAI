@@ -15,6 +15,60 @@ import UsersPage from './pages/UsersPage';
 import CompaniesPage from './pages/CompaniesPage';
 import ParticularesPage from './pages/ParticularesPage';
 import ResetPassword from './pages/ResetPassword';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+
+/**
+ * Sincroniza los márgenes seguros de barras de sistema (3 botones ◁ ○ □ o gestos) EXCLUSIVAMENTE en Android.
+ * En iPhone (iOS) y PC no hace absolutamente nada (mantiene intacta la experiencia actual).
+ */
+function AndroidSafeAreaSync() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = window.navigator.userAgent || '';
+    if (!/android/i.test(ua)) return;
+
+    const root = document.documentElement;
+    root.classList.add('is-android-device');
+
+    if (window.__COPAI_NATIVE_FRAMED) {
+      root.classList.add('is-android-native-framed');
+      return;
+    }
+
+    // Restaurar insets medidos previamente en la sesión por si hubo recarga de página en APK anterior
+    const savedTop = sessionStorage.getItem('copai_android_safe_top');
+    const savedBottom = sessionStorage.getItem('copai_android_safe_bottom');
+    if (savedTop && !root.style.getPropertyValue('--safe-area-inset-top')) {
+      root.style.setProperty('--safe-area-inset-top', savedTop);
+    }
+    if (savedBottom && !root.style.getPropertyValue('--safe-area-inset-bottom')) {
+      root.style.setProperty('--safe-area-inset-bottom', savedBottom);
+    }
+
+    const persistInsets = () => {
+      if (window.__COPAI_NATIVE_FRAMED) {
+        root.classList.add('is-android-native-framed');
+        return;
+      }
+      const topVal = root.style.getPropertyValue('--safe-area-inset-top')?.trim();
+      const bottomVal = root.style.getPropertyValue('--safe-area-inset-bottom')?.trim();
+      if (topVal && topVal !== '0px') {
+        sessionStorage.setItem('copai_android_safe_top', topVal);
+      }
+      if (bottomVal && bottomVal !== '0px') {
+        sessionStorage.setItem('copai_android_safe_bottom', bottomVal);
+      }
+    };
+
+    persistInsets();
+    const observer = new MutationObserver(persistInsets);
+    observer.observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return null;
+}
 
 /**
  * Vigilante silencioso de actualizaciones en vivo (OTA Web / iOS PWA / Android APK).
@@ -134,9 +188,11 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <Router>
+      <AndroidSafeAreaSync />
       <AutoVersionUpdater />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/privacidad" element={<PrivacyPolicy />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/" element={
           <ProtectedRoute>

@@ -36,7 +36,13 @@ yarn-error.log*
 frontend/android/.gradle/
 frontend/android/build/
 frontend/android/app/build/
+frontend/android/keystore/
+frontend/android/keystore.properties
+*.jks
+*.keystore
 *.apk
+*.aab
+playstore-assets/
 vid-img-copai/
 
 # IDE & OS files

@@ -4,4 +4,5 @@
     <string name="title_activity_main">Copai GPS</string>
     <string name="package_name">com.industriascopai.gps</string>
     <string name="custom_url_scheme">com.industriascopai.gps</string>
+    <string name="server_url">https://industriascopai.com</string>
 </resources>

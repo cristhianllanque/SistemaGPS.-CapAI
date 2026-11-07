@@ -102,7 +102,10 @@ export default function MobileBottomNav({
           <div className="flex-1" onClick={() => setMenuOpen(false)} />
 
           <div
-            className="bg-slate-900 text-white rounded-t-3xl border-t border-slate-700/80 shadow-2xl px-4 pt-3 pb-20 max-h-[82vh] flex flex-col animate-in slide-in-from-bottom duration-200"
+            className="bg-slate-900 text-white rounded-t-3xl border-t border-slate-700/80 shadow-2xl px-4 pt-3 max-h-[82vh] flex flex-col animate-in slide-in-from-bottom duration-200"
+            style={{
+              paddingBottom: 'calc(5rem + var(--android-safe-bottom, 0px))'
+            }}
           >
             {/* Indicador superior de arrastre */}
             <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-3 flex-shrink-0" />
@@ -192,10 +195,11 @@ export default function MobileBottomNav({
         </div>
       )}
 
-      {/* Barra Inferior Estática en el flujo flex (nunca se mueve ni puede ser tapada por el contenido superior) */}
+      {/* Barra Inferior Estática en el flujo flex (respeta los 3 botones ◁ ○ □ o gestos de Android) */}
       <nav
-        className="md:hidden relative w-full flex-shrink-0 z-[70] bg-slate-950 border-t border-slate-800/80 px-1.5 py-1.5 select-none touch-none"
+        className="md:hidden relative w-full flex-shrink-0 z-[70] bg-slate-950 border-t border-slate-800/80 px-1.5 pt-1.5 select-none touch-none"
         style={{
+          paddingBottom: 'calc(0.375rem + var(--android-safe-bottom, 0px))',
           boxShadow: '0 -8px 25px rgba(0,0,0,0.45), 0 80px 0 80px #020617'
         }}
       >

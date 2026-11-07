@@ -23,17 +23,23 @@ const isLocalhost = Boolean(
   )
 );
 
-// En App Nativa conectamos a la API de producción en HTTPS. En web local a localhost:8000. En producción web al origen actual.
+const isCopaiCloudHost = Boolean(
+  typeof window !== 'undefined' &&
+  window.location.hostname.toLowerCase().endsWith('industriascopai.com')
+);
+
+// En App Nativa sobre industriascopai.com / *.industriascopai.com usamos el origen actual (cero preflight CORS).
+// Si corre offline desde esquema local de Capacitor, cae a https://industriascopai.com.
 export const API_BASE_URL = isNativeApp
-  ? 'https://industriascopai.com'
+  ? (isCopaiCloudHost ? window.location.origin : 'https://industriascopai.com')
   : (isLocalhost
       ? (import.meta.env.VITE_API_URL || 'http://localhost:8000')
       : (import.meta.env.VITE_API_URL || window.location.origin));
 
-// WebSocket URL: wss://industriascopai.com para la App Nativa
+// WebSocket URL sincronizada con el origen seguro
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 export const WS_BASE_URL = isNativeApp
-  ? 'wss://industriascopai.com'
+  ? (isCopaiCloudHost ? `${wsProtocol}//${window.location.host}` : 'wss://industriascopai.com')
   : (isLocalhost
       ? (import.meta.env.VITE_WS_URL || 'ws://localhost:8000')
       : (import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}`));

@@ -14,7 +14,13 @@ export default function InstallPwaModal({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center px-3 sm:px-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200"
+      style={{
+        paddingTop: 'calc(0.75rem + var(--android-safe-top, 0px))',
+        paddingBottom: 'calc(0.75rem + var(--android-safe-bottom, 0px))'
+      }}
+    >
       <div 
         className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300"
         style={{ maxHeight: '90vh' }}

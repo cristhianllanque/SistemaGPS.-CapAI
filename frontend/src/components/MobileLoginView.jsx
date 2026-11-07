@@ -35,8 +35,10 @@ export default function MobileLoginView({
 
   return (
     <div
-      className="min-h-screen bg-slate-950 text-white flex flex-col justify-between px-5 py-6 relative overflow-hidden select-none"
+      className="min-h-screen bg-slate-950 text-white flex flex-col justify-between px-5 relative overflow-hidden select-none"
       style={{
+        paddingTop: 'calc(1.5rem + var(--android-safe-top, 0px))',
+        paddingBottom: 'calc(1.5rem + var(--android-safe-bottom, 0px))',
         boxShadow: '0 -100px 0 100px #020617, 0 100px 0 100px #020617'
       }}
     >
@@ -204,6 +206,17 @@ export default function MobileLoginView({
             </button>
           ) : (
             <div className="w-full flex flex-col gap-2">
+              {companyPortal && !isHuayna && onOpenInstallModal && (
+                <button
+                  type="button"
+                  onClick={onOpenInstallModal}
+                  className="w-full py-3 px-4 rounded-2xl text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Smartphone size={16} />
+                  <span>Instalar App {companyName}</span>
+                </button>
+              )}
               <a
                 href={apkHref}
                 download={apkFileName}
@@ -211,7 +224,7 @@ export default function MobileLoginView({
               >
                 <Download size={16} className="text-emerald-400" />
                 <span>
-                  {isHuayna ? 'Descargar App Android Huayna Roque (.APK)' : 'Descargar App Oficial Android (.APK)'}
+                  {isHuayna ? 'Descargar App Android Huayna Roque (.APK)' : 'Descargar App Oficial COPAI (.APK)'}
                 </span>
               </a>
             </div>

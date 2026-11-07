@@ -9,5 +9,11 @@
       "industriascopai.com",
       "*.industriascopai.com"
     ]
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "disable",
+      "style": "DARK"
+    }
   }
 }

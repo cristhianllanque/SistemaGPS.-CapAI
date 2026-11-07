@@ -197,8 +197,8 @@ export default function Login() {
       }
       localStorage.setItem('usuario', JSON.stringify(usuario));
       
-      // Navegar a dashboard
-      window.location.href = '/dashboard';
+      // Navegar a dashboard vía SPA para transición instantánea y conservar insets de pantalla
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || 'Credenciales incorrectas o usuario inactivo');
     } finally {

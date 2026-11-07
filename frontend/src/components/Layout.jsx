@@ -281,10 +281,12 @@ export default function Layout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-slate-100">
-        {/* Mobile Top Header (100% estático e inmóvil) */}
+        {/* Mobile Top Header (100% estático e inmóvil, respeta barra superior en Android sin tocar iOS) */}
         <header
-          className="md:hidden h-14 bg-slate-950 text-white flex items-center justify-between px-3.5 border-b border-slate-800/80 flex-shrink-0 z-50 select-none touch-none"
+          className="md:hidden bg-slate-950 text-white flex items-center justify-between px-3.5 border-b border-slate-800/80 flex-shrink-0 z-50 select-none touch-none"
           style={{
+            height: 'calc(3.5rem + var(--android-safe-top, 0px))',
+            paddingTop: 'var(--android-safe-top, 0px)',
             boxShadow: '0 -80px 0 80px #020617'
           }}
         >
