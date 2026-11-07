@@ -6,6 +6,7 @@ import {
   Map, Route, Car, Power, PowerOff, Gauge, Battery, Clock, UserCheck
 } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
+import { parseServerUTC, formatPeruDate, formatPeruTime } from '../utils/peruTime';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -83,7 +84,7 @@ export default function DashboardHome() {
   if (isParticular) {
     const mainVeh = misVehiculos[0] || null;
     const u = mainVeh?.ultima_lectura || null;
-    const readingDate = u?.timestamp ? new Date(u.timestamp) : null;
+    const readingDate = parseServerUTC(u?.timestamp);
     const isIgnitionOn = Boolean(u?.ignicion);
     const isMoving = Boolean(u && u.velocidad > 0);
 
@@ -180,10 +181,10 @@ export default function DashboardHome() {
               <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 px-3.5 py-2 rounded-xl">
                 <span className="flex items-center gap-1.5">
                   <Clock size={13} className="text-slate-400" />
-                  <span>Último reporte GPS:</span>
+                  <span>Último reporte GPS (Hora Perú):</span>
                 </span>
                 <span className="font-bold text-slate-700">
-                  {readingDate.toLocaleDateString()} • {readingDate.toLocaleTimeString()}
+                  {formatPeruDate(readingDate)} • {formatPeruTime(readingDate, true)}
                 </span>
               </div>
             )}

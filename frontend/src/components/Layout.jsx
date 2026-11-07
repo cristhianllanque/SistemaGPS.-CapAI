@@ -89,7 +89,7 @@ export default function Layout() {
         latitud: lastJsonMessage.latitud,
         longitud: lastJsonMessage.longitud,
         tipo: 'panico',
-        fecha_hora: new Date().toISOString()
+        fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
       });
     } else if (lastJsonMessage.type === 'speed_alert') {
       // Show modal for speed excess alert
@@ -103,7 +103,7 @@ export default function Layout() {
         tipo: 'exceso_velocidad',
         velocidad: lastJsonMessage.velocidad,
         limite: lastJsonMessage.limite,
-        fecha_hora: new Date().toISOString()
+        fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
       });
     } else if (lastJsonMessage.type === 'sabotage_alert') {
       // Trigger emergency siren sound for battery sabotage
@@ -117,8 +117,9 @@ export default function Layout() {
         longitud: lastJsonMessage.longitud,
         bateria_ext: lastJsonMessage.bateria_ext,
         bateria_int: lastJsonMessage.bateria_int,
+        bateria_porcentaje: lastJsonMessage.bateria_porcentaje,
         tipo: 'sabotaje',
-        fecha_hora: new Date().toISOString()
+        fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
       });
     }
   }, [lastJsonMessage]);

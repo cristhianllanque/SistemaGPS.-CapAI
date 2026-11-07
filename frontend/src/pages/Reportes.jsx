@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FileText, Download, Calendar, Truck, AlertTriangle, FileSpreadsheet, Search, Building2 } from 'lucide-react';
-import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import { API_BASE_URL as API_URL } from '../config';
+import { getPeruPresetRange, peruInputToUTCISO, getPeruFileStamp } from '../utils/peruTime';
 
 export default function Reportes() {
   const [data, setData] = useState([]);
@@ -11,8 +11,9 @@ export default function Reportes() {
   const [empresas, setEmpresas] = useState([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState('');
   
-  const [fechaInicio, setFechaInicio] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd'T'00:00"));
-  const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd'T'23:59"));
+  const initialRange = getPeruPresetRange('mes');
+  const [fechaInicio, setFechaInicio] = useState(initialRange.inicio);
+  const [fechaFin, setFechaFin] = useState(initialRange.fin);
   
   const token = localStorage.getItem('token');
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
@@ -30,8 +31,8 @@ export default function Reportes() {
     setLoading(true);
     try {
       const params = {
-        fecha_inicio: new Date(fechaInicio).toISOString(),
-        fecha_fin: new Date(fechaFin).toISOString(),
+        fecha_inicio: peruInputToUTCISO(fechaInicio, false),
+        fecha_fin: peruInputToUTCISO(fechaFin, true),
         formato: 'json'
       };
       if (isSuperAdmin && selectedEmpresa) {
@@ -58,8 +59,8 @@ export default function Reportes() {
     try {
       setDownloading(formato);
       const params = {
-        fecha_inicio: new Date(fechaInicio).toISOString(),
-        fecha_fin: new Date(fechaFin).toISOString(),
+        fecha_inicio: peruInputToUTCISO(fechaInicio, false),
+        fecha_fin: peruInputToUTCISO(fechaFin, true),
         formato: formato
       };
       if (isSuperAdmin && selectedEmpresa) {
@@ -79,7 +80,7 @@ export default function Reportes() {
       const link = document.createElement('a');
       link.href = url;
       const extension = formato === 'excel' ? 'xlsx' : 'pdf';
-      link.setAttribute('download', `reporte_flota_${format(new Date(), 'yyyyMMdd_HHmm')}.${extension}`);
+      link.setAttribute('download', `reporte_flota_${getPeruFileStamp()}.${extension}`);
       document.body.appendChild(link);
       link.click();
       setTimeout(() => {
@@ -159,7 +160,7 @@ export default function Reportes() {
           </div>
         )}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Fecha Inicio</label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Fecha Inicio (Hora Perú)</label>
           <input 
             type="datetime-local" 
             className="w-full p-2 border border-slate-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
@@ -168,7 +169,7 @@ export default function Reportes() {
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Fecha Fin</label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Fecha Fin (Hora Perú)</label>
           <input 
             type="datetime-local" 
             className="w-full p-2 border border-slate-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 text-sm"

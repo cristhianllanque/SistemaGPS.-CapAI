@@ -297,7 +297,7 @@ export default function MonitoringPage() {
             tipo: 'exceso_velocidad',
             velocidad: lastJsonMessage.velocidad,
             limite: lastJsonMessage.limite,
-            fecha_hora: new Date().toISOString()
+            fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
           }, ...prev];
         });
       }

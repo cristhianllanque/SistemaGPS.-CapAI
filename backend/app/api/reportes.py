@@ -2,7 +2,7 @@ import io
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 import openpyxl
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -11,7 +11,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 
 from app.api.deps import get_db, get_current_user
 from app.db import models
-from app.api.vehiculos import haversine
+from app.api.vehiculos import haversine, parse_filter_to_naive_utc
 
 router = APIRouter()
 
@@ -28,8 +28,8 @@ def get_reporte_consolidado(
         raise HTTPException(status_code=400, detail="Formato inválido. Use 'excel', 'pdf', o 'json'.")
 
     try:
-        inicio = datetime.fromisoformat(fecha_inicio.replace('Z', '+00:00'))
-        fin = datetime.fromisoformat(fecha_fin.replace('Z', '+00:00'))
+        inicio = parse_filter_to_naive_utc(fecha_inicio, is_end=False)
+        fin = parse_filter_to_naive_utc(fecha_fin, is_end=True)
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido")
 
@@ -129,7 +129,9 @@ def get_reporte_consolidado(
         elements.append(Paragraph("Reporte Consolidado de Flota", styles['Title']))
         empresa_nombre = current_user.empresa.nombre if current_user.empresa else ("Todas las Empresas (Copai)" if not empresa_id else f"Empresa #{empresa_id}")
         elements.append(Paragraph(f"Empresa: {empresa_nombre}", styles['Normal']))
-        elements.append(Paragraph(f"Periodo: {inicio.strftime('%d/%m/%Y %H:%M')} a {fin.strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+        inicio_pe = inicio - timedelta(hours=5)
+        fin_pe = fin - timedelta(hours=5)
+        elements.append(Paragraph(f"Periodo: {inicio_pe.strftime('%d/%m/%Y %H:%M')} a {fin_pe.strftime('%d/%m/%Y %H:%M')} (Hora Perú)", styles['Normal']))
         elements.append(Spacer(1, 20))
 
         table_data = [["Placa", "Conductor", "Km Totales", "Horas Motor", "Velocidad Max", "Alertas Pánico"]]

@@ -1,7 +1,7 @@
 import asyncio
 import struct
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.db import models
@@ -206,9 +206,10 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                     models.AlertaPanico.tipo == 'sabotaje'
                 ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
                 if alerta_sab_activa and "Energía restablecida" not in (alerta_sab_activa.observaciones_atencion or ""):
+                    ts_peru = ts - timedelta(hours=5)
                     alerta_sab_activa.observaciones_atencion = (
                         (alerta_sab_activa.observaciones_atencion or "") +
-                        f" | Energía restablecida ({bateria_ext_v}V a las {ts.strftime('%H:%M:%S')})"
+                        f" | Energía restablecida ({bateria_ext_v}V a las {ts_peru.strftime('%H:%M:%S')} Hora Perú)"
                     ).strip(" | ")
                 
         db.commit()
@@ -344,6 +345,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "conductor": conductor,
                                 "latitud": latest_record['latitud'],
                                 "longitud": latest_record['longitud'],
+                                "fecha_hora": latest_record['timestamp'],
                                 "message": "¡Alerta de pánico recibida!"
                             }
                             await manager.broadcast_flota(empresa_id, panic_msg)
@@ -359,6 +361,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "limite": speed_alert_info['limite'],
                                 "latitud": latest_record['latitud'],
                                 "longitud": latest_record['longitud'],
+                                "fecha_hora": latest_record['timestamp'],
                                 "message": f"¡Exceso de velocidad: {speed_alert_info['velocidad']} km/h! (Límite configurado: {speed_alert_info['limite']} km/h)"
                             }
                             await manager.broadcast_flota(empresa_id, speed_msg)
@@ -375,6 +378,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "bateria_porcentaje": sabotage_alert_info.get('bateria_porcentaje'),
                                 "latitud": latest_record['latitud'],
                                 "longitud": latest_record['longitud'],
+                                "fecha_hora": latest_record['timestamp'],
                                 "message": f"¡ALERTA DE SABOTAJE! Corte de energía / Batería principal desconectada en vehículo {placa} ({sabotage_alert_info['bateria_ext']}V)"
                             }
                             await manager.broadcast_flota(empresa_id, sabotage_msg)

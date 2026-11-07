@@ -8,6 +8,7 @@ import {
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { getPeruPresetRange, peruInputToUTCISO, formatPeruTime, formatPeruDate } from '../utils/peruTime';
 
 // Custom icons
 const movingVehicleIcon = L.divIcon({
@@ -60,28 +61,14 @@ function MapController({ bounds, flyToTarget }) {
   return null;
 }
 
-// Local datetime-local input formatter (preserves local timezone)
-const formatLocalInput = (date) => {
-  const pad = (n) => String(n).padStart(2, '0');
-  const y = date.getFullYear();
-  const m = pad(date.getMonth() + 1);
-  const d = pad(date.getDate());
-  const h = pad(date.getHours());
-  const min = pad(date.getMinutes());
-  return `${y}-${m}-${d}T${h}:${min}`;
-};
-
 export default function HistorialRutas() {
   const [vehiculos, setVehiculos] = useState([]);
   const [selectedVehiculo, setSelectedVehiculo] = useState('');
   
-  // Initialize to today from 00:00 to 23:59 local time
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-  const [fechaInicio, setFechaInicio] = useState(formatLocalInput(startOfDay));
-  const [fechaFin, setFechaFin] = useState(formatLocalInput(endOfDay));
+  // Inicializar siempre al día de hoy (00:00 a 23:59) en Hora Oficial de Perú (America/Lima)
+  const initialRange = getPeruPresetRange('hoy');
+  const [fechaInicio, setFechaInicio] = useState(initialRange.inicio);
+  const [fechaFin, setFechaFin] = useState(initialRange.fin);
   const [activePreset, setActivePreset] = useState('hoy');
   const [loading, setLoading] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(true);
@@ -117,28 +104,9 @@ export default function HistorialRutas() {
 
   const setPreset = (type) => {
     setActivePreset(type);
-    const cur = new Date();
-    if (type === 'hoy') {
-      const s = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 0, 0, 0);
-      const e = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 23, 59, 59);
-      setFechaInicio(formatLocalInput(s));
-      setFechaFin(formatLocalInput(e));
-    } else if (type === 'ayer') {
-      const y = new Date(cur);
-      y.setDate(y.getDate() - 1);
-      const s = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0, 0);
-      const e = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59);
-      setFechaInicio(formatLocalInput(s));
-      setFechaFin(formatLocalInput(e));
-    } else if (type === '24h') {
-      const s = new Date(cur.getTime() - 24 * 60 * 60 * 1000);
-      setFechaInicio(formatLocalInput(s));
-      setFechaFin(formatLocalInput(cur));
-    } else if (type === '7d') {
-      const s = new Date(cur.getTime() - 7 * 24 * 60 * 60 * 1000);
-      setFechaInicio(formatLocalInput(s));
-      setFechaFin(formatLocalInput(cur));
-    }
+    const range = getPeruPresetRange(type);
+    setFechaInicio(range.inicio);
+    setFechaFin(range.fin);
   };
 
   const handleSearch = async () => {
@@ -153,8 +121,8 @@ export default function HistorialRutas() {
       const token = localStorage.getItem('token');
       const res = await axios.get(`${API_BASE_URL}/api/vehiculos/${selectedVehiculo}/historial`, {
         params: { 
-          fecha_inicio: new Date(fechaInicio).toISOString(), 
-          fecha_fin: new Date(fechaFin).toISOString() 
+          fecha_inicio: peruInputToUTCISO(fechaInicio, false), 
+          fecha_fin: peruInputToUTCISO(fechaFin, true) 
         },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -241,7 +209,7 @@ export default function HistorialRutas() {
           </div>
           
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Fecha y Hora Desde</label>
+            <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Desde (Hora Perú)</label>
             <input 
               type="datetime-local" 
               className="p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-700"
@@ -251,7 +219,7 @@ export default function HistorialRutas() {
           </div>
           
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Fecha y Hora Hasta</label>
+            <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Hasta (Hora Perú)</label>
             <input 
               type="datetime-local" 
               className="p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-700"
@@ -376,7 +344,7 @@ export default function HistorialRutas() {
             {/* Fechas Desde y Hasta en 2 columnas paralelas */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Desde</label>
+                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Desde (Hora Perú)</label>
                 <input
                   type="datetime-local"
                   className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50"
@@ -385,7 +353,7 @@ export default function HistorialRutas() {
                 />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Hasta</label>
+                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Hasta (Hora Perú)</label>
                 <input
                   type="datetime-local"
                   className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50"
@@ -432,8 +400,8 @@ export default function HistorialRutas() {
                 <Popup>
                   <div className="text-xs p-1">
                     <strong className="text-emerald-700 font-bold block mb-1">🏁 Punto de Inicio</strong>
-                    Hora: {new Date(startPoint.timestamp).toLocaleTimeString()}<br/>
-                    Fecha: {new Date(startPoint.timestamp).toLocaleDateString()}<br/>
+                    Hora: {formatPeruTime(startPoint.timestamp, true)}<br/>
+                    Fecha: {formatPeruDate(startPoint.timestamp)}<br/>
                     Motor: {startPoint.ignicion ? 'ON' : 'OFF'}
                   </div>
                 </Popup>
@@ -446,8 +414,8 @@ export default function HistorialRutas() {
                 <Popup>
                   <div className="text-xs p-1">
                     <strong className="text-red-700 font-bold block mb-1">🏁 Punto Final / Último Reporte</strong>
-                    Hora: {new Date(endPoint.timestamp).toLocaleTimeString()}<br/>
-                    Fecha: {new Date(endPoint.timestamp).toLocaleDateString()}<br/>
+                    Hora: {formatPeruTime(endPoint.timestamp, true)}<br/>
+                    Fecha: {formatPeruDate(endPoint.timestamp)}<br/>
                     Velocidad: {endPoint.velocidad} km/h
                   </div>
                 </Popup>
@@ -461,8 +429,8 @@ export default function HistorialRutas() {
                   <div className="text-xs p-1">
                     <strong className="text-amber-800 font-bold block mb-1">🛑 Parada #{idx + 1}</strong>
                     <strong>Duración:</strong> {formatMinutes(parada.duracion_minutos)}<br/>
-                    <strong>Inicio:</strong> {new Date(parada.timestamp_inicio).toLocaleTimeString()}<br/>
-                    <strong>Fin:</strong> {new Date(parada.timestamp_fin).toLocaleTimeString()}
+                    <strong>Inicio:</strong> {formatPeruTime(parada.timestamp_inicio, true)}<br/>
+                    <strong>Fin:</strong> {formatPeruTime(parada.timestamp_fin, true)}
                   </div>
                 </Popup>
               </Marker>
@@ -474,7 +442,7 @@ export default function HistorialRutas() {
                 <Popup>
                   <div className="text-xs p-1">
                     <strong className="text-blue-700 font-bold block mb-1">Posición en Reproducción</strong>
-                    <strong>Hora:</strong> {new Date(currentPoint.timestamp).toLocaleTimeString()}<br/>
+                    <strong>Hora:</strong> {formatPeruTime(currentPoint.timestamp, true)}<br/>
                     <strong>Velocidad:</strong> {currentPoint.velocidad} km/h<br/>
                     <strong>Motor:</strong> {currentPoint.ignicion ? 'ENCENDIDO (ON)' : 'APAGADO (OFF)'}<br/>
                     {currentPoint.bateria_ext !== undefined && currentPoint.bateria_ext !== null && (
@@ -518,7 +486,7 @@ export default function HistorialRutas() {
                 <div>
                   <p className="font-bold text-amber-950">Parada #{idx + 1}</p>
                   <p className="text-[10px] text-slate-500">
-                    {new Date(p.timestamp_inicio).toLocaleTimeString()} - {new Date(p.timestamp_fin).toLocaleTimeString()}
+                    {formatPeruTime(p.timestamp_inicio, true)} - {formatPeruTime(p.timestamp_fin, true)}
                   </p>
                 </div>
                 <span className="font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full text-[10px]">
@@ -548,7 +516,7 @@ export default function HistorialRutas() {
             <div className="flex md:hidden items-center justify-between w-full pb-1 border-b border-slate-100 text-[10px]">
               {currentPoint ? (
                 <div className="flex items-center gap-1.5 font-bold text-indigo-700 truncate">
-                  <span>⏱ {new Date(currentPoint.timestamp).toLocaleTimeString()}</span>
+                  <span>⏱ {formatPeruTime(currentPoint.timestamp, true)}</span>
                   <span>•</span>
                   <span>{currentPoint.velocidad} km/h</span>
                   <span>•</span>
@@ -665,12 +633,12 @@ export default function HistorialRutas() {
               {/* Telemetry Footer of Playback (Solo en Escritorio, ya que en móvil va integrado arriba) */}
               <div className="hidden md:flex justify-between items-center text-xs text-slate-500 font-medium gap-1">
                 <span>
-                  {new Date(startPoint.timestamp).toLocaleTimeString()} ({new Date(startPoint.timestamp).toLocaleDateString()})
+                  {formatPeruTime(startPoint.timestamp, true)} ({formatPeruDate(startPoint.timestamp)})
                 </span>
                 
                 {currentPoint && (
                   <div className="flex items-center justify-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-indigo-700 font-bold text-xs">
-                    <span>⏱ {new Date(currentPoint.timestamp).toLocaleTimeString()}</span>
+                    <span>⏱ {formatPeruTime(currentPoint.timestamp, true)}</span>
                     <span>•</span>
                     <span className="flex items-center gap-0.5"><Gauge size={11} /> {currentPoint.velocidad} km/h</span>
                     <span>•</span>
@@ -689,7 +657,7 @@ export default function HistorialRutas() {
                 )}
                 
                 <span>
-                  {new Date(endPoint.timestamp).toLocaleTimeString()} ({new Date(endPoint.timestamp).toLocaleDateString()})
+                  {formatPeruTime(endPoint.timestamp, true)} ({formatPeruDate(endPoint.timestamp)})
                 </span>
               </div>
             </div>

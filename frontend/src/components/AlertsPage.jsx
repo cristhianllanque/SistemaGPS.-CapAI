@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { AlertTriangle, CheckCircle, Clock, XCircle, FileText, User } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatPeruDateTime } from '../utils/peruTime';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { API_BASE_URL as API } from '../config';
 
@@ -170,7 +170,7 @@ export default function AlertsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                     <Clock size={14} className="text-slate-400" />
-                    <span>{format(new Date(a.fecha_hora), 'dd/MM/yyyy HH:mm')}</span>
+                    <span>{formatPeruDateTime(a.fecha_hora, true)}</span>
                   </div>
                   {getStatusBadge(a.estado)}
                 </div>
@@ -236,7 +236,7 @@ export default function AlertsPage() {
                       <td className="px-6 py-4 text-slate-700 whitespace-nowrap align-top">
                         <div className="flex items-center gap-2 font-medium">
                           <Clock size={16} className="text-slate-400" />
-                          {format(new Date(a.fecha_hora), 'dd/MM/yyyy HH:mm')}
+                          {formatPeruDateTime(a.fecha_hora, true)}
                         </div>
                       </td>
                       <td className="px-6 py-4 align-top">
@@ -260,7 +260,7 @@ export default function AlertsPage() {
                             {a.fecha_atencion && (
                               <div className="flex items-start gap-2">
                                 <Clock size={14} className="text-indigo-500 mt-0.5 flex-shrink-0" />
-                                <span className="text-slate-600">{format(new Date(a.fecha_atencion), 'dd/MM/yyyy HH:mm')}</span>
+                                <span className="text-slate-600">{formatPeruDateTime(a.fecha_atencion, false)}</span>
                               </div>
                             )}
                             {a.observaciones_atencion && (

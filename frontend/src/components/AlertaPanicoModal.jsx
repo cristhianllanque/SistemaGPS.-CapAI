@@ -4,6 +4,7 @@ import axios from 'axios';
 import { AlertTriangle, X, ShieldAlert, MapPin, Zap, Gauge } from 'lucide-react';
 import { siren } from '../utils/sound';
 import { API_BASE_URL } from '../config';
+import { formatPeruTime } from '../utils/peruTime';
 
 export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
   const [estado, setEstado] = useState('atendida');
@@ -99,9 +100,9 @@ export default function AlertaPanicoModal({ alertData, onClose, onAttended }) {
               <p className="text-lg font-bold text-slate-800">{alertData.placa || 'Desconocido'}</p>
             </div>
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-              <p className="text-xs text-slate-500 font-semibold uppercase mb-1">Hora del Evento</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase mb-1">Hora del Evento (Perú)</p>
               <p className="text-lg font-bold text-slate-800">
-                {alertData.fecha_hora ? new Date(alertData.fecha_hora).toLocaleTimeString() : new Date().toLocaleTimeString()}
+                {formatPeruTime(alertData.fecha_hora || new Date(), true)}
               </p>
             </div>
 

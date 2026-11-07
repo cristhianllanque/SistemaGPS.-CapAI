@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateFixed } from 'lucide-react';
+import { parseServerUTC, formatPeruTime } from '../utils/peruTime';
 
 // Create custom icons based on status
 const createIcon = (color, isPanic = false, isSpeed = false) => {
@@ -397,7 +398,7 @@ export default function LiveMap({
           if (!v.ultima_lectura) return null;
           
           const u = v.ultima_lectura;
-          const readingDate = u?.timestamp ? new Date(u.timestamp) : null;
+          const readingDate = parseServerUTC(u?.timestamp);
           const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
           const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
           const isIgnitionOn = Boolean(u && u.ignicion);
@@ -483,7 +484,7 @@ export default function LiveMap({
                       </>
                     )}
                     <span className="font-semibold text-slate-600">Último reporte:</span>
-                    <span className="text-slate-600">{readingDate ? readingDate.toLocaleTimeString() : '—'}</span>
+                    <span className="text-slate-600">{readingDate ? formatPeruTime(readingDate, true) : '—'}</span>
                   </div>
 
                   {/* BOTÓN EXCLUSIVO MÓVIL: LLEGAR HASTA EL VEHÍCULO */}

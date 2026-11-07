@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X, Compass } from 'lucide-react';
+import { parseServerUTC } from '../utils/peruTime';
 
 export default function Sidebar({
   vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90,
@@ -99,7 +100,7 @@ export default function Sidebar({
       >
         {filtered.map(v => {
           const u = v.ultima_lectura;
-          const readingDate = u?.timestamp ? new Date(u.timestamp) : null;
+          const readingDate = parseServerUTC(u?.timestamp);
           const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
           const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
           const isIgnitionOn = Boolean(u && u.ignicion);

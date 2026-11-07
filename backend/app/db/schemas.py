@@ -1,6 +1,24 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
-from datetime import datetime, date
+from pydantic import BaseModel, EmailStr, Field, PlainSerializer
+from typing import Optional, List, Annotated
+from datetime import datetime, date, timezone
+
+
+def _serialize_utc_datetime(dt: Optional[datetime]) -> Optional[str]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+UTCDateTime = Annotated[
+    datetime,
+    PlainSerializer(_serialize_utc_datetime, return_type=str, when_used="json")
+]
+OptionalUTCDateTime = Annotated[
+    Optional[datetime],
+    PlainSerializer(_serialize_utc_datetime, return_type=Optional[str], when_used="json")
+]
 
 
 # ============ EMPRESA ============
@@ -103,7 +121,7 @@ class Empresa(EmpresaBase):
 class EmpresaOut(EmpresaBase):
     id: int
     activo: bool
-    created_at: Optional[datetime] = None
+    created_at: OptionalUTCDateTime = None
     total_vehiculos: Optional[int] = 0
     total_dispositivos: Optional[int] = 0
     total_usuarios: Optional[int] = 0
@@ -194,7 +212,7 @@ class DispositivoOut(BaseModel):
     notas: Optional[str] = None
     estado: str
     activo: bool
-    created_at: Optional[datetime] = None
+    created_at: OptionalUTCDateTime = None
     # nombre del vehiculo asignado, si existe
     vehiculo_placa: Optional[str] = None
     class Config:
@@ -231,7 +249,7 @@ class ConductorOut(BaseModel):
     telefono: Optional[str] = None
     foto_url: Optional[str] = None
     activo: bool
-    created_at: Optional[datetime] = None
+    created_at: OptionalUTCDateTime = None
     vehiculo_placa: Optional[str] = None
     class Config:
         from_attributes = True
@@ -277,7 +295,7 @@ class LecturaGPSBase(BaseModel):
     bateria_int: Optional[float] = None
     bateria_porcentaje: Optional[int] = None
     sabotaje: Optional[bool] = False
-    timestamp: datetime
+    timestamp: UTCDateTime
     online: Optional[bool] = False
     class Config:
         from_attributes = True
@@ -317,7 +335,7 @@ class VehiculoOut(BaseModel):
     dispositivo: Optional[DispositivoMini] = None
     conductor: Optional[ConductorMini] = None
     ultima_lectura: Optional[LecturaGPSBase] = None
-    created_at: Optional[datetime] = None
+    created_at: OptionalUTCDateTime = None
     class Config:
         from_attributes = True
 
@@ -331,12 +349,12 @@ class AlertaPanicoOut(BaseModel):
     estado: str
     tipo: Optional[str] = 'panico'
     velocidad: Optional[int] = None
-    fecha_hora: datetime
+    fecha_hora: UTCDateTime
     placa: Optional[str] = None
     conductor_nombre: Optional[str] = None
     usuario_atendio_id: Optional[int] = None
     observaciones_atencion: Optional[str] = None
-    fecha_atencion: Optional[datetime] = None
+    fecha_atencion: OptionalUTCDateTime = None
     usuario_atendio_nombre: Optional[str] = None
     class Config:
         from_attributes = True
@@ -355,7 +373,7 @@ class CoordenadaHistorial(BaseModel):
     bateria_ext: Optional[float] = None
     bateria_int: Optional[float] = None
     bateria_porcentaje: Optional[int] = None
-    timestamp: datetime
+    timestamp: UTCDateTime
 
 class EstadisticasHistorial(BaseModel):
     distancia_km: float
@@ -368,8 +386,8 @@ class EstadisticasHistorial(BaseModel):
 class ParadaHistorial(BaseModel):
     latitud: float
     longitud: float
-    timestamp_inicio: datetime
-    timestamp_fin: datetime
+    timestamp_inicio: UTCDateTime
+    timestamp_fin: UTCDateTime
     duracion_minutos: float
 
 class HistorialResponse(BaseModel):

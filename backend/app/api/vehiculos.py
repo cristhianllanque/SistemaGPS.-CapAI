@@ -2,7 +2,30 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+PERU_TZ = timezone(timedelta(hours=-5))
+
+
+def parse_filter_to_naive_utc(raw_str: str, is_end: bool = False) -> datetime:
+    """
+    Convierte un parámetro ISO con o sin zona horaria a UTC naive (formato de MySQL).
+    Si llega sin zona horaria (ej. '2026-11-07T11:15'), se interpreta estrictamente
+    como Hora Oficial de Perú (America/Lima, UTC-05:00). Si is_end=True y viene
+    solo con minutos ('HH:MM') o solo fecha ('YYYY-MM-DD'), se extiende hasta ':59.999999'.
+    """
+    s = raw_str.strip()
+    is_date_only = len(s) == 10 and "T" not in s and " " not in s
+    has_only_minutes = len(s) == 16 and ("T" in s or " " in s) and s.count(":") == 1
+    dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=PERU_TZ)
+    if is_end:
+        if is_date_only:
+            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        elif has_only_minutes or (dt.second == 0 and dt.microsecond == 0 and s.count(":") == 1):
+            dt = dt.replace(second=59, microsecond=999999)
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
@@ -418,12 +441,10 @@ def get_historial(
     if not vehiculo:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
-    # The frontend might pass datetime with Z or local offset, normalize to naive UTC
+    # Normalizar siempre a UTC naive interpretando entradas sin zona como Hora Perú (UTC-5)
     try:
-        dt_inicio = datetime.fromisoformat(fecha_inicio.replace('Z', '+00:00'))
-        inicio = dt_inicio.astimezone(timezone.utc).replace(tzinfo=None) if dt_inicio.tzinfo else dt_inicio
-        dt_fin = datetime.fromisoformat(fecha_fin.replace('Z', '+00:00'))
-        fin = dt_fin.astimezone(timezone.utc).replace(tzinfo=None) if dt_fin.tzinfo else dt_fin
+        inicio = parse_filter_to_naive_utc(fecha_inicio, is_end=False)
+        fin = parse_filter_to_naive_utc(fecha_fin, is_end=True)
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido")
 

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Route, X, Calendar, Search } from 'lucide-react';
-import { format, subDays } from 'date-fns';
 import { API_BASE_URL } from '../config';
+import { getPeruPresetRange, peruInputToUTCISO } from '../utils/peruTime';
 
 export default function HistoryModule({ vehiculos, onHistoryData }) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedVehiculo, setSelectedVehiculo] = useState('');
-  const [fechaInicio, setFechaInicio] = useState(format(subDays(new Date(), 1), "yyyy-MM-dd'T'HH:mm"));
-  const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+  const initialRange = getPeruPresetRange('24h');
+  const [fechaInicio, setFechaInicio] = useState(initialRange.inicio);
+  const [fechaFin, setFechaFin] = useState(initialRange.fin);
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
@@ -17,7 +18,10 @@ export default function HistoryModule({ vehiculos, onHistoryData }) {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.get(`${API_BASE_URL}/api/vehiculos/${selectedVehiculo}/historial`, {
-        params: { fecha_inicio: new Date(fechaInicio).toISOString(), fecha_fin: new Date(fechaFin).toISOString() },
+        params: {
+          fecha_inicio: peruInputToUTCISO(fechaInicio, false),
+          fecha_fin: peruInputToUTCISO(fechaFin, true)
+        },
         headers: { Authorization: `Bearer ${token}` }
       });
       onHistoryData(res.data);
