@@ -29,7 +29,7 @@ def build_manifest_data(empresa: Optional[Empresa], host: str) -> dict:
         app_name = f"{empresa.nombre} - Telematics GPS"
         # Nombre corto optimizado para el icono en la pantalla de inicio del celular
         import re
-        clean_short = re.sub(r'^(empresa\s+de\s+transportes\s+|transportes\s+|empresa\s+)', '', empresa.nombre, flags=re.I).strip()
+        clean_short = re.sub(r'^(empresa\s+de\s+transportes?\s+|transportes?\s+|empresa\s+)', '', empresa.nombre, flags=re.I).strip()
         short_name = clean_short[:18] if clean_short else empresa.nombre[:18]
         theme_color = empresa.color_primario or "#16A34A"
         bg_color = empresa.color_terciario or "#CCF5DC"
@@ -167,7 +167,7 @@ def get_pwa_info(
     }
 
 
-@router.get("/icon/{slug}/{size}.png")
+@router.api_route("/icon/{slug}/{size}.png", methods=["GET", "HEAD"])
 def get_dynamic_company_pwa_icon(
     slug: str,
     size: int,
