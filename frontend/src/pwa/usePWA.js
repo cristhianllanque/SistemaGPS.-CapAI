@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { isNativeApp } from '../config';
 
 export function usePWA(companyData = null) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -9,8 +10,9 @@ export function usePWA(companyData = null) {
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    // 1. Detectar si ya está corriendo como App Standalone (instalada)
+    // 1. Detectar si ya está corriendo como App Standalone (PWA instalada o APK Nativo Capacitor)
     const standaloneCheck = 
+      isNativeApp ||
       window.matchMedia('(display-mode: standalone)').matches || 
       window.navigator.standalone === true ||
       document.referrer.includes('android-app://');
@@ -23,15 +25,24 @@ export function usePWA(companyData = null) {
     setIsIOS(isIosDevice);
     setIsAndroid(isAndroidDevice);
 
-    // 3. Registrar Service Worker para soporte PWA y Push
+    // 3. Registrar Service Worker para soporte PWA y Push, verificando actualizaciones al volver a primer plano
+    let swReg = null;
+    const handleSwVisibilityUpdate = () => {
+      if (document.visibilityState === 'visible' && swReg) {
+        swReg.update().catch(() => {});
+      }
+    };
+
     if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'development') {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
         .then((reg) => {
-          // Service Worker activo
+          swReg = reg;
+          reg.update().catch(() => {});
         })
         .catch((err) => {
           console.warn('SW register error:', err);
         });
+      document.addEventListener('visibilitychange', handleSwVisibilityUpdate);
     }
 
     // 4. Capturar evento de instalación nativo (Android / Chrome)
@@ -59,6 +70,7 @@ export function usePWA(companyData = null) {
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      document.removeEventListener('visibilitychange', handleSwVisibilityUpdate);
     };
   }, []);
 

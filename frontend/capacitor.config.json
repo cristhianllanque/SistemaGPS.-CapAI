@@ -1,5 +1,13 @@
 {
   "appId": "com.industriascopai.gps",
   "appName": "Copai GPS",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://industriascopai.com",
+    "cleartext": false,
+    "allowNavigation": [
+      "industriascopai.com",
+      "*.industriascopai.com"
+    ]
+  }
 }

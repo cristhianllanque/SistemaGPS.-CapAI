@@ -3,7 +3,7 @@
 // Gestión de Cache Inteligente, Soporte Standalone y Notificaciones Push
 // ==============================================================================
 
-const CACHE_NAME = 'copai-pwa-v1';
+const CACHE_NAME = 'copai-pwa-v2';
 
 // 1. Instalación del Service Worker
 self.addEventListener('install', (event) => {
