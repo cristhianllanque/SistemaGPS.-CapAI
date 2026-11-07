@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Radio, Plus, Search, Edit2, Trash2, X, Check, Wifi, WifiOff, AlertCircle, Shield } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
+import { useLiveSync } from '../utils/liveSync';
 
 const ESTADOS = [
   { value: '', label: 'Todos' },
@@ -63,6 +64,10 @@ export default function DevicesPage() {
   };
 
   useEffect(() => { fetchData(); }, [filterEstado, searchTerm]);
+
+  useLiveSync(['dispositivos', 'vehiculos', 'empresas', 'particulares'], () => {
+    fetchData();
+  });
 
   const openCreate = () => {
     setEditingId(null);

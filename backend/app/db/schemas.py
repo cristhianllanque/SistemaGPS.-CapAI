@@ -319,6 +319,7 @@ class VehiculoOut(BaseModel):
     id: int
     empresa_id: int
     empresa_nombre: Optional[str] = None
+    empresa_limite_velocidad: Optional[int] = 90
     padron: str
     placa: str
     marca: Optional[str] = None

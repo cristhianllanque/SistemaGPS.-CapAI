@@ -1,44 +1,115 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import JSONResponse, Response, RedirectResponse
+from fastapi.responses import JSONResponse, Response, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.api.deps import get_db
 from app.db.models import Empresa
+import html
 import io
 import os
+import re
 
 router = APIRouter()
 
 RESERVED_SUBDOMAINS = {'www', 'api', 'ws', 'mail', 'app', 'admin', 'copai', 'industriascopai', 'test'}
 
+
 def extract_subdomain(host: str) -> Optional[str]:
     if not host:
         return None
-    # Strip port if present
     clean_host = host.split(":")[0].lower()
     parts = clean_host.split(".")
-    # Example: huaynaroque.industriascopai.com -> 3 parts
     if len(parts) >= 3:
         sub = parts[0]
         if sub not in RESERVED_SUBDOMAINS:
             return sub
     return None
 
+
+def clean_company_short_name(nombre: str) -> str:
+    clean_short = re.sub(
+        r'^(empresa\s+de\s+transportes?\s+|transportes?\s+|empresa\s+)',
+        '',
+        nombre or '',
+        flags=re.I
+    ).strip()
+    return (clean_short[:20] if clean_short else (nombre or 'COPAI GPS')[:20]).strip()
+
+
+def get_logo_cache_key(empresa: Optional[Empresa]) -> str:
+    if not empresa or not empresa.logo_url:
+        return "copai"
+    base = os.path.splitext(os.path.basename(empresa.logo_url.strip()))[0]
+    return base[-10:] if base else "v1"
+
+
+def _find_copai_default_icon_path() -> Optional[str]:
+    candidates = [
+        "/var/www/copay/html/apple-touch-icon.png",
+        "/var/www/copay/html/copai-symbol.png",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "apple-touch-icon.png")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "copai-symbol.png")),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def _render_square_png_bytes(empresa: Optional[Empresa], size: int) -> Optional[bytes]:
+    from PIL import Image
+
+    # 1. Si es una empresa con logo propio cargado en el servidor
+    if empresa and empresa.logo_url:
+        logo_filename = os.path.basename(empresa.logo_url.strip())
+        local_logo_path = os.path.join("uploads", "logos", logo_filename)
+        if os.path.exists(local_logo_path):
+            try:
+                img = Image.open(local_logo_path).convert("RGBA")
+                canvas = Image.new("RGBA", (size, size), (255, 255, 255, 255))
+                target_box = int(size * 0.82)
+                iw, ih = img.size
+                ratio = min(target_box / max(1, iw), target_box / max(1, ih))
+                nw, nh = max(1, int(iw * ratio)), max(1, int(ih * ratio))
+                resized = img.resize((nw, nh), Image.Resampling.LANCZOS)
+                ox = (size - nw) // 2
+                oy = (size - nh) // 2
+                canvas.paste(resized, (ox, oy), resized)
+
+                buf = io.BytesIO()
+                canvas.convert("RGB").save(buf, format="PNG", optimize=True)
+                return buf.getvalue()
+            except Exception:
+                pass
+
+    # 2. Respaldo oficial COPAI (dominio principal industriascopai.com o empresa aún sin logo)
+    fallback_path = _find_copai_default_icon_path()
+    if fallback_path:
+        try:
+            img = Image.open(fallback_path).convert("RGBA")
+            resized = img.resize((size, size), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            resized.convert("RGB").save(buf, format="PNG", optimize=True)
+            return buf.getvalue()
+        except Exception:
+            try:
+                with open(fallback_path, "rb") as fh:
+                    return fh.read()
+            except Exception:
+                pass
+    return None
+
+
 def build_manifest_data(empresa: Optional[Empresa], host: str) -> dict:
     if empresa:
         app_name = f"{empresa.nombre} - Telematics GPS"
-        # Nombre corto optimizado para el icono en la pantalla de inicio del celular
-        import re
-        clean_short = re.sub(r'^(empresa\s+de\s+transportes?\s+|transportes?\s+|empresa\s+)', '', empresa.nombre, flags=re.I).strip()
-        short_name = clean_short[:18] if clean_short else empresa.nombre[:18]
-        theme_color = empresa.color_primario or "#16A34A"
-        bg_color = empresa.color_terciario or "#CCF5DC"
+        short_name = clean_company_short_name(empresa.nombre)
         description = empresa.slogan or f"Sistema de Rastreo Satelital y Telemetría de {empresa.nombre}"
         start_url = f"https://{empresa.slug}.industriascopai.com/?source=pwa"
+        ver = get_logo_cache_key(empresa)
 
-        # Generar URLs cuadradas exactas PNG (192x192 y 512x512) válidas para WebAPK de cualquier empresa
-        icon_192 = f"/api/pwa/icon/{empresa.slug}/192.png" if empresa.logo_url else "/copai-symbol.png"
-        icon_512 = f"/api/pwa/icon/{empresa.slug}/512.png" if empresa.logo_url else "/copai-symbol.png"
+        icon_192 = f"/api/pwa/icon/{empresa.slug}/192.png?v={ver}" if empresa.logo_url else "/copai-symbol.png"
+        icon_512 = f"/api/pwa/icon/{empresa.slug}/512.png?v={ver}" if empresa.logo_url else "/copai-symbol.png"
 
         return {
             "name": app_name,
@@ -107,6 +178,7 @@ def build_manifest_data(empresa: Optional[Empresa], host: str) -> dict:
         "screenshots": []
     }
 
+
 @router.get("/manifest.json")
 @router.get("/manifest.webmanifest")
 def get_manifest(
@@ -114,10 +186,6 @@ def get_manifest(
     subdomain: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """
-    Retorna dinámicamente el manifiesto PWA con el logo, colores y nombre oficial 
-    de la empresa según el subdominio del cliente o parámetro.
-    """
     host = request.headers.get("host", "")
     target_slug = subdomain or extract_subdomain(host)
 
@@ -135,15 +203,13 @@ def get_manifest(
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
     )
 
+
 @router.get("/info")
 def get_pwa_info(
     request: Request,
     subdomain: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """
-    Entrega los metadatos de instalación para Android e iOS (Apple Touch Icon y Título).
-    """
     host = request.headers.get("host", "")
     target_slug = subdomain or extract_subdomain(host)
 
@@ -167,6 +233,38 @@ def get_pwa_info(
     }
 
 
+@router.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"])
+@router.api_route("/apple-touch-icon-precomposed.png", methods=["GET", "HEAD"])
+def get_dynamic_apple_touch_icon(
+    request: Request,
+    subdomain: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Sirve al instante (200 OK PNG 180x180) el ícono oficial para Safari en iPhone/iPad
+    según el subdominio (<empresa>.industriascopai.com -> logo de la empresa;
+    industriascopai.com -> logo maestro de COPAI).
+    """
+    host = request.headers.get("host", "")
+    target_slug = subdomain or extract_subdomain(host)
+
+    empresa = None
+    if target_slug:
+        empresa = db.query(Empresa).filter(
+            Empresa.slug == target_slug.lower().strip(),
+            Empresa.activo == True
+        ).first()
+
+    png_bytes = _render_square_png_bytes(empresa, 180)
+    if png_bytes:
+        return Response(
+            content=png_bytes,
+            media_type="image/png",
+            headers={"Cache-Control": "no-cache, must-revalidate"}
+        )
+    return RedirectResponse(url="/copai-symbol.png")
+
+
 @router.api_route("/icon/{slug}/{size}.png", methods=["GET", "HEAD"])
 def get_dynamic_company_pwa_icon(
     slug: str,
@@ -174,44 +272,88 @@ def get_dynamic_company_pwa_icon(
     db: Session = Depends(get_db)
 ):
     """
-    Genera al vuelo un ícono cuadrado exacto (192x192 o 512x512 PNG) a partir del logo
-    de cualquier empresa cliente (x.industriascopai.com), garantizando compatibilidad
-    universal con WebAPK en Android e iOS sin importar si el logo original era JPG o rectangular.
+    Genera al vuelo un ícono cuadrado exacto (180x180, 192x192 o 512x512 PNG) a partir del logo
+    de cualquier empresa cliente (x.industriascopai.com), garantizando compatibilidad universal
+    tanto en iPhone (Safari Add to Home Screen) como en Android (WebAPK).
     """
-    safe_size = 512 if size >= 300 else 192
+    safe_size = 512 if size >= 300 else (180 if size <= 180 else 192)
     empresa = db.query(Empresa).filter(
         Empresa.slug == slug.lower().strip(),
         Empresa.activo == True
     ).first()
 
-    if not empresa or not empresa.logo_url:
-        return RedirectResponse(url="/copai-symbol.png")
-
-    logo_filename = os.path.basename(empresa.logo_url.strip())
-    local_logo_path = os.path.join("uploads", "logos", logo_filename)
-    if not os.path.exists(local_logo_path):
-        return RedirectResponse(url="/copai-symbol.png")
-
-    try:
-        from PIL import Image
-        img = Image.open(local_logo_path).convert("RGBA")
-        canvas = Image.new("RGBA", (safe_size, safe_size), (255, 255, 255, 255))
-        target_box = int(safe_size * 0.80)
-        iw, ih = img.size
-        ratio = min(target_box / max(1, iw), target_box / max(1, ih))
-        nw, nh = max(1, int(iw * ratio)), max(1, int(ih * ratio))
-        resized = img.resize((nw, nh), Image.Resampling.LANCZOS)
-        ox = (safe_size - nw) // 2
-        oy = (safe_size - nh) // 2
-        canvas.paste(resized, (ox, oy), resized)
-
-        buf = io.BytesIO()
-        canvas.convert("RGB").save(buf, format="PNG", optimize=True)
+    png_bytes = _render_square_png_bytes(empresa, safe_size)
+    if png_bytes:
         return Response(
-            content=buf.getvalue(),
+            content=png_bytes,
             media_type="image/png",
-            headers={"Cache-Control": "public, max-age=3600"}
+            headers={"Cache-Control": "no-cache, must-revalidate"}
         )
-    except Exception:
-        return RedirectResponse(url="/copai-symbol.png")
+    return RedirectResponse(url="/copai-symbol.png")
 
+
+@router.api_route("/index.html", methods=["GET", "HEAD"])
+def get_dynamic_tenant_index_html(
+    request: Request,
+    subdomain: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Entrega el index.html compilado inyectando desde el milisegundo cero el nombre corto
+    y el Apple Touch Icon propio de la empresa cuando se accede desde <empresa>.industriascopai.com.
+    En industriascopai.com conserva intacta la identidad maestra de COPAI GPS.
+    """
+    candidates = [
+        "/var/www/copay/html/index.html",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "dist", "index.html")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "index.html")),
+    ]
+    raw_html = None
+    for path in candidates:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as fh:
+                raw_html = fh.read()
+            break
+
+    if not raw_html:
+        return HTMLResponse("<!doctype html><html><body>Cargando...</body></html>", status_code=200)
+
+    host = request.headers.get("host", "")
+    target_slug = subdomain or extract_subdomain(host)
+
+    if target_slug:
+        empresa = db.query(Empresa).filter(
+            Empresa.slug == target_slug.lower().strip(),
+            Empresa.activo == True
+        ).first()
+        if empresa:
+            short_title = html.escape(clean_company_short_name(empresa.nombre), quote=True)
+            ver = get_logo_cache_key(empresa)
+            raw_html = raw_html.replace(
+                'content="COPAI GPS" id="meta-apple-title"',
+                f'content="{short_title}" id="meta-apple-title"'
+            )
+            raw_html = raw_html.replace(
+                "<title>COPAI</title>",
+                f"<title>{short_title}</title>"
+            )
+            if empresa.logo_url:
+                apple_href = f"/api/pwa/icon/{empresa.slug}/180.png?v={ver}"
+                fav_href = f"/api/pwa/icon/{empresa.slug}/192.png?v={ver}"
+                raw_html = raw_html.replace(
+                    'href="/apple-touch-icon.png" id="meta-apple-icon"',
+                    f'href="{apple_href}" id="meta-apple-icon"'
+                )
+                raw_html = raw_html.replace(
+                    'href="/copai-symbol.png"',
+                    f'href="{fav_href}"'
+                )
+
+    return HTMLResponse(
+        content=raw_html,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        }
+    )

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
 import { parseServerUTC, formatPeruDate, formatPeruTime } from '../utils/peruTime';
+import { useLiveSync } from '../utils/liveSync';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function DashboardHome() {
   const isParticular = empresa?.tipo === 'particular';
   const primaryColor = empresa?.color_primario || '#4F46E5';
 
-  useEffect(() => {
+  const fetchEmpresasList = React.useCallback(() => {
     if (isSuperAdmin) {
       axios.get(`${API}/api/empresas/`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -35,40 +36,50 @@ export default function DashboardHome() {
     }
   }, [isSuperAdmin, token]);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        const params = {};
-        if (isSuperAdmin && selectedEmpresa) {
-          params.empresa_id = selectedEmpresa;
-        }
-        const requests = [
-          axios.get(`${API}/api/dashboard/stats`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params
-          })
-        ];
-        if (isParticular || isOperador) {
-          requests.push(
-            axios.get(`${API}/api/vehiculos/`, {
-              headers: { Authorization: `Bearer ${token}` }
-            }).catch(() => ({ data: [] }))
-          );
-        }
-        const [statsRes, vehRes] = await Promise.all(requests);
-        setStats(statsRes.data);
-        if (vehRes?.data) {
-          setMisVehiculos(vehRes.data);
-        }
-      } catch (err) {
-        console.error('Error fetching stats:', err);
-      } finally {
-        setLoading(false);
+  const fetchStats = React.useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const params = {};
+      if (isSuperAdmin && selectedEmpresa) {
+        params.empresa_id = selectedEmpresa;
       }
-    };
-    fetchStats();
+      const requests = [
+        axios.get(`${API}/api/dashboard/stats`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params
+        })
+      ];
+      if (isParticular || isOperador) {
+        requests.push(
+          axios.get(`${API}/api/vehiculos/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => ({ data: [] }))
+        );
+      }
+      const [statsRes, vehRes] = await Promise.all(requests);
+      setStats(statsRes.data);
+      if (vehRes?.data) {
+        setMisVehiculos(vehRes.data);
+      }
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [token, selectedEmpresa, isSuperAdmin, isParticular, isOperador]);
+
+  useEffect(() => {
+    fetchEmpresasList();
+  }, [fetchEmpresasList]);
+
+  useEffect(() => {
+    fetchStats(false);
+  }, [fetchStats]);
+
+  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'alertas', 'empresas', 'particulares'], () => {
+    fetchStats(true);
+    fetchEmpresasList();
+  });
 
   if (loading) {
     return (

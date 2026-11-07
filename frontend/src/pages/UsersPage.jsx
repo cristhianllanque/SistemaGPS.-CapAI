@@ -6,6 +6,7 @@ import {
   CheckCircle2, AlertTriangle, RefreshCw, ExternalLink
 } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
+import { useLiveSync } from '../utils/liveSync';
 
 const PROTECTED_SUPERADMINS = [
   'cristhianllanque65@gmail.com',
@@ -68,9 +69,9 @@ export default function UsersPage() {
   const isSuperadmin = currentUser.rol === 'superadmin';
   const isAdmin = currentUser.rol === 'admin' || isSuperadmin;
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const requests = [axios.get(`${API}/api/usuarios/`, { headers })];
       if (isSuperadmin) {
         requests.push(axios.get(`${API}/api/empresas/`, { headers }));
@@ -81,14 +82,18 @@ export default function UsersPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isAdmin) fetchData();
+    if (isAdmin) fetchData(false);
     else setLoading(false);
   }, []);
+
+  useLiveSync(['usuarios', 'empresas', 'particulares'], () => {
+    if (isAdmin) fetchData(true);
+  });
 
   const verifyEmailAddress = async (rawEmail, excludeUserId = null) => {
     const clean = (rawEmail || '').trim().toLowerCase();

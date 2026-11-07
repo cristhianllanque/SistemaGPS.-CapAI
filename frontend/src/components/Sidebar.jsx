@@ -107,7 +107,8 @@ export default function Sidebar({
 
           const isSabotage = u && Boolean(u.sabotaje) && (u.bateria_ext === null || u.bateria_ext === undefined || u.bateria_ext < 7.0);
           const isPanic = u && Boolean(u.boton_panico);
-          const isSpeeding = u && u.velocidad > (limiteVelocidad || 90);
+          const vehSpeedLimit = v.empresa_limite_velocidad || limiteVelocidad || 90;
+          const isSpeeding = u && u.velocidad > vehSpeedLimit;
           const isMoving = u && u.velocidad > 0;
           const isSelected = selectedVehicleId === v.id;
 
@@ -186,7 +187,7 @@ export default function Sidebar({
                   </span>
                   {isSpeeding && (
                     <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded mt-0.5">
-                      Lím: {limiteVelocidad}k
+                      Lím: {vehSpeedLimit}k
                     </span>
                   )}
                 </div>

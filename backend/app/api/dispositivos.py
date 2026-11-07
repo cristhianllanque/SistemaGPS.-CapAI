@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
+from app.websockets.manager import manager
 
 router = APIRouter()
 
@@ -101,6 +102,7 @@ def create_dispositivo(
     db.add(dispositivo)
     db.commit()
     db.refresh(dispositivo)
+    manager.notify_sync(dispositivo.empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": dispositivo.id})
     return schemas.DispositivoOut.model_validate(dispositivo)
 
 
@@ -145,6 +147,7 @@ def update_dispositivo(
     data = schemas.DispositivoOut.model_validate(d)
     if d.vehiculo:
         data.vehiculo_placa = d.vehiculo.placa
+    manager.notify_sync(d.empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": d.id})
     return data
 
 
@@ -167,4 +170,5 @@ def delete_dispositivo(
     d.activo = False
     d.estado = 'baja'
     db.commit()
+    manager.notify_sync(d.empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": d.id})
     return {"status": "ok", "message": "Dispositivo dado de baja"}

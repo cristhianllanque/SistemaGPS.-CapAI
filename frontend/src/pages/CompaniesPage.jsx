@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 import { API_BASE_URL as API, getAssetUrl } from '../config';
+import { emitLiveSync, useLiveSync } from '../utils/liveSync';
 
 const COLOR_PALETTE_PRESETS = [
   { name: 'Huayna Verde & Blanco', primario: '#16A34A', secundario: '#FFFFFF', terciario: '#CCF5DC' },
@@ -144,21 +145,25 @@ export default function CompaniesPage() {
     }, 550);
   };
 
-  const fetchEmpresas = async () => {
+  const fetchEmpresas = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await axios.get(`${API}/api/empresas/`, { headers });
       setEmpresas(res.data);
     } catch (err) {
       console.error("Error al cargar empresas:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEmpresas();
+    fetchEmpresas(false);
   }, []);
+
+  useLiveSync(['empresas', 'vehiculos', 'dispositivos'], () => {
+    fetchEmpresas(true);
+  });
 
   const showToast = (msg) => {
     setSuccessToast(msg);
@@ -345,10 +350,15 @@ export default function CompaniesPage() {
     try {
       setSaving(true);
       setErrorMsg('');
-      await axios.put(`${API}/api/empresas/${selectedEmpresa.id}`, editForm, { headers });
+      const res = await axios.put(`${API}/api/empresas/${selectedEmpresa.id}`, editForm, { headers });
+      emitLiveSync({
+        type: 'empresa_updated',
+        empresa_id: res.data.id,
+        empresa: res.data,
+      });
       showToast(`Empresa "${editForm.nombre}" actualizada correctamente.`);
       setShowEditModal(false);
-      fetchEmpresas();
+      fetchEmpresas(true);
     } catch (err) {
       setErrorMsg(err.response?.data?.detail || 'Error al actualizar la empresa');
     } finally {

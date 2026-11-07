@@ -7,6 +7,7 @@ import {
   Sparkles, CheckCircle2, UserCheck, ShieldCheck, RefreshCw, RotateCcw, Archive, AlertCircle
 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
+import { useLiveSync } from '../utils/liveSync';
 
 const TIPOS_VEHICULO = [
   { value: 'sedan', label: 'Auto Sedán / Particular' },
@@ -95,8 +96,8 @@ export default function ParticularesPage() {
     }, 550);
   };
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [resPart, resDisp] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/particulares/`, { headers, params: { inactivos: verBajas } }),
@@ -108,13 +109,17 @@ export default function ParticularesPage() {
     } catch (err) {
       console.error("Error al cargar clientes particulares", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
   }, [verBajas]);
+
+  useLiveSync(['particulares', 'empresas', 'vehiculos', 'dispositivos'], () => {
+    fetchData(true);
+  });
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();

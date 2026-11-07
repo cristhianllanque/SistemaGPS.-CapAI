@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
+from app.websockets.manager import manager
 
 router = APIRouter()
 
@@ -123,5 +124,29 @@ def atender_alerta(
     alerta.usuario_atendio_id = current_user.id
     alerta.fecha_atencion = datetime.utcnow()
     db.commit()
+
+    has_pending_sab = db.query(models.AlertaPanico.id).filter(
+        models.AlertaPanico.vehiculo_id == vehiculo.id,
+        models.AlertaPanico.estado == 'pendiente',
+        models.AlertaPanico.tipo == 'sabotaje'
+    ).first() is not None
+    has_pending_panic = db.query(models.AlertaPanico.id).filter(
+        models.AlertaPanico.vehiculo_id == vehiculo.id,
+        models.AlertaPanico.estado == 'pendiente',
+        models.AlertaPanico.tipo == 'panico'
+    ).first() is not None
+
+    manager.notify_sync(vehiculo.empresa_id, {
+        "type": "alert_resolved",
+        "alerta_id": alerta.id,
+        "vehiculo_id": vehiculo.id,
+        "alerta_tipo": alerta.tipo,
+        "estado": alerta.estado,
+        "observaciones_atencion": alerta.observaciones_atencion,
+        "usuario_atendio_nombre": current_user.nombre,
+        "fecha_atencion": alerta.fecha_atencion.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+        "has_pending_sabotaje": has_pending_sab,
+        "has_pending_panico": has_pending_panic
+    })
 
     return {"status": "ok", "message": "Alerta actualizada exitosamente"}

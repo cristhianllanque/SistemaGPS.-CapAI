@@ -29,6 +29,7 @@ def parse_filter_to_naive_utc(raw_str: str, is_end: bool = False) -> datetime:
 
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
+from app.websockets.manager import manager
 
 router = APIRouter()
 
@@ -66,6 +67,7 @@ def list_vehiculos(
         data = schemas.VehiculoOut.model_validate(v)
         if v.empresa:
             data.empresa_nombre = v.empresa.nombre
+            data.empresa_limite_velocidad = v.empresa.limite_velocidad or 90
         # Attach last GPS reading
         ultima = db.query(models.LecturaGPS).filter(
             models.LecturaGPS.vehiculo_id == v.id
@@ -121,6 +123,7 @@ def get_vehiculo(
     data = schemas.VehiculoOut.model_validate(v)
     if v.empresa:
         data.empresa_nombre = v.empresa.nombre
+        data.empresa_limite_velocidad = v.empresa.limite_velocidad or 90
 
     ultima = db.query(models.LecturaGPS).filter(
         models.LecturaGPS.vehiculo_id == v.id
@@ -191,6 +194,8 @@ def create_vehiculo(
     data = schemas.VehiculoOut.model_validate(v)
     if v.empresa:
         data.empresa_nombre = v.empresa.nombre
+        data.empresa_limite_velocidad = v.empresa.limite_velocidad or 90
+    manager.notify_sync(v.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v.id})
     return data
 
 
@@ -239,6 +244,8 @@ def update_vehiculo(
     data = schemas.VehiculoOut.model_validate(v_reloaded)
     if v_reloaded.empresa:
         data.empresa_nombre = v_reloaded.empresa.nombre
+        data.empresa_limite_velocidad = v_reloaded.empresa.limite_velocidad or 90
+    manager.notify_sync(v_reloaded.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v_reloaded.id})
     return data
 
 
@@ -312,6 +319,8 @@ def vincular_vehiculo(
     data = schemas.VehiculoOut.model_validate(v_reloaded)
     if v_reloaded.empresa:
         data.empresa_nombre = v_reloaded.empresa.nombre
+        data.empresa_limite_velocidad = v_reloaded.empresa.limite_velocidad or 90
+    manager.notify_sync(v_reloaded.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v_reloaded.id})
     return data
 
 
@@ -349,6 +358,8 @@ def desvincular_dispositivo(
     data = schemas.VehiculoOut.model_validate(v_reloaded)
     if v_reloaded.empresa:
         data.empresa_nombre = v_reloaded.empresa.nombre
+        data.empresa_limite_velocidad = v_reloaded.empresa.limite_velocidad or 90
+    manager.notify_sync(v_reloaded.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v_reloaded.id})
     return data
 
 
@@ -381,6 +392,8 @@ def desvincular_conductor(
     data = schemas.VehiculoOut.model_validate(v_reloaded)
     if v_reloaded.empresa:
         data.empresa_nombre = v_reloaded.empresa.nombre
+        data.empresa_limite_velocidad = v_reloaded.empresa.limite_velocidad or 90
+    manager.notify_sync(v_reloaded.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v_reloaded.id})
     return data
 
 
@@ -410,6 +423,7 @@ def delete_vehiculo(
     v.dispositivo_id = None
     v.conductor_id = None
     db.commit()
+    manager.notify_sync(v.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v.id})
     return {"status": "ok", "message": "Vehículo dado de baja"}
 
 

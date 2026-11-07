@@ -11,6 +11,7 @@ import { WS_BASE_URL, getAssetUrl, isNativeApp } from '../config';
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
 import MobileBottomNav from './MobileBottomNav';
+import { emitLiveSync, useLiveSync } from '../utils/liveSync';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin'] },
@@ -31,15 +32,27 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const rawEmpresa = localStorage.getItem('empresa');
-  const empresa = (rawEmpresa && rawEmpresa !== 'null' && rawEmpresa !== 'undefined')
-    ? (JSON.parse(rawEmpresa) || {})
-    : {};
+  const [empresa, setEmpresa] = useState(() => {
+    const raw = localStorage.getItem('empresa');
+    return (raw && raw !== 'null' && raw !== 'undefined') ? (JSON.parse(raw) || {}) : {};
+  });
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
   const token = localStorage.getItem('token');
   const primaryColor = empresa?.color_primario || '#4F46E5';
 
   const [activeAlert, setActiveAlert] = useState(null);
+
+  // Sincronizar cabecera/colores/logo en caliente si se actualiza la empresa localmente
+  useLiveSync(['empresas'], (detail) => {
+    const updatedEmp = detail?.empresa;
+    if (updatedEmp && empresa?.id && Number(updatedEmp.id) === Number(empresa.id)) {
+      setEmpresa((prev) => {
+        const merged = { ...prev, ...updatedEmp };
+        localStorage.setItem('empresa', JSON.stringify(merged));
+        return merged;
+      });
+    }
+  });
 
   // Hook de PWA oficial para Android e iOS
   const {
@@ -91,6 +104,7 @@ export default function Layout() {
         tipo: 'panico',
         fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
       });
+      emitLiveSync({ type: 'entity_updated', entity: 'alertas', empresa_id: lastJsonMessage.empresa_id });
     } else if (lastJsonMessage.type === 'speed_alert') {
       // Show modal for speed excess alert
       setActiveAlert({
@@ -105,6 +119,7 @@ export default function Layout() {
         limite: lastJsonMessage.limite,
         fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
       });
+      emitLiveSync({ type: 'entity_updated', entity: 'alertas', empresa_id: lastJsonMessage.empresa_id });
     } else if (lastJsonMessage.type === 'sabotage_alert') {
       // Trigger emergency siren sound for battery sabotage
       siren.start();
@@ -121,6 +136,28 @@ export default function Layout() {
         tipo: 'sabotaje',
         fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
       });
+      emitLiveSync({ type: 'entity_updated', entity: 'alertas', empresa_id: lastJsonMessage.empresa_id });
+    } else if (lastJsonMessage.type === 'alert_resolved') {
+      setActiveAlert((curr) => {
+        if (curr && Number(curr.id) === Number(lastJsonMessage.alerta_id)) {
+          siren.stop();
+          return null;
+        }
+        return curr;
+      });
+      emitLiveSync(lastJsonMessage);
+    } else if (lastJsonMessage.type === 'empresa_updated') {
+      const updatedEmp = lastJsonMessage.empresa;
+      if (updatedEmp && empresa?.id && Number(updatedEmp.id) === Number(empresa.id)) {
+        setEmpresa((prev) => {
+          const merged = { ...prev, ...updatedEmp };
+          localStorage.setItem('empresa', JSON.stringify(merged));
+          return merged;
+        });
+      }
+      emitLiveSync(lastJsonMessage);
+    } else if (lastJsonMessage.type === 'entity_updated') {
+      emitLiveSync(lastJsonMessage);
     }
   }, [lastJsonMessage]);
 
@@ -155,8 +192,19 @@ export default function Layout() {
   };
   
   const handleAlertAttended = () => {
+    const resolved = activeAlert;
     siren.stop();
     setActiveAlert(null);
+    if (resolved) {
+      emitLiveSync({
+        type: 'alert_resolved',
+        alerta_id: resolved.id,
+        vehiculo_id: resolved.vehiculo_id,
+        alerta_tipo: resolved.tipo,
+        has_pending_sabotaje: false,
+        has_pending_panico: false
+      });
+    }
   };
 
   const isParticular = empresa?.tipo === 'particular';

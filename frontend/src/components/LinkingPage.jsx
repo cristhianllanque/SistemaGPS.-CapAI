@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link2, Unlink, Truck, Radio, Users, Check, AlertTriangle, Shield, Building2 } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
+import { useLiveSync } from '../utils/liveSync';
 
 export default function LinkingPage() {
   const [vehiculos, setVehiculos] = useState([]);
@@ -24,9 +25,9 @@ export default function LinkingPage() {
   const isSuperAdmin = usuario?.rol === 'superadmin';
   const headers = { Authorization: `Bearer ${token}` };
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const params = {};
       if (isSuperAdmin && selectedEmpresa) {
         params.empresa_id = selectedEmpresa;
@@ -47,11 +48,15 @@ export default function LinkingPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, [selectedEmpresa]);
+  useEffect(() => { fetchData(false); }, [selectedEmpresa]);
+
+  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'empresas'], () => {
+    fetchData(true);
+  });
 
   const filteredVehiculos = vehiculos.filter(v => 
     v.placa.toLowerCase().includes(searchTerm.toLowerCase())

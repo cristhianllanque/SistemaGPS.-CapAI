@@ -405,7 +405,8 @@ export default function LiveMap({
 
           const isSabotage = u && Boolean(u.sabotaje) && (u.bateria_ext === null || u.bateria_ext === undefined || u.bateria_ext < 7.0);
           const isThisEmergency = isOnline && (emergencyVehicleId === v.id || Boolean(u.boton_panico));
-          const isSpeeding = isOnline && (u.velocidad > (limiteVelocidad || 90));
+          const vehSpeedLimit = v.empresa_limite_velocidad || limiteVelocidad || 90;
+          const isSpeeding = isOnline && (u.velocidad > vehSpeedLimit);
           const isThisRouted = routeTargetVehicleId === v.id;
           
           let icon = icons.stopped_off; // Default is gray (offline / apagado)
@@ -463,7 +464,7 @@ export default function LiveMap({
                       </span>
                       {isSpeeding && (
                         <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1 rounded border border-amber-300">
-                          &gt;{limiteVelocidad}k
+                          &gt;{vehSpeedLimit}k
                         </span>
                       )}
                     </div>

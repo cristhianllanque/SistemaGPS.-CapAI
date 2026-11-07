@@ -9,6 +9,7 @@ from app.api.deps import get_db, get_current_user, require_role
 from app.db import models, schemas
 from app.core.security import get_password_hash
 from app.services.email_service import send_welcome_email
+from app.websockets.manager import manager
 
 router = APIRouter()
 
@@ -197,6 +198,8 @@ def create_cliente_particular(
     db.refresh(empresa_part)
     db.refresh(vehiculo_part)
 
+    manager.notify_sync(empresa_part.id, {"type": "entity_updated", "entity": "particulares"})
+
     # Disparar correo de bienvenida y credenciales en segundo plano (no bloqueante)
     desc_vehiculo = f"{placa_clean} ({payload.marca.strip() if payload.marca else 'Vehículo'} {payload.modelo.strip() if payload.modelo else ''})".strip()
     background_tasks.add_task(
@@ -261,6 +264,7 @@ def delete_cliente_particular(
 
     emp.activo = False
     db.commit()
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
 
     return {"message": f"Cliente particular {emp.nombre} desactivado y GPS liberado."}
 
@@ -304,6 +308,7 @@ def reactivar_cliente_particular(
         v.activo = True
     emp.activo = True
     db.commit()
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
 
     return {"message": f"Cliente particular {emp.nombre} reactivado. Recuerda vincularle un GPS."}
 

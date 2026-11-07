@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle, Clock, XCircle, FileText, User } from 'luci
 import { formatPeruDateTime } from '../utils/peruTime';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { API_BASE_URL as API } from '../config';
+import { emitLiveSync, useLiveSync } from '../utils/liveSync';
 
 export default function AlertsPage() {
   const [alertas, setAlertas] = useState([]);
@@ -27,6 +28,10 @@ export default function AlertsPage() {
   useEffect(() => {
     fetchAlertas();
   }, []);
+
+  useLiveSync(['alertas'], () => {
+    fetchAlertas();
+  });
 
   const handleAtenderClick = (alerta) => {
     setSelectedAlert(alerta);
@@ -98,6 +103,14 @@ export default function AlertsPage() {
           alertData={selectedAlert}
           onClose={() => setSelectedAlert(null)}
           onAttended={() => {
+            emitLiveSync({
+              type: 'alert_resolved',
+              alerta_id: selectedAlert.id,
+              vehiculo_id: selectedAlert.vehiculo_id,
+              alerta_tipo: selectedAlert.tipo,
+              has_pending_sabotaje: false,
+              has_pending_panico: false,
+            });
             fetchAlertas();
           }}
         />

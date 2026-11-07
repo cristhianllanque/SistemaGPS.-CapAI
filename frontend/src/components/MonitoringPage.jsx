@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
-import { Gauge, Sliders, Check, X, Navigation, ChevronRight, LocateFixed } from 'lucide-react';
+import { Gauge, Sliders, Check, X, Navigation, ChevronRight, LocateFixed, Building2 } from 'lucide-react';
 import LiveMap from './LiveMap';
 import Sidebar from './Sidebar';
 import PanicAlert from './PanicAlert';
 import { siren } from '../utils/sound';
 import { API_BASE_URL as API, WS_BASE_URL, isNativeApp } from '../config';
+import { emitLiveSync, useLiveSync } from '../utils/liveSync';
 
 // Distancia Haversine en metros entre dos coordenadas
 function calcDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -41,13 +42,15 @@ export default function MonitoringPage() {
   // Speed Limit modal
   const [showSpeedModal, setShowSpeedModal] = useState(false);
   const [tempSpeed, setTempSpeed] = useState(limiteVelocidad);
+  const [speedTargetEmpresaId, setSpeedTargetEmpresaId] = useState('');
   const [savingSpeed, setSavingSpeed] = useState(false);
   const [speedToast, setSpeedToast] = useState('');
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
   
-  const activeEmpresaId = empresa?.id || 1;
+  // wsEmpresaId mantiene la misma URL compartida con Layout.jsx (Superadmin recibe todas las empresas en el mismo socket)
+  const wsEmpresaId = empresa?.id || 1;
   const isSuperAdmin = usuario?.rol === 'superadmin';
   const canEditSpeedLimit = usuario?.rol === 'superadmin' || usuario?.rol === 'admin';
 
@@ -55,6 +58,7 @@ export default function MonitoringPage() {
   const [empresaFilter, setEmpresaFilter] = useState('all');
   const [empresasList, setEmpresasList] = useState([]);
   const [particularIds, setParticularIds] = useState([]);
+  const [allEmpresasMap, setAllEmpresasMap] = useState({});
 
   // ================= ESTADO EXCLUSIVO APLICATIVO MÓVIL: MI UBICACIÓN & RUTA AL VEHÍCULO =================
   const [isMobileApp, setIsMobileApp] = useState(() => {
@@ -162,7 +166,7 @@ export default function MonitoringPage() {
   };
 
   const WS_URL = token 
-    ? `${WS_BASE_URL}/ws/flota/${activeEmpresaId}?token=${token}` 
+    ? `${WS_BASE_URL}/ws/flota/${wsEmpresaId}?token=${token}` 
     : null;
   
   const { lastJsonMessage } = useWebSocket(WS_URL, {
@@ -182,26 +186,77 @@ export default function MonitoringPage() {
     }
   }, [searchParams]);
 
+  const refreshVehiculosSilently = useCallback(async () => {
+    try {
+      const vehRes = await axios.get(`${API}/api/vehiculos/`, { headers });
+      setVehiculos((vehRes.data || []).filter((v) => v.dispositivo_id != null));
+    } catch (err) {
+      console.error('Error refrescando vehículos en vivo:', err);
+    }
+  }, [token]);
+
+  const loadEmpresasCatalog = useCallback(async () => {
+    if (!isSuperAdmin) {
+      if (!empresa?.id) return;
+      try {
+        const empRes = await axios.get(`${API}/api/empresas/${empresa.id}`, { headers });
+        if (empRes?.data) {
+          const emp = empRes.data;
+          setAllEmpresasMap((prev) => ({ ...prev, [emp.id]: emp }));
+          if (emp.limite_velocidad) {
+            setLimiteVelocidad(emp.limite_velocidad);
+            setTempSpeed(emp.limite_velocidad);
+          }
+          setEmpresa((prev) => {
+            const merged = { ...prev, ...emp };
+            localStorage.setItem('empresa', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      } catch {
+        // Silencioso si no aplica
+      }
+      return;
+    }
+
+    try {
+      const [empRes, partRes] = await Promise.all([
+        axios.get(`${API}/api/empresas/`, { headers }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/empresas/`, { headers, params: { tipo: 'particular' } }).catch(() => ({ data: [] })),
+      ]);
+      const empArr = empRes.data || [];
+      const partArr = partRes.data || [];
+      setEmpresasList(empArr.map((e) => ({ id: e.id, nombre: e.nombre, limite_velocidad: e.limite_velocidad })));
+      setParticularIds(partArr.map((p) => Number(p.id)));
+      const nextMap = {};
+      [...empArr, ...partArr].forEach((item) => {
+        nextMap[item.id] = {
+          id: item.id,
+          nombre: item.nombre,
+          tipo: item.tipo || 'empresa',
+          limite_velocidad: item.limite_velocidad || 90,
+        };
+      });
+      setAllEmpresasMap(nextMap);
+    } catch (err) {
+      console.error('Error cargando catálogo de empresas:', err);
+    }
+  }, [isSuperAdmin, empresa?.id, token]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [vehRes, alertRes, empRes] = await Promise.all([
+        const [vehRes, alertRes] = await Promise.all([
           axios.get(`${API}/api/vehiculos/`, { headers }),
           axios.get(`${API}/api/alertas/`, { headers }),
-          axios.get(`${API}/api/empresas/${activeEmpresaId}`, { headers }).catch(() => null)
         ]);
         
         // Solo vehículos activos Y con dispositivo vinculado
-        setVehiculos(vehRes.data.filter(v => v.dispositivo_id != null));
-        setAlertas(alertRes.data);
+        setVehiculos((vehRes.data || []).filter((v) => v.dispositivo_id != null));
+        setAlertas(alertRes.data || []);
 
-        if (empRes?.data?.limite_velocidad) {
-          setLimiteVelocidad(empRes.data.limite_velocidad);
-          setTempSpeed(empRes.data.limite_velocidad);
-        }
-
-        // If there are pending panic alerts on load, focus on the most recent one
-        const pendingPanics = alertRes.data.filter(a => a.estado === 'pendiente' && a.tipo !== 'exceso_velocidad');
+        // If there are pending panic/sabotage alerts on load, focus on the most recent one
+        const pendingPanics = (alertRes.data || []).filter((a) => a.estado === 'pendiente' && a.tipo !== 'exceso_velocidad');
         if (pendingPanics.length > 0) {
           setEmergencyVehicleId(pendingPanics[0].vehiculo_id);
           setSelectedVehicleId(pendingPanics[0].vehiculo_id);
@@ -212,19 +267,8 @@ export default function MonitoringPage() {
       }
     };
     fetchData();
+    loadEmpresasCatalog();
   }, []);
-
-  // Carga de empresas y clientes particulares para el filtro del Superadmin
-  useEffect(() => {
-    if (!isSuperAdmin) return;
-    Promise.all([
-      axios.get(`${API}/api/empresas/`, { headers }).catch(() => ({ data: [] })),
-      axios.get(`${API}/api/empresas/`, { headers, params: { tipo: 'particular' } }).catch(() => ({ data: [] })),
-    ]).then(([empRes, partRes]) => {
-      setEmpresasList((empRes.data || []).map(e => ({ id: e.id, nombre: e.nombre })));
-      setParticularIds((partRes.data || []).map(p => Number(p.id)));
-    });
-  }, [isSuperAdmin]);
 
   const vehiculosFiltrados = useMemo(() => {
     if (!isSuperAdmin || empresaFilter === 'all') return vehiculos;
@@ -233,6 +277,133 @@ export default function MonitoringPage() {
     }
     return vehiculos.filter(v => Number(v.empresa_id) === Number(empresaFilter));
   }, [vehiculos, empresaFilter, particularIds, isSuperAdmin]);
+
+  // Empresa efectiva para mostrar/ajustar el límite de velocidad sin mezclar empresas en Superadmin
+  const effectiveSpeedEmpresaId = useMemo(() => {
+    if (!isSuperAdmin) {
+      return Number(empresa?.id || 1);
+    }
+    if (empresaFilter !== 'all' && empresaFilter !== 'particulares') {
+      return Number(empresaFilter);
+    }
+    if (selectedVehicleId) {
+      const selVeh = vehiculos.find((v) => v.id === selectedVehicleId);
+      if (selVeh?.empresa_id) return Number(selVeh.empresa_id);
+    }
+    if (vehiculosFiltrados.length > 0 && vehiculosFiltrados[0]?.empresa_id) {
+      return Number(vehiculosFiltrados[0].empresa_id);
+    }
+    if (empresasList.length > 0) {
+      return Number(empresasList[0].id);
+    }
+    return 1;
+  }, [isSuperAdmin, empresa?.id, empresaFilter, selectedVehicleId, vehiculos, vehiculosFiltrados, empresasList]);
+
+  const effectiveEmpresaNombre = useMemo(() => {
+    if (!isSuperAdmin) return empresa?.nombre || 'la flota';
+    return (
+      allEmpresasMap[effectiveSpeedEmpresaId]?.nombre ||
+      vehiculos.find((v) => Number(v.empresa_id) === Number(effectiveSpeedEmpresaId))?.empresa_nombre ||
+      'la flota'
+    );
+  }, [isSuperAdmin, empresa?.nombre, allEmpresasMap, effectiveSpeedEmpresaId, vehiculos]);
+
+  // Mantener limiteVelocidad sincronizado con la empresa efectiva en pantalla
+  useEffect(() => {
+    const mappedLimit = allEmpresasMap[effectiveSpeedEmpresaId]?.limite_velocidad;
+    if (mappedLimit) {
+      setLimiteVelocidad(mappedLimit);
+      return;
+    }
+    const vehLimit = vehiculos.find((v) => Number(v.empresa_id) === Number(effectiveSpeedEmpresaId))?.empresa_limite_velocidad;
+    if (vehLimit) {
+      setLimiteVelocidad(vehLimit);
+    }
+  }, [effectiveSpeedEmpresaId, allEmpresasMap, vehiculos]);
+
+  // Sincronización 100% autónoma en vivo (sin F5 ni cambiar de menú)
+  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'particulares', 'empresas', 'alertas'], (detail) => {
+    if (!detail) return;
+
+    if (detail.type === 'alert_resolved') {
+      const resolvedId = Number(detail.alerta_id);
+      const targetVehId = Number(detail.vehiculo_id);
+      const keepSabotaje = Boolean(detail.has_pending_sabotaje);
+      const keepPanico = Boolean(detail.has_pending_panico);
+
+      setAlertas((prev) => {
+        const next = prev.filter((a) => Number(a.alerta_id || a.id) !== resolvedId);
+        const stillHasCritical = next.some((a) => a.tipo !== 'exceso_velocidad');
+        if (!stillHasCritical && !keepSabotaje && !keepPanico) {
+          siren.stop();
+          setEmergencyVehicleId((curr) => (curr === targetVehId ? null : curr));
+        }
+        return next;
+      });
+
+      if (targetVehId) {
+        setVehiculos((prev) =>
+          prev.map((v) => {
+            if (v.id !== targetVehId || !v.ultima_lectura) return v;
+            return {
+              ...v,
+              ultima_lectura: {
+                ...v.ultima_lectura,
+                sabotaje: keepSabotaje,
+                boton_panico: keepPanico,
+              },
+            };
+          })
+        );
+      }
+      return;
+    }
+
+    if (detail.type === 'empresa_updated' && detail.empresa) {
+      const emp = detail.empresa;
+      setAllEmpresasMap((prev) => ({
+        ...prev,
+        [emp.id]: {
+          ...(prev[emp.id] || {}),
+          id: emp.id,
+          nombre: emp.nombre,
+          tipo: emp.tipo || prev[emp.id]?.tipo || 'empresa',
+          limite_velocidad: emp.limite_velocidad || prev[emp.id]?.limite_velocidad || 90,
+        },
+      }));
+      setEmpresasList((prev) =>
+        prev.map((item) =>
+          Number(item.id) === Number(emp.id)
+            ? { ...item, nombre: emp.nombre, limite_velocidad: emp.limite_velocidad || item.limite_velocidad }
+            : item
+        )
+      );
+      setVehiculos((prev) =>
+        prev.map((v) =>
+          Number(v.empresa_id) === Number(emp.id)
+            ? {
+                ...v,
+                empresa_nombre: emp.nombre || v.empresa_nombre,
+                empresa_limite_velocidad: emp.limite_velocidad || v.empresa_limite_velocidad,
+              }
+            : v
+        )
+      );
+      if (!isSuperAdmin && Number(emp.id) === Number(empresa?.id)) {
+        setEmpresa((prev) => ({ ...prev, ...emp }));
+        if (emp.limite_velocidad) setLimiteVelocidad(emp.limite_velocidad);
+      } else if (isSuperAdmin && Number(emp.id) === Number(effectiveSpeedEmpresaId) && emp.limite_velocidad) {
+        setLimiteVelocidad(emp.limite_velocidad);
+      }
+      return;
+    }
+
+    // Cambios estructurales (vehículos, conductores, vinculaciones, particulares, nuevas empresas)
+    refreshVehiculosSilently();
+    if (isSuperAdmin && (detail.entity === 'empresas' || detail.entity === 'particulares')) {
+      loadEmpresasCatalog();
+    }
+  });
 
   // En el mapa, un vehículo en emergencia SIEMPRE se muestra aunque esté fuera del filtro
   const vehiculosMapa = useMemo(() => {
@@ -258,13 +429,14 @@ export default function MonitoringPage() {
         return;
       }
       if (lastJsonMessage.type === 'telemetria') {
-        if (lastJsonMessage.limite_velocidad) {
+        if (lastJsonMessage.limite_velocidad && Number(lastJsonMessage.empresa_id) === Number(effectiveSpeedEmpresaId)) {
           setLimiteVelocidad(lastJsonMessage.limite_velocidad);
         }
         setVehiculos(prev => prev.map(v => {
           if (v.id === lastJsonMessage.vehiculo_id) {
             return {
               ...v,
+              empresa_limite_velocidad: lastJsonMessage.limite_velocidad || v.empresa_limite_velocidad,
               ultima_lectura: { ...lastJsonMessage.data }
             };
           }
@@ -275,11 +447,46 @@ export default function MonitoringPage() {
         siren.start();
         setEmergencyVehicleId(lastJsonMessage.vehiculo_id);
         setSelectedVehicleId(lastJsonMessage.vehiculo_id);
+        setVehiculos((prev) =>
+          prev.map((v) =>
+            v.id === lastJsonMessage.vehiculo_id && v.ultima_lectura
+              ? { ...v, ultima_lectura: { ...v.ultima_lectura, boton_panico: true } }
+              : v
+          )
+        );
 
         setAlertas(prev => {
           const exists = prev.some(a => (a.id || a.alerta_id) === (lastJsonMessage.alerta_id || lastJsonMessage.id));
           if (exists) return prev;
-          return [lastJsonMessage, ...prev];
+          return [{ ...lastJsonMessage, tipo: 'panico' }, ...prev];
+        });
+      } else if (lastJsonMessage.type === 'sabotage_alert') {
+        siren.start();
+        setEmergencyVehicleId(lastJsonMessage.vehiculo_id);
+        setSelectedVehicleId(lastJsonMessage.vehiculo_id);
+        setVehiculos((prev) =>
+          prev.map((v) =>
+            v.id === lastJsonMessage.vehiculo_id && v.ultima_lectura
+              ? { ...v, ultima_lectura: { ...v.ultima_lectura, sabotaje: true } }
+              : v
+          )
+        );
+
+        setAlertas(prev => {
+          const exists = prev.some(a => (a.id || a.alerta_id) === (lastJsonMessage.alerta_id || lastJsonMessage.id));
+          if (exists) return prev;
+          return [{
+            id: lastJsonMessage.alerta_id,
+            alerta_id: lastJsonMessage.alerta_id,
+            vehiculo_id: lastJsonMessage.vehiculo_id,
+            placa: lastJsonMessage.placa,
+            conductor_nombre: lastJsonMessage.conductor,
+            latitud: lastJsonMessage.latitud,
+            longitud: lastJsonMessage.longitud,
+            bateria_ext: lastJsonMessage.bateria_ext,
+            tipo: 'sabotaje',
+            fecha_hora: lastJsonMessage.fecha_hora || new Date().toISOString()
+          }, ...prev];
         });
       } else if (lastJsonMessage.type === 'speed_alert') {
         // Real-time speed alert
@@ -302,15 +509,44 @@ export default function MonitoringPage() {
         });
       }
     }
-  }, [lastJsonMessage]);
+  }, [lastJsonMessage, effectiveSpeedEmpresaId, isSuperAdmin, empresa?.id]);
 
   const handleAtenderAlerta = async (alertaId) => {
     try {
+      const targetAlert = alertas.find((a) => Number(a.alerta_id || a.id) === Number(alertaId));
       await axios.put(`${API}/api/alertas/${alertaId}/atender`, { estado: 'atendida' }, { headers });
-      setAlertas(prev => prev.filter(a => a.alerta_id !== alertaId && a.id !== alertaId));
-      
-      // If no more alerts, stop siren and clear emergency mode
-      if (alertas.length <= 1) {
+      const remaining = alertas.filter((a) => Number(a.alerta_id || a.id) !== Number(alertaId));
+      setAlertas(remaining);
+
+      if (targetAlert?.vehiculo_id) {
+        const stillSab = remaining.some((a) => a.vehiculo_id === targetAlert.vehiculo_id && a.tipo === 'sabotaje');
+        const stillPanic = remaining.some((a) => a.vehiculo_id === targetAlert.vehiculo_id && a.tipo === 'panico');
+        setVehiculos((prev) =>
+          prev.map((v) =>
+            v.id === targetAlert.vehiculo_id && v.ultima_lectura
+              ? {
+                  ...v,
+                  ultima_lectura: {
+                    ...v.ultima_lectura,
+                    sabotaje: stillSab,
+                    boton_panico: stillPanic,
+                  },
+                }
+              : v
+          )
+        );
+        emitLiveSync({
+          type: 'alert_resolved',
+          alerta_id: alertaId,
+          vehiculo_id: targetAlert.vehiculo_id,
+          alerta_tipo: targetAlert.tipo,
+          has_pending_sabotaje: stillSab,
+          has_pending_panico: stillPanic,
+        });
+      }
+
+      // Si ya no quedan alertas críticas pendientes, apagar sirena y modo emergencia
+      if (!remaining.some((a) => a.tipo !== 'exceso_velocidad')) {
         siren.stop();
         setEmergencyVehicleId(null);
       }
@@ -418,20 +654,67 @@ export default function MonitoringPage() {
     if (tempSpeed < 20 || tempSpeed > 160) return;
     try {
       setSavingSpeed(true);
-      await axios.put(`${API}/api/empresas/${activeEmpresaId}/limite-velocidad`, {
-        limite_velocidad: tempSpeed
-      }, { headers });
+      const catalogIds = Object.keys(allEmpresasMap).map((k) => Number(k)).filter(Boolean);
+      const targetIds =
+        isSuperAdmin && speedTargetEmpresaId === 'ALL'
+          ? (catalogIds.length > 0 ? catalogIds : [effectiveSpeedEmpresaId])
+          : [Number((isSuperAdmin && speedTargetEmpresaId) ? speedTargetEmpresaId : effectiveSpeedEmpresaId)];
 
-      setLimiteVelocidad(tempSpeed);
-      
-      // Update local storage
-      const currentEmpresa = JSON.parse(localStorage.getItem('empresa') || '{}');
-      currentEmpresa.limite_velocidad = tempSpeed;
-      localStorage.setItem('empresa', JSON.stringify(currentEmpresa));
-      setEmpresa(currentEmpresa);
+      await Promise.all(
+        targetIds.map((id) =>
+          axios.put(
+            `${API}/api/empresas/${id}/limite-velocidad`,
+            { limite_velocidad: tempSpeed },
+            { headers }
+          )
+        )
+      );
+
+      setAllEmpresasMap((prev) => {
+        const next = { ...prev };
+        targetIds.forEach((id) => {
+          if (next[id]) {
+            next[id] = { ...next[id], limite_velocidad: tempSpeed };
+          }
+        });
+        return next;
+      });
+
+      setVehiculos((prev) =>
+        prev.map((v) =>
+          targetIds.includes(Number(v.empresa_id))
+            ? { ...v, empresa_limite_velocidad: tempSpeed }
+            : v
+        )
+      );
+
+      if (targetIds.includes(Number(effectiveSpeedEmpresaId))) {
+        setLimiteVelocidad(tempSpeed);
+      }
+
+      if (!isSuperAdmin) {
+        const currentEmpresa = JSON.parse(localStorage.getItem('empresa') || '{}');
+        currentEmpresa.limite_velocidad = tempSpeed;
+        localStorage.setItem('empresa', JSON.stringify(currentEmpresa));
+        setEmpresa(currentEmpresa);
+      }
+
+      targetIds.forEach((id) => {
+        const empInfo = allEmpresasMap[id] || { id, nombre: effectiveEmpresaNombre };
+        emitLiveSync({
+          type: 'empresa_updated',
+          empresa_id: id,
+          empresa: { ...empInfo, id, limite_velocidad: tempSpeed },
+        });
+      });
+
+      const targetLabel =
+        isSuperAdmin && speedTargetEmpresaId === 'ALL'
+          ? 'todas las empresas y unidades'
+          : (allEmpresasMap[targetIds[0]]?.nombre || effectiveEmpresaNombre);
 
       setShowSpeedModal(false);
-      setSpeedToast(`Límite de velocidad actualizado a ${tempSpeed} km/h`);
+      setSpeedToast(`Límite actualizado a ${tempSpeed} km/h (${targetLabel})`);
       setTimeout(() => setSpeedToast(''), 4000);
     } catch (err) {
       console.error(err);
@@ -500,8 +783,10 @@ export default function MonitoringPage() {
             <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
               <Gauge size={15} />
             </div>
-            <div>
-              <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">Límite</div>
+            <div className="max-w-[140px] sm:max-w-[200px]">
+              <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none truncate">
+                {isSuperAdmin ? `Límite · ${effectiveEmpresaNombre}` : 'Límite'}
+              </div>
               <div className="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-1 leading-tight mt-0.5">
                 <span>{limiteVelocidad} km/h</span>
                 <span className="hidden sm:inline text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
@@ -512,7 +797,10 @@ export default function MonitoringPage() {
             {canEditSpeedLimit && (
               <button
                 onClick={() => {
-                  setTempSpeed(limiteVelocidad);
+                  const defaultTarget = String(effectiveSpeedEmpresaId);
+                  setSpeedTargetEmpresaId(defaultTarget);
+                  const currentTargetLimit = allEmpresasMap[effectiveSpeedEmpresaId]?.limite_velocidad || limiteVelocidad;
+                  setTempSpeed(currentTargetLimit);
                   setShowSpeedModal(true);
                 }}
                 className="ml-0.5 sm:ml-2 text-[11px] sm:text-xs font-semibold px-2 py-1 sm:px-2.5 sm:py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all shadow-sm shadow-amber-500/30 flex items-center gap-1 active:scale-95 cursor-pointer"
@@ -572,11 +860,11 @@ export default function MonitoringPage() {
           onFitRouteBounds={() => setFitRouteTrigger((t) => t + 1)}
         />
         
-        {/* Alerts Overlay (Panic & Speed alerts) */}
+        {/* Alerts Overlay (Panic, Sabotage & Speed alerts) */}
         <div className="absolute top-14 left-2.5 right-2.5 sm:top-4 sm:left-auto sm:right-4 z-[1000] space-y-2.5 sm:space-y-4 sm:max-w-sm">
-          {alertas.map((alerta, idx) => (
+          {alertas.filter((a) => !a.estado || a.estado === 'pendiente').map((alerta, idx) => (
             <PanicAlert 
-              key={idx} 
+              key={alerta.alerta_id || alerta.id || idx} 
               alerta={alerta} 
               onAtender={() => handleAtenderAlerta(alerta.alerta_id || alerta.id)} 
             />
@@ -595,7 +883,14 @@ export default function MonitoringPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-base">Límite de Velocidad Máxima</h3>
-                  <p className="text-xs text-slate-400">Configuración para {empresa?.nombre || 'la flota'}</p>
+                  <p className="text-xs text-slate-400">
+                    Configuración para{' '}
+                    {isSuperAdmin
+                      ? (speedTargetEmpresaId === 'ALL'
+                          ? 'todas las empresas y unidades'
+                          : (allEmpresasMap[Number(speedTargetEmpresaId)]?.nombre || effectiveEmpresaNombre))
+                      : effectiveEmpresaNombre}
+                  </p>
                 </div>
               </div>
               <button 
@@ -607,6 +902,33 @@ export default function MonitoringPage() {
             </div>
 
             <form onSubmit={handleSaveSpeedLimit} className="p-6 space-y-5">
+              {isSuperAdmin && Object.keys(allEmpresasMap).length > 0 && (
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
+                    <Building2 size={14} className="text-amber-600" />
+                    <span>Empresa o Cliente Particular a configurar:</span>
+                  </label>
+                  <select
+                    value={speedTargetEmpresaId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSpeedTargetEmpresaId(val);
+                      if (val !== 'ALL' && allEmpresasMap[Number(val)]?.limite_velocidad) {
+                        setTempSpeed(allEmpresasMap[Number(val)].limite_velocidad);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs sm:text-sm font-semibold bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    {Object.values(allEmpresasMap).map((empItem) => (
+                      <option key={empItem.id} value={String(empItem.id)}>
+                        {empItem.tipo === 'particular' ? `🚗 Particular: ${empItem.nombre}` : `🏢 ${empItem.nombre}`} (Actual: {empItem.limite_velocidad || 90} km/h)
+                      </option>
+                    ))}
+                    <option value="ALL">🌐 Todas las empresas y unidades del sistema</option>
+                  </select>
+                </div>
+              )}
+
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-xs font-semibold text-slate-700">Velocidad Límite Permitida:</label>

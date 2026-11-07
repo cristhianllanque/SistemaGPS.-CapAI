@@ -12,6 +12,7 @@ from app.api.deps import get_db, get_current_user, require_role
 from app.db import models, schemas
 from app.core import security
 from app.services.email_service import send_welcome_email
+from app.websockets.manager import manager
 
 router = APIRouter()
 
@@ -352,6 +353,12 @@ def create_usuario(
         empresa_slug=empresa_slug
     )
 
+    manager.notify_sync(nuevo_usuario.empresa_id, {
+        "type": "entity_updated",
+        "entity": "usuarios",
+        "action": "created",
+        "id": nuevo_usuario.id,
+    })
     return _enrich_usuario_out(nuevo_usuario)
 
 
@@ -449,6 +456,12 @@ def update_usuario(
             empresa_slug=empresa_slug
         )
     
+    manager.notify_sync(usuario.empresa_id, {
+        "type": "entity_updated",
+        "entity": "usuarios",
+        "action": "updated",
+        "id": usuario.id,
+    })
     return _enrich_usuario_out(usuario)
 
 
@@ -472,4 +485,10 @@ def toggle_estado_usuario(
     db.commit()
     db.refresh(usuario)
     
+    manager.notify_sync(usuario.empresa_id, {
+        "type": "entity_updated",
+        "entity": "usuarios",
+        "action": "toggled",
+        "id": usuario.id,
+    })
     return _enrich_usuario_out(usuario)

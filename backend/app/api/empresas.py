@@ -10,6 +10,7 @@ from app.api.deps import get_db, get_current_user, require_role
 from app.db import models, schemas
 from app.core import security
 from app.services.email_service import send_welcome_email
+from app.websockets.manager import manager
 
 router = APIRouter()
 
@@ -312,6 +313,25 @@ def create_empresa(
     emp_dict.total_vehiculos = 0
     emp_dict.total_dispositivos = 0
     emp_dict.total_usuarios = 1 if gerente_email_clean else 0
+
+    manager.notify_sync(nueva_empresa.id, {
+        "type": "empresa_updated",
+        "action": "create",
+        "empresa": {
+            "id": nueva_empresa.id,
+            "nombre": nueva_empresa.nombre,
+            "slug": nueva_empresa.slug,
+            "tipo": nueva_empresa.tipo,
+            "logo_url": nueva_empresa.logo_url,
+            "banner_url": nueva_empresa.banner_url,
+            "color_primario": nueva_empresa.color_primario,
+            "color_secundario": nueva_empresa.color_secundario,
+            "color_terciario": nueva_empresa.color_terciario,
+            "slogan": nueva_empresa.slogan,
+            "limite_velocidad": nueva_empresa.limite_velocidad or 90,
+            "activo": nueva_empresa.activo
+        }
+    })
     return emp_dict
 
 @router.put("/{empresa_id}", response_model=schemas.EmpresaOut)
@@ -372,6 +392,25 @@ def update_empresa(
     emp_dict.total_vehiculos = total_veh
     emp_dict.total_dispositivos = total_disp
     emp_dict.total_usuarios = total_usr
+
+    manager.notify_sync(emp.id, {
+        "type": "empresa_updated",
+        "action": "update",
+        "empresa": {
+            "id": emp.id,
+            "nombre": emp.nombre,
+            "slug": emp.slug,
+            "tipo": emp.tipo,
+            "logo_url": emp.logo_url,
+            "banner_url": emp.banner_url,
+            "color_primario": emp.color_primario,
+            "color_secundario": emp.color_secundario,
+            "color_terciario": emp.color_terciario,
+            "slogan": emp.slogan,
+            "limite_velocidad": emp.limite_velocidad or 90,
+            "activo": emp.activo
+        }
+    })
     return emp_dict
 
 @router.put("/{empresa_id}/limite-velocidad")
@@ -395,6 +434,25 @@ def set_limite_velocidad(
     emp.limite_velocidad = payload.limite_velocidad
     db.commit()
     db.refresh(emp)
+
+    manager.notify_sync(emp.id, {
+        "type": "empresa_updated",
+        "action": "speed_limit",
+        "empresa": {
+            "id": emp.id,
+            "nombre": emp.nombre,
+            "slug": emp.slug,
+            "tipo": emp.tipo,
+            "logo_url": emp.logo_url,
+            "banner_url": emp.banner_url,
+            "color_primario": emp.color_primario,
+            "color_secundario": emp.color_secundario,
+            "color_terciario": emp.color_terciario,
+            "slogan": emp.slogan,
+            "limite_velocidad": emp.limite_velocidad,
+            "activo": emp.activo
+        }
+    })
 
     return {
         "status": "ok",

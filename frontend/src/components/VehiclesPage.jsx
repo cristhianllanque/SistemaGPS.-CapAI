@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Truck, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Building2 } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
+import { useLiveSync } from '../utils/liveSync';
 
 const TIPOS = ['minivan', 'bus', 'camioneta', 'sedan', 'otro'];
 
@@ -62,6 +63,11 @@ export default function VehiclesPage() {
   useEffect(() => { 
     fetchData(); 
   }, [searchTerm, selectedEmpresaFilter]);
+
+  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'empresas'], () => {
+    fetchData();
+    fetchEmpresas();
+  });
 
   const openCreate = () => {
     setEditingId(null); 

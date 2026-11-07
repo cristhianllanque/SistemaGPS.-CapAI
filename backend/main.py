@@ -20,6 +20,7 @@ Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    manager.set_loop(asyncio.get_running_loop())
     # Start the Teltonika TCP Server in the background
     tcp_task = asyncio.create_task(start_tcp_server(host='0.0.0.0', port=5000))
     yield

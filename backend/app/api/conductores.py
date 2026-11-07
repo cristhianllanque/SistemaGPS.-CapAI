@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
+from app.websockets.manager import manager
 
 router = APIRouter()
 
@@ -116,6 +117,7 @@ def create_conductor(
     out = schemas.ConductorOut.model_validate(conductor)
     if conductor.empresa:
         out.empresa_nombre = conductor.empresa.nombre
+    manager.notify_sync(conductor.empresa_id, {"type": "entity_updated", "entity": "conductores", "conductor_id": conductor.id})
     return out
 
 
@@ -153,6 +155,7 @@ def update_conductor(
         data.vehiculo_placa = c.vehiculo.placa
     if c.empresa:
         data.empresa_nombre = c.empresa.nombre
+    manager.notify_sync(c.empresa_id, {"type": "entity_updated", "entity": "conductores", "conductor_id": c.id})
     return data
 
 
@@ -175,4 +178,5 @@ def delete_conductor(
 
     c.activo = False
     db.commit()
+    manager.notify_sync(c.empresa_id, {"type": "entity_updated", "entity": "conductores", "conductor_id": c.id})
     return {"status": "ok", "message": "Conductor dado de baja"}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Phone, CreditCard, Shield, Building2 } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
+import { useLiveSync } from '../utils/liveSync';
 
 const emptyForm = {
   nombre: '', dni: '', licencia_conducir: '', categoria_licencia: '',
@@ -51,6 +52,11 @@ export default function DriversPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [searchTerm, selectedEmpresa]);
+
+  useLiveSync(['conductores', 'vehiculos', 'empresas'], () => {
+    fetchData();
+    fetchEmpresas();
+  });
 
   const openCreate = () => { 
     setEditingId(null); 
