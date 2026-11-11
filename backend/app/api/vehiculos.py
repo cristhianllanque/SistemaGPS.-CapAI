@@ -74,9 +74,14 @@ def list_vehiculos(
         ).order_by(desc(models.LecturaGPS.id)).first()
         if ultima:
             lect_out = schemas.LecturaGPSBase.model_validate(ultima)
-            # Use abs to prevent micro clock skews from failing
-            diff_seconds = abs((now_utc - ultima.timestamp).total_seconds())
-            is_online = diff_seconds <= 900  # Online if reported within 15 minutes
+            is_demo = bool(v.placa and v.placa.startswith('DEMO-'))
+            if is_demo:
+                is_online = True
+                lect_out.timestamp = now_utc
+            else:
+                # Use abs to prevent micro clock skews from failing
+                diff_seconds = abs((now_utc - ultima.timestamp).total_seconds())
+                is_online = diff_seconds <= 900  # Online if reported within 15 minutes
             lect_out.online = is_online
             # Preserve true hardware sensor data: never overwrite real ignition
             lect_out.ignicion = bool(ultima.ignicion)
@@ -130,8 +135,13 @@ def get_vehiculo(
     ).order_by(desc(models.LecturaGPS.id)).first()
     if ultima:
         lect_out = schemas.LecturaGPSBase.model_validate(ultima)
-        diff_seconds = abs((datetime.utcnow() - ultima.timestamp).total_seconds())
-        is_online = diff_seconds <= 900
+        is_demo = bool(v.placa and v.placa.startswith('DEMO-'))
+        if is_demo:
+            is_online = True
+            lect_out.timestamp = datetime.utcnow()
+        else:
+            diff_seconds = abs((datetime.utcnow() - ultima.timestamp).total_seconds())
+            is_online = diff_seconds <= 900
         lect_out.online = is_online
         lect_out.ignicion = bool(ultima.ignicion)
         lect_out.velocidad = ultima.velocidad or 0
@@ -467,6 +477,27 @@ def get_historial(
         models.LecturaGPS.timestamp >= inicio,
         models.LecturaGPS.timestamp <= fin
     ).order_by(models.LecturaGPS.timestamp).all()
+
+    if not lecturas and bool(vehiculo.placa and vehiculo.placa.startswith('DEMO-')):
+        demo_all = db.query(models.LecturaGPS).filter(
+            models.LecturaGPS.vehiculo_id == vehiculo_id
+        ).order_by(models.LecturaGPS.id.asc()).all()
+        if demo_all:
+            base_time = inicio.replace(hour=8, minute=0, second=0, microsecond=0)
+            lecturas = []
+            for idx, d_lec in enumerate(demo_all):
+                fake_pt = models.LecturaGPS(
+                    vehiculo_id=d_lec.vehiculo_id,
+                    latitud=d_lec.latitud,
+                    longitud=d_lec.longitud,
+                    velocidad=d_lec.velocidad,
+                    ignicion=d_lec.ignicion,
+                    bateria_ext=d_lec.bateria_ext,
+                    bateria_int=d_lec.bateria_int,
+                    bateria_porcentaje=d_lec.bateria_porcentaje,
+                    timestamp=base_time + timedelta(minutes=idx * 2)
+                )
+                lecturas.append(fake_pt)
 
     coordenadas = []
     distancia_total = 0.0
