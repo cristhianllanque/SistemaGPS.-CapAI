@@ -62,8 +62,15 @@ export function getAssetUrl(path) {
   return `${API_BASE_URL}${cleanPath}`;
 }
 
+export const PLAY_STORE_APP_URL = 'https://play.google.com/store/apps/details?id=com.industriascopai.gps';
+export const PLAY_STORE_TESTING_URL = 'https://play.google.com/apps/testing/com.industriascopai.gps';
+export const APK_DOWNLOAD_URL = 'https://industriascopai.com/descargas/CopaiGPS.apk';
+
 export default {
   API_BASE_URL,
   WS_BASE_URL,
   getAssetUrl,
+  PLAY_STORE_APP_URL,
+  PLAY_STORE_TESTING_URL,
+  APK_DOWNLOAD_URL,
 };

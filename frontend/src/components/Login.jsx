@@ -82,23 +82,10 @@ export default function Login() {
   const [forgotMsg, setForgotMsg] = useState('');
   const [forgotError, setForgotError] = useState('');
 
-  // Detección de dispositivo móvil vs escritorio (App Nativa siempre es móvil)
-  const [isMobileScreen, setIsMobileScreen] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return isNativeApp || window.innerWidth <= 768;
-  });
+  // Detección de ejecución como Aplicativo Instalado vs Navegador Web
+  // Si está navegando desde un navegador web (Safari, Chrome móvil o PC), siempre renderiza el sitio web corporativo oficial.
+  // Solo entra directamente a MobileLoginView si corre como app instalada (Play Store o PWA agregada a inicio en iPhone).
   const [showFullWebPortal, setShowFullWebPortal] = useState(false);
-
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobileScreen(isNativeApp || window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Si ya tiene sesión activa, redirigir automáticamente al dashboard
   useEffect(() => {
@@ -232,8 +219,17 @@ export default function Login() {
   // Evaluar si el portal de la empresa es de temática clara (ej. fondo menta/blanco) u oscura
   const isLightPortal = companyPortal ? (getLuminance(cTerciario) > 0.45 || (getLuminance(cSecundario) > 0.85 && getLuminance(cTerciario) > 0.35)) : false;
 
-  // EXPERIENCIA MÓVIL DEDICADA (Si está en celular y no ha solicitado ver el portal web de escritorio)
-  if (isMobileScreen && !showFullWebPortal) {
+  // EXPERIENCIA MÓVIL DEDICADA:
+  // Se activa ÚNICAMENTE si está corriendo como aplicación instalada (Google Play Store o PWA agregada a inicio en iPhone),
+  // o si el usuario solicita explícitamente ?app=true en la URL.
+  // En cualquier navegador web (Safari / Chrome móvil o PC), siempre se muestra el sitio web oficial de la empresa.
+  const isRunningAsApp = Boolean(
+    isNativeApp ||
+    isStandalone ||
+    (typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('app') === 'true' || new URLSearchParams(window.location.search).get('mode') === 'app'))
+  );
+
+  if (isRunningAsApp && !showFullWebPortal) {
     return (
       <>
         <MobileLoginView

@@ -24,7 +24,7 @@ const DIVISIONES_PRINCIPALES = [
     metricas: [
       { label: 'Latencia TCP/WS', valor: '< 100ms' },
       { label: 'Seguridad Activa', valor: 'Pánico + Sabotaje' },
-      { label: 'Multi-Plataforma', valor: 'Web + iOS + APK' }
+      { label: 'Multi-Plataforma', valor: 'Web + iOS + Android' }
     ],
     puntosClave: [
       'Detección inmediata de Botón de Pánico en cabina y Sabotaje de batería en tiempo real',
@@ -180,7 +180,7 @@ const ECOSISTEMA_360 = [
     titulo: 'Aplicaciones Móviles Nativas (iOS & Android)',
     etiqueta: 'EXPERIENCIA MÓVIL',
     descripcion: 'Creamos aplicativos móviles de alto rendimiento con interfaz nativa de pantalla completa, notificaciones instantáneas y vistas adaptadas a cada perfil de usuario.',
-    items: ['Instalador APK directo para Android', 'Experiencia WebApp nativa en iPhone (iOS)', 'Modo oscuro de alto contraste y bajo consumo']
+    items: ['Disponible en Google Play Store para Android', 'Experiencia WebApp nativa en iPhone (iOS)', 'Modo oscuro de alto contraste y bajo consumo']
   },
   {
     id: 'vision',
@@ -419,15 +419,16 @@ export default function CopaiMasterPortal({
           </nav>
 
           {/* BOTONES DERECHA: INSTALAR APP E INICIAR SESIÓN */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {!isStandalone && (
               <button
                 onClick={onOpenInstallModal}
-                className="hidden sm:flex items-center gap-2 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-cyan-500/30 bg-slate-900/80 hover:bg-slate-800 text-cyan-300 hover:border-cyan-400 transition-all cursor-pointer shadow-sm active:scale-95"
-                title="Instalar Aplicativo Oficial COPAI en iPhone o Android"
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-cyan-500/30 bg-slate-900/80 hover:bg-slate-800 text-cyan-300 hover:border-cyan-400 transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Instalar Aplicativo Oficial COPAI en iPhone o Google Play"
               >
                 <Smartphone size={15} className="text-cyan-400" />
-                <span>Descargar App</span>
+                <span className="hidden sm:inline">Descargar App</span>
+                <span className="sm:hidden">App</span>
               </button>
             )}
 

@@ -1,6 +1,17 @@
 import React from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Download, Globe, Smartphone, Radio } from 'lucide-react';
-import { getAssetUrl, isNativeApp } from '../config';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Download, Globe, Smartphone, Radio, ExternalLink } from 'lucide-react';
+import { getAssetUrl, isNativeApp, PLAY_STORE_APP_URL, PLAY_STORE_TESTING_URL, APK_DOWNLOAD_URL } from '../config';
+
+function GooglePlayIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" className="flex-shrink-0">
+      <path d="M47.2 24.3C38.3 33.7 33 47.9 33 65.6v380.8c0 17.7 5.3 31.9 14.2 41.3l2.3 2.1 213.6-213.6v-5L49.5 22.2l-2.3 2.1z" fill="#00E676" />
+      <path d="M333.6 344.2l-70.5-70.5v-5l70.5-70.5 1.6.9 83.5 47.4c23.8 13.5 23.8 35.7 0 49.3l-83.5 47.4-1.7 1z" fill="#FFD600" />
+      <path d="M263.1 273.7L49.5 487.3c7.8 8.3 20.8 9.3 35.3 1.1l248.8-141.4-70.5-73.3z" fill="#FF3D00" />
+      <path d="M263.1 238.3l70.5-73.3L84.8 23.6C70.3 15.4 57.3 16.4 49.5 24.7l213.6 213.6z" fill="#00B0FF" />
+    </svg>
+  );
+}
 
 export default function MobileLoginView({
   companyPortal,
@@ -202,31 +213,47 @@ export default function MobileLoginView({
             </button>
           ) : (
             <div className="w-full flex flex-col gap-2">
-              {companyPortal && (
+              {/* Botón Principal: Google Play Store */}
+              <a
+                href={PLAY_STORE_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black flex items-center justify-center gap-2.5 transition-all active:scale-95 no-underline shadow-lg"
+              >
+                <GooglePlayIcon size={18} />
+                <span>Disponible en Google Play</span>
+              </a>
+
+              {/* Acceso Directo de Empresa (PWA) si está disponible */}
+              {companyPortal && onOpenInstallModal && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isInstallable && onTriggerInstall) {
-                      onTriggerInstall();
-                    } else if (onOpenInstallModal) {
-                      onOpenInstallModal();
-                    }
-                  }}
-                  className="w-full py-3 px-4 rounded-2xl text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg"
-                  style={{ backgroundColor: primaryColor }}
+                  onClick={onOpenInstallModal}
+                  className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[11px] font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                 >
-                  <Smartphone size={16} />
-                  <span>Instalar App {companyName}</span>
+                  <Smartphone size={13} style={{ color: primaryColor }} />
+                  <span>Agregar icono de {companyName} a Pantalla</span>
                 </button>
               )}
-              <a
-                href={apkHref}
-                download={apkFileName}
-                className="w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-100 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 no-underline shadow-lg"
-              >
-                <Download size={16} className="text-emerald-400" />
-                <span>Descargar App Oficial COPAI (.APK)</span>
-              </a>
+
+              {/* Enlaces de Verificador de Pruebas y Fallback APK */}
+              <div className="flex items-center justify-between px-1 text-[10px] text-slate-400 pt-0.5">
+                <a
+                  href={PLAY_STORE_TESTING_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sky-400 hover:text-sky-300 font-bold hover:underline"
+                >
+                  Unirse a prueba cerrada
+                </a>
+                <a
+                  href={APK_DOWNLOAD_URL}
+                  download="CopaiGPS.apk"
+                  className="hover:text-slate-300 hover:underline"
+                >
+                  Descargar APK directo
+                </a>
+              </div>
             </div>
           )
         )}
