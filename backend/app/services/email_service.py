@@ -184,13 +184,19 @@ def send_welcome_email(
                                                 {btn_label}
                                             </a>
                                             <br>
-                                            <a href="https://{empresa_slug + '.' if (es_empresa and empresa_slug) else ''}industriascopai.com/descargas/{'HuaynaRoque_GPS.apk' if (es_empresa and empresa_slug and 'huayna' in empresa_slug.lower()) else 'CopaiGPS.apk'}" target="_blank" style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 26px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25); margin-bottom: 10px;">
-                                                🤖 Descargar App Android Oficial (.APK)
+                                            <a href="https://play.google.com/store/apps/details?id=com.industriascopai.gps" target="_blank" style="background: #0f172a; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 26px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25); margin-bottom: 8px; border: 1px solid #334155;">
+                                                <span style="color: #22c55e;">▶</span> Disponible en Google Play (Android)
                                             </a>
                                             <br>
-                                            <a href="{login_url.replace('/login?login=true', '')}?install=true" target="_blank" style="background-color: #0f172a; color: #38bdf8; text-decoration: none; font-size: 12px; font-weight: 600; padding: 9px 20px; border-radius: 8px; display: inline-block; border: 1px solid #1e293b;">
+                                            <a href="{login_url.replace('/login?login=true', '')}?install=true" target="_blank" style="background-color: #f8fafc; color: #0284c7; text-decoration: none; font-size: 12px; font-weight: 600; padding: 8px 20px; border-radius: 8px; display: inline-block; border: 1px solid #e2e8f0; margin-bottom: 10px;">
                                                 📲 Instrucciones para iPhone (iOS)
                                             </a>
+                                            <br>
+                                            <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+                                                <a href="https://play.google.com/apps/testing/com.industriascopai.gps" target="_blank" style="color: #0284c7; text-decoration: underline; font-weight: 600;">Unirse a prueba cerrada en Google Play</a>
+                                                &nbsp;•&nbsp;
+                                                <a href="https://{empresa_slug + '.' if (es_empresa and empresa_slug) else ''}industriascopai.com/descargas/{'HuaynaRoque_GPS.apk' if (es_empresa and empresa_slug and 'huayna' in empresa_slug.lower()) else 'CopaiGPS.apk'}" target="_blank" style="color: #94a3b8; text-decoration: underline;">Descargar APK directo</a>
+                                            </div>
                                         </td>
                                     </tr>
                                 </table>
