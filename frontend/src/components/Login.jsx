@@ -82,6 +82,9 @@ export default function Login() {
   const [forgotMsg, setForgotMsg] = useState('');
   const [forgotError, setForgotError] = useState('');
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // Detección de ejecución como Aplicativo Instalado vs Navegador Web
   // Si está navegando desde un navegador web (Safari, Chrome móvil o PC), siempre renderiza el sitio web corporativo oficial.
   // Solo entra directamente a MobileLoginView si corre como app instalada (Play Store o PWA agregada a inicio en iPhone).
