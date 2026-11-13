@@ -146,9 +146,14 @@ function MapController({
 
     lastFitTriggerRef.current = fitRouteTrigger;
     const bounds = L.latLngBounds([userCoords, targetCoords]);
-    const size = map.getSize();
-    const padX = Math.round(size.x * 0.2) + 35;
-    const padY = Math.round(size.y * 0.2) + 65;
+    const mapSize = map.getSize();
+    const outerEl = map.getContainer()?.parentElement?.parentElement;
+    const viewW = outerEl?.clientWidth || window.innerWidth;
+    const viewH = outerEl?.clientHeight || window.innerHeight;
+    const marginX = Math.max(0, Math.round((mapSize.x - viewW) / 2));
+    const marginY = Math.max(0, Math.round((mapSize.y - viewH) / 2));
+    const padX = marginX + Math.round(viewW * 0.16) + 25;
+    const padY = marginY + Math.round(viewH * 0.18) + 55;
     map.fitBounds(bounds, {
       paddingTopLeft: [padX, padY],
       paddingBottomRight: [padX, padY],
@@ -546,14 +551,14 @@ export default function LiveMap({
         </div>
       )}
 
-      {/* Escenario Rotable 360° (Sobredimensionado al 144% para cubrir las 4 esquinas en cualquier ángulo) */}
+      {/* Escenario Rotable 360° (Cuadrado de 180vmax centrado: cubre 100% de pantallas verticales y horizontales en cualquier ángulo sin esquinas oscuras) */}
       <div
         className="absolute"
         style={{
-          width: '144%',
-          height: '144%',
-          left: '-22%',
-          top: '-22%',
+          width: '180vmax',
+          height: '180vmax',
+          left: 'calc(50% - 90vmax)',
+          top: 'calc(50% - 90vmax)',
           transform: `rotate(${bearing}deg)`,
           transformOrigin: '50% 50%',
           transition: touchRotateRef.current.active ? 'none' : 'transform 0.25s ease-out',
@@ -566,37 +571,28 @@ export default function LiveMap({
           maxZoom={20}
           zoomControl={false}
           className="h-full w-full z-0"
+          style={{
+            backgroundColor: mapStyle === 'day' ? '#e2e8f0' : '#0f172a'
+          }}
         >
           {/* CAPA ACTIVA SEGÚN EL MODO ELEGIDO */}
           {mapStyle === 'dark' ? (
             <TileLayer
               key="dark-tiles"
-              attribution='&copy; OpenStreetMap &copy; CARTO'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              className="copai-dark-tiles"
+              attribution='&copy; OpenStreetMap'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxNativeZoom={19}
               maxZoom={20}
             />
           ) : mapStyle === 'satellite' ? (
-            <>
-              <TileLayer
-                key="sat-base"
-                attribution='&copy; Esri World Imagery'
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                maxNativeZoom={19}
-                maxZoom={20}
-              />
-              <TileLayer
-                key="sat-roads"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
-                maxNativeZoom={19}
-                maxZoom={20}
-              />
-              <TileLayer
-                key="sat-labels"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                maxNativeZoom={19}
-                maxZoom={20}
-              />
-            </>
+            <TileLayer
+              key="sat-hybrid"
+              attribution='&copy; Google Satellite Hybrid'
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+              maxNativeZoom={18}
+              maxZoom={20}
+            />
           ) : (
             <TileLayer
               key="day-tiles"

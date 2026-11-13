@@ -69,8 +69,10 @@ export default function MobileLoginView({
       {/* Cabecera / Identidad de la Empresa (Compacta y luminosa) */}
       <div className="relative z-10 text-center flex-shrink-0">
         <div
-          className="inline-flex items-center justify-center p-2 bg-white rounded-2xl shadow-2xl mb-2 ring-2 transition-transform"
+          className="w-16 h-16 inline-flex items-center justify-center p-2 bg-white rounded-2xl shadow-2xl mb-2 ring-2 transition-transform"
           style={{
+            width: '64px',
+            height: '64px',
             borderColor: isCopaiMaster ? '#38bdf8' : primaryColor,
             boxShadow: isCopaiMaster
               ? '0 8px 28px rgba(14, 165, 233, 0.38), 0 0 0 3px rgba(56, 189, 248, 0.28)'
@@ -80,7 +82,8 @@ export default function MobileLoginView({
           <img 
             src={logoSrc} 
             alt={companyName}
-            className="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl"
+            className="w-12 h-12 object-contain rounded-xl"
+            style={{ width: '48px', height: '48px', maxWidth: '48px', maxHeight: '48px' }}
             onError={(e) => { e.target.src = '/copai-symbol.png'; }}
           />
         </div>

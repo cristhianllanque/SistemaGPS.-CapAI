@@ -108,3 +108,15 @@ main .fixed.inset-0 > div {
   transform: rotate(var(--map-counter-rotate, 0deg));
   transform-origin: center center;
 }
+
+/* Modo Oscuro Nativo sobre OpenStreetMap (100% libre de API Key y disponible en todo el Perú) */
+.copai-dark-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* Evitar líneas blancas sub-píxel entre cuadros de mapa al rotar en iOS Safari / Android */
+.leaflet-tile-container img.leaflet-tile {
+  outline: 1px solid transparent;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}

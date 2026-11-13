@@ -437,36 +437,32 @@ export default function HistorialRutas() {
 
         {/* Leaflet Map */}
         <div className="flex-1 relative z-0">
-          <MapContainer center={mapCenter} zoom={13} maxZoom={20} className="h-full w-full">
+          <MapContainer
+            center={mapCenter}
+            zoom={13}
+            maxZoom={20}
+            className="h-full w-full"
+            style={{
+              backgroundColor: mapStyle === 'day' ? '#e2e8f0' : '#0f172a'
+            }}
+          >
             {mapStyle === 'dark' ? (
               <TileLayer
                 key="hist-dark"
-                attribution='&copy; OpenStreetMap &copy; CARTO'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                className="copai-dark-tiles"
+                attribution='&copy; OpenStreetMap'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maxNativeZoom={19}
                 maxZoom={20}
               />
             ) : mapStyle === 'satellite' ? (
-              <>
-                <TileLayer
-                  key="hist-sat-base"
-                  attribution='&copy; Esri World Imagery'
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                  maxNativeZoom={19}
-                  maxZoom={20}
-                />
-                <TileLayer
-                  key="hist-sat-roads"
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
-                  maxNativeZoom={19}
-                  maxZoom={20}
-                />
-                <TileLayer
-                  key="hist-sat-labels"
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                  maxNativeZoom={19}
-                  maxZoom={20}
-                />
-              </>
+              <TileLayer
+                key="hist-sat-hybrid"
+                attribution='&copy; Google Satellite Hybrid'
+                url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                maxNativeZoom={18}
+                maxZoom={20}
+              />
             ) : (
               <TileLayer
                 key="hist-day"

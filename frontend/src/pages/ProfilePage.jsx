@@ -87,7 +87,7 @@ export default function ProfilePage() {
       {/* Cabecera de Identidad Personal y Empresa */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         <div
-          className="h-16 sm:h-22 w-full relative overflow-hidden"
+          className="h-16 sm:h-20 w-full relative overflow-hidden"
           style={{
             background: `linear-gradient(135deg, #0f172a 0%, ${primaryColor} 100%)`
           }}
@@ -102,19 +102,24 @@ export default function ProfilePage() {
         </div>
         <div className="px-4 sm:px-5 pb-5 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="-mt-9 sm:-mt-11 w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 ring-4 ring-white flex items-center justify-center flex-shrink-0 relative z-10">
+            <div
+              className="-mt-8 sm:-mt-10 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 ring-4 ring-white flex items-center justify-center flex-shrink-0 relative z-10 overflow-hidden"
+              style={{ width: '68px', height: '68px', minWidth: '68px', minHeight: '68px' }}
+            >
               {empresa?.logo_url ? (
                 <img
                   src={getAssetUrl(empresa.logo_url)}
                   alt={empresa.nombre || 'Empresa'}
-                  className="w-full h-full object-contain rounded-xl"
+                  className="w-14 h-14 object-contain rounded-xl"
+                  style={{ width: '54px', height: '54px', maxWidth: '54px', maxHeight: '54px' }}
                   onError={(e) => { e.target.src = '/copai-symbol.png'; }}
                 />
               ) : usuario?.rol === 'superadmin' ? (
                 <img
                   src="/copai-symbol.png"
                   alt="COPAI"
-                  className="w-full h-full object-contain rounded-xl"
+                  className="w-14 h-14 object-contain rounded-xl"
+                  style={{ width: '54px', height: '54px', maxWidth: '54px', maxHeight: '54px' }}
                 />
               ) : (
                 <div
