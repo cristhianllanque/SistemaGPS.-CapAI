@@ -65,7 +65,17 @@ export default function MonitoringPage() {
     if (typeof window === 'undefined') return false;
     return isNativeApp || window.innerWidth < 768;
   });
-  const [userLocation, setUserLocation] = useState(null);
+  const [userLocation, setUserLocation] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('copai_last_user_gps');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number' && Date.now() - (parsed.ts || 0) < 15 * 60 * 1000) {
+        return { lat: parsed.lat, lng: parsed.lng, accuracy: parsed.accuracy || 25 };
+      }
+    } catch {}
+    return null;
+  });
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [routeTargetVehicleId, setRouteTargetVehicleId] = useState(null);
   const [routePoints, setRoutePoints] = useState([]);
@@ -76,6 +86,14 @@ export default function MonitoringPage() {
 
   const geoWatchIdRef = useRef(null);
   const lastRoutedCoordsRef = useRef(null);
+  const routeCacheRef = useRef({});
+
+  const saveUserGpsToCache = useCallback((coords) => {
+    setUserLocation(coords);
+    try {
+      sessionStorage.setItem('copai_last_user_gps', JSON.stringify({ ...coords, ts: Date.now() }));
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const onResize = () => {
@@ -103,15 +121,33 @@ export default function MonitoringPage() {
 
     setIsLocatingUser(true);
 
-    // Lectura rápida inicial + seguimiento continuo de alta precisión
+    // 1. Nivel Ultrarrápido (< 50 ms): Usa caché/red inmediata para no hacer esperar al usuario
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy || 20
+          accuracy: pos.coords.accuracy || 25
         };
-        setUserLocation(coords);
+        saveUserGpsToCache(coords);
+        setIsLocatingUser(false);
+        if (shouldCenterOnUser) {
+          setCenterUserTrigger((prev) => prev + 1);
+        }
+      },
+      () => {},
+      { enableHighAccuracy: false, timeout: 2500, maximumAge: 180000 }
+    );
+
+    // 2. Nivel Alta Precisión GPS en paralelo
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy || 15
+        };
+        saveUserGpsToCache(coords);
         setIsLocatingUser(false);
         if (shouldCenterOnUser) {
           setCenterUserTrigger((prev) => prev + 1);
@@ -120,13 +156,13 @@ export default function MonitoringPage() {
       () => {
         setIsLocatingUser(false);
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
     );
 
     if (geoWatchIdRef.current === null) {
       geoWatchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          setUserLocation({
+          saveUserGpsToCache({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             accuracy: pos.coords.accuracy || 20
@@ -140,7 +176,22 @@ export default function MonitoringPage() {
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 4000 }
       );
     }
-  }, []);
+  }, [saveUserGpsToCache]);
+
+  // Pre-calentar silenciosamente el GPS en móvil si el permiso ya fue otorgado previamente
+  useEffect(() => {
+    if (!isMobileApp || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions
+        .query({ name: 'geolocation' })
+        .then((res) => {
+          if (res.state === 'granted') {
+            ensureUserLocationWatching(false);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isMobileApp, ensureUserLocationWatching]);
 
   const handleLocateMe = () => {
     if (userLocation) {
@@ -562,7 +613,7 @@ export default function MonitoringPage() {
     siren.stop();
   };
 
-  // Calcular la ruta vial por calles (OSRM) desde el celular hasta el vehículo objetivo
+  // Calcular la ruta vial por calles desde el celular hasta el vehículo objetivo (Trazo Instantáneo 0.0s + Ajuste Vial Ultrarrápido)
   useEffect(() => {
     if (!isMobileApp || !routeTargetVehicleId || !userLocation) return;
 
@@ -577,9 +628,9 @@ export default function MonitoringPage() {
 
     if (isNaN(uLat) || isNaN(uLng) || isNaN(vLat) || isNaN(vLng)) return;
 
-    // Evitar recalcular OSRM si ni el usuario ni el vehículo se han movido al menos 18 metros
+    // Evitar recalcular si ni el usuario ni el vehículo se han movido al menos 18 metros
     const prev = lastRoutedCoordsRef.current;
-    if (prev) {
+    if (prev && prev.vehId === routeTargetVehicleId) {
       const movedUser = calcDistanceMeters(prev.uLat, prev.uLng, uLat, uLng);
       const movedVeh = calcDistanceMeters(prev.vLat, prev.vLng, vLat, vLng);
       if (movedUser < 18 && movedVeh < 18) {
@@ -587,58 +638,83 @@ export default function MonitoringPage() {
       }
     }
 
-    const isFirstRouteCalc = !prev;
-    lastRoutedCoordsRef.current = { uLat, uLng, vLat, vLng };
+    const isFirstRouteCalc = !prev || prev.vehId !== routeTargetVehicleId;
+    lastRoutedCoordsRef.current = { vehId: routeTargetVehicleId, uLat, uLng, vLat, vLng };
+
+    const directMeters = calcDistanceMeters(uLat, uLng, vLat, vLng);
+    const estimatedRoadMeters = Math.round(directMeters * 1.22);
+    const estimatedDurationSec = Math.max(60, Math.round((estimatedRoadMeters / 1000 / 32) * 3600));
+
+    // 1. PINTADO Y ENCUADRE INSTANTÁNEO (0.0 segundos, sin esperar al servidor externo)
+    const cached = routeCacheRef.current[routeTargetVehicleId];
+    if (
+      cached &&
+      calcDistanceMeters(cached.uLat, cached.uLng, uLat, uLng) < 35 &&
+      calcDistanceMeters(cached.vLat, cached.vLng, vLat, vLng) < 35
+    ) {
+      setRoutePoints(cached.points);
+      setRouteSummary(cached.summary);
+      setRouteLoading(false);
+      if (isFirstRouteCalc) {
+        setFitRouteTrigger((t) => t + 1);
+      }
+      return;
+    }
+
+    // Mostrar trazo inmediato y encuadrar la cámara al instante ("al toque")
+    setRoutePoints((curr) => (isFirstRouteCalc || curr.length < 2 ? [[uLat, uLng], [vLat, vLng]] : curr));
+    setRouteSummary((curr) =>
+      isFirstRouteCalc || !curr
+        ? {
+            distanceMeters: estimatedRoadMeters,
+            durationSeconds: estimatedDurationSec,
+            isDirectFallback: true
+          }
+        : curr
+    );
+    if (isFirstRouteCalc) {
+      setFitRouteTrigger((t) => t + 1);
+    }
 
     let cancelled = false;
     setRouteLoading(true);
 
-    const directMeters = calcDistanceMeters(uLat, uLng, vLat, vLng);
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${vLng},${vLat}?overview=full&geometries=geojson`;
+    // 2. COMPETENCIA EN PARALELO DE DOS SERVIDORES DE RUTEO RÁPIDOS (Geometría por calles)
+    const coordPair = `${uLng},${uLat};${vLng},${vLat}`;
+    const fetchFromRouter = (baseUrl) =>
+      axios.get(`${baseUrl}/${coordPair}?overview=full&geometries=geojson`, { timeout: 3200 }).then((res) => {
+        const r = res.data?.routes?.[0];
+        if (!r || !r.geometry?.coordinates || r.geometry.coordinates.length < 2) {
+          throw new Error('Empty route');
+        }
+        return r;
+      });
 
-    axios
-      .get(osrmUrl, { timeout: 6000 })
-      .then((res) => {
+    Promise.any([
+      fetchFromRouter('https://routing.openstreetmap.de/routed-car/route/v1/driving'),
+      fetchFromRouter('https://router.project-osrm.org/route/v1/driving')
+    ])
+      .then((route) => {
         if (cancelled) return;
-        const route = res.data?.routes?.[0];
-        if (route && route.geometry?.coordinates?.length >= 2) {
-          const coordsLatLng = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
-          setRoutePoints(coordsLatLng);
-          setRouteSummary({
-            distanceMeters: route.distance ?? directMeters,
-            durationSeconds: route.duration ?? Math.max(60, (directMeters / 1000 / 30) * 3600),
-            isDirectFallback: false
-          });
-        } else {
-          setRoutePoints([
-            [uLat, uLng],
-            [vLat, vLng]
-          ]);
-          setRouteSummary({
-            distanceMeters: directMeters,
-            durationSeconds: Math.max(60, (directMeters / 1000 / 30) * 3600),
-            isDirectFallback: true
-          });
-        }
-        if (isFirstRouteCalc) {
-          setFitRouteTrigger((t) => t + 1);
-        }
+        const coordsLatLng = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+        const summary = {
+          distanceMeters: route.distance ?? estimatedRoadMeters,
+          durationSeconds: route.duration ?? estimatedDurationSec,
+          isDirectFallback: false
+        };
+        routeCacheRef.current[routeTargetVehicleId] = {
+          uLat,
+          uLng,
+          vLat,
+          vLng,
+          points: coordsLatLng,
+          summary
+        };
+        setRoutePoints(coordsLatLng);
+        setRouteSummary(summary);
       })
       .catch(() => {
-        if (cancelled) return;
-        // Respaldo instantáneo si no hay respuesta del servidor OSRM
-        setRoutePoints([
-          [uLat, uLng],
-          [vLat, vLng]
-        ]);
-        setRouteSummary({
-          distanceMeters: directMeters,
-          durationSeconds: Math.max(60, (directMeters / 1000 / 30) * 3600),
-          isDirectFallback: true
-        });
-        if (isFirstRouteCalc) {
-          setFitRouteTrigger((t) => t + 1);
-        }
+        // Ya está dibujado el trazo instantáneo en pantalla; no hace falta bloquear ni borrar nada
       })
       .finally(() => {
         if (!cancelled) setRouteLoading(false);

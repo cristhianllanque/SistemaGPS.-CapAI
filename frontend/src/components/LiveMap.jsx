@@ -779,6 +779,7 @@ export default function LiveMap({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            mapInstanceRef.current?.closePopup();
                             onStartRouteToVehicle(v.id);
                           }}
                           className="w-full py-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95"
