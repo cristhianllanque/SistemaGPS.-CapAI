@@ -429,3 +429,42 @@ def test_push_notification(
     )
     return {"status": "ok", "sent": sent}
 
+
+@router.get("/route")
+def get_street_route(
+    u_lat: float,
+    u_lng: float,
+    v_lat: float,
+    v_lng: float,
+):
+    """
+    Calcula la ruta vial exacta por calles (geometría GeoJSON) desde el servidor EC2
+    hacia los motores OSRM / OpenStreetMap, evitando bloqueos o lentitud de operadoras móviles.
+    """
+    import json
+    import urllib.request
+
+    coords = f"{u_lng},{u_lat};{v_lng},{v_lat}"
+    endpoints = [
+        f"https://routing.openstreetmap.de/routed-car/route/v1/driving/{coords}?overview=full&geometries=geojson",
+        f"https://router.project-osrm.org/route/v1/driving/{coords}?overview=full&geometries=geojson",
+    ]
+    headers = {
+        "User-Agent": "CopAI-Telematics-GPS/2.0 (https://industriascopai.com)",
+        "Accept": "application/json",
+    }
+
+    for url in endpoints:
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                routes = data.get("routes") or []
+                if routes and routes[0].get("geometry", {}).get("coordinates"):
+                    return data
+        except Exception:
+            continue
+
+    raise HTTPException(status_code=502, detail="No se pudo obtener ruta vial en este momento")
+
+

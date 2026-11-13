@@ -86,6 +86,8 @@ export default function MonitoringPage() {
 
   const geoWatchIdRef = useRef(null);
   const lastRoutedCoordsRef = useRef(null);
+  const inFlightRouteRef = useRef(null);
+  const routeReqIdRef = useRef(0);
   const routeCacheRef = useRef({});
 
   const saveUserGpsToCache = useCallback((coords) => {
@@ -201,19 +203,27 @@ export default function MonitoringPage() {
   };
 
   const handleStartRouteToVehicle = (vehiculoId) => {
+    routeReqIdRef.current += 1;
+    inFlightRouteRef.current = null;
+    lastRoutedCoordsRef.current = null;
+    if (routeTargetVehicleId !== vehiculoId && !routeCacheRef.current[vehiculoId]) {
+      setRoutePoints([]);
+      setRouteSummary(null);
+    }
     setSelectedVehicleId(vehiculoId);
     setRouteTargetVehicleId(vehiculoId);
-    lastRoutedCoordsRef.current = null;
     ensureUserLocationWatching(false);
     setFitRouteTrigger((prev) => prev + 1);
   };
 
   const handleStopRoute = () => {
+    routeReqIdRef.current += 1;
+    inFlightRouteRef.current = null;
+    lastRoutedCoordsRef.current = null;
     setRouteTargetVehicleId(null);
     setRoutePoints([]);
     setRouteSummary(null);
     setRouteLoading(false);
-    lastRoutedCoordsRef.current = null;
   };
 
   const WS_URL = token 
@@ -613,95 +623,113 @@ export default function MonitoringPage() {
     siren.stop();
   };
 
-  // Calcular la ruta vial por calles desde el celular hasta el vehículo objetivo (Trazo Instantáneo 0.0s + Ajuste Vial Ultrarrápido)
+  // Coordenadas primitivas del vehículo objetivo (evita que actualizaciones WebSocket de otros carros cancelen la petición OSRM en vuelo)
+  const routedTargetVeh = useMemo(
+    () => (routeTargetVehicleId ? vehiculos.find((v) => v.id === routeTargetVehicleId) : null),
+    [vehiculos, routeTargetVehicleId]
+  );
+  const targetVehLat = routedTargetVeh?.ultima_lectura?.latitud != null ? Number(routedTargetVeh.ultima_lectura.latitud) : null;
+  const targetVehLng = routedTargetVeh?.ultima_lectura?.longitud != null ? Number(routedTargetVeh.ultima_lectura.longitud) : null;
+
+  // Calcular la ruta vial real por calles desde el celular hasta el vehículo objetivo
   useEffect(() => {
     if (!isMobileApp || !routeTargetVehicleId || !userLocation) return;
-
-    const targetVeh = vehiculos.find((v) => v.id === routeTargetVehicleId);
-    const u = targetVeh?.ultima_lectura;
-    if (!u || u.latitud == null || u.longitud == null) return;
+    if (targetVehLat === null || targetVehLng === null) return;
 
     const uLat = Number(userLocation.lat);
     const uLng = Number(userLocation.lng);
-    const vLat = Number(u.latitud);
-    const vLng = Number(u.longitud);
+    const vLat = targetVehLat;
+    const vLng = targetVehLng;
 
     if (isNaN(uLat) || isNaN(uLng) || isNaN(vLat) || isNaN(vLng)) return;
 
-    // Evitar recalcular si ni el usuario ni el vehículo se han movido al menos 18 metros
-    const prev = lastRoutedCoordsRef.current;
-    if (prev && prev.vehId === routeTargetVehicleId) {
-      const movedUser = calcDistanceMeters(prev.uLat, prev.uLng, uLat, uLng);
-      const movedVeh = calcDistanceMeters(prev.vLat, prev.vLng, vLat, vLng);
-      if (movedUser < 18 && movedVeh < 18) {
-        return;
-      }
-    }
-
-    const isFirstRouteCalc = !prev || prev.vehId !== routeTargetVehicleId;
-    lastRoutedCoordsRef.current = { vehId: routeTargetVehicleId, uLat, uLng, vLat, vLng };
-
-    const directMeters = calcDistanceMeters(uLat, uLng, vLat, vLng);
-    const estimatedRoadMeters = Math.round(directMeters * 1.22);
-    const estimatedDurationSec = Math.max(60, Math.round((estimatedRoadMeters / 1000 / 32) * 3600));
-
-    // 1. PINTADO Y ENCUADRE INSTANTÁNEO (0.0 segundos, sin esperar al servidor externo)
+    // 1. Si tenemos ruta vial en caché a menos de 30m, usarla al instante
     const cached = routeCacheRef.current[routeTargetVehicleId];
     if (
       cached &&
-      calcDistanceMeters(cached.uLat, cached.uLng, uLat, uLng) < 35 &&
-      calcDistanceMeters(cached.vLat, cached.vLng, vLat, vLng) < 35
+      calcDistanceMeters(cached.uLat, cached.uLng, uLat, uLng) < 30 &&
+      calcDistanceMeters(cached.vLat, cached.vLng, vLat, vLng) < 30
     ) {
       setRoutePoints(cached.points);
       setRouteSummary(cached.summary);
       setRouteLoading(false);
-      if (isFirstRouteCalc) {
+      if (!lastRoutedCoordsRef.current || lastRoutedCoordsRef.current.vehId !== routeTargetVehicleId) {
+        lastRoutedCoordsRef.current = { vehId: routeTargetVehicleId, uLat, uLng, vLat, vLng };
         setFitRouteTrigger((t) => t + 1);
       }
       return;
     }
 
-    // Mostrar trazo inmediato y encuadrar la cámara al instante ("al toque")
-    setRoutePoints((curr) => (isFirstRouteCalc || curr.length < 2 ? [[uLat, uLng], [vLat, vLng]] : curr));
-    setRouteSummary((curr) =>
-      isFirstRouteCalc || !curr
-        ? {
-            distanceMeters: estimatedRoadMeters,
-            durationSeconds: estimatedDurationSec,
-            isDirectFallback: true
-          }
-        : curr
-    );
-    if (isFirstRouteCalc) {
+    // 2. Evitar recalcular si ya se trazó la ruta vial (o ya está en vuelo) y ni el usuario ni el vehículo se han movido al menos 25 metros
+    const prev = lastRoutedCoordsRef.current;
+    if (prev && prev.vehId === routeTargetVehicleId) {
+      const movedUser = calcDistanceMeters(prev.uLat, prev.uLng, uLat, uLng);
+      const movedVeh = calcDistanceMeters(prev.vLat, prev.vLng, vLat, vLng);
+      if (movedUser < 25 && movedVeh < 25) {
+        return;
+      }
+    }
+
+    const inFlight = inFlightRouteRef.current;
+    if (inFlight && inFlight.vehId === routeTargetVehicleId) {
+      const movedUser = calcDistanceMeters(inFlight.uLat, inFlight.uLng, uLat, uLng);
+      const movedVeh = calcDistanceMeters(inFlight.vLat, inFlight.vLng, vLat, vLng);
+      if (movedUser < 30 && movedVeh < 30) {
+        return;
+      }
+    }
+
+    const isFirstRouteForVeh = !prev || prev.vehId !== routeTargetVehicleId;
+    if (isFirstRouteForVeh) {
+      // Encuadrar la cámara de inmediato mostrando "Tú" y el vehículo mientras se traza por las calles
       setFitRouteTrigger((t) => t + 1);
     }
 
-    let cancelled = false;
+    const reqId = ++routeReqIdRef.current;
+    inFlightRouteRef.current = { reqId, vehId: routeTargetVehicleId, uLat, uLng, vLat, vLng };
     setRouteLoading(true);
 
-    // 2. COMPETENCIA EN PARALELO DE DOS SERVIDORES DE RUTEO RÁPIDOS (Geometría por calles)
+    const directMeters = calcDistanceMeters(uLat, uLng, vLat, vLng);
+    const estimatedRoadMeters = Math.round(directMeters * 1.25);
+    const estimatedDurationSec = Math.max(60, Math.round((estimatedRoadMeters / 1000 / 30) * 3600));
+
+    // 3. Competencia en paralelo: Servidor propio EC2 (/api/pwa/route) + OpenStreetMap DE + OSRM Oficial
     const coordPair = `${uLng},${uLat};${vLng},${vLat}`;
-    const fetchFromRouter = (baseUrl) =>
-      axios.get(`${baseUrl}/${coordPair}?overview=full&geometries=geojson`, { timeout: 3200 }).then((res) => {
-        const r = res.data?.routes?.[0];
-        if (!r || !r.geometry?.coordinates || r.geometry.coordinates.length < 2) {
-          throw new Error('Empty route');
-        }
-        return r;
-      });
+    const parseRouteResponse = (res) => {
+      const r = res.data?.routes?.[0];
+      if (!r || !r.geometry?.coordinates || r.geometry.coordinates.length < 2) {
+        throw new Error('Ruta sin geometría vial');
+      }
+      return r;
+    };
 
     Promise.any([
-      fetchFromRouter('https://routing.openstreetmap.de/routed-car/route/v1/driving'),
-      fetchFromRouter('https://router.project-osrm.org/route/v1/driving')
+      axios
+        .get(`${API}/api/pwa/route`, {
+          params: { u_lat: uLat, u_lng: uLng, v_lat: vLat, v_lng: vLng },
+          timeout: 8000
+        })
+        .then(parseRouteResponse),
+      axios
+        .get(`https://routing.openstreetmap.de/routed-car/route/v1/driving/${coordPair}?overview=full&geometries=geojson`, {
+          timeout: 8000
+        })
+        .then(parseRouteResponse),
+      axios
+        .get(`https://router.project-osrm.org/route/v1/driving/${coordPair}?overview=full&geometries=geojson`, {
+          timeout: 8000
+        })
+        .then(parseRouteResponse)
     ])
       .then((route) => {
-        if (cancelled) return;
+        if (routeReqIdRef.current !== reqId) return;
         const coordsLatLng = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
         const summary = {
           distanceMeters: route.distance ?? estimatedRoadMeters,
           durationSeconds: route.duration ?? estimatedDurationSec,
           isDirectFallback: false
         };
+        lastRoutedCoordsRef.current = { vehId: routeTargetVehicleId, uLat, uLng, vLat, vLng };
         routeCacheRef.current[routeTargetVehicleId] = {
           uLat,
           uLng,
@@ -712,18 +740,21 @@ export default function MonitoringPage() {
         };
         setRoutePoints(coordsLatLng);
         setRouteSummary(summary);
+        if (isFirstRouteForVeh) {
+          setFitRouteTrigger((t) => t + 1);
+        }
       })
-      .catch(() => {
-        // Ya está dibujado el trazo instantáneo en pantalla; no hace falta bloquear ni borrar nada
+      .catch((err) => {
+        if (routeReqIdRef.current !== reqId) return;
+        console.warn('Aviso ruteo vial:', err);
       })
       .finally(() => {
-        if (!cancelled) setRouteLoading(false);
+        if (routeReqIdRef.current === reqId) {
+          inFlightRouteRef.current = null;
+          setRouteLoading(false);
+        }
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isMobileApp, routeTargetVehicleId, userLocation, vehiculos]);
+  }, [isMobileApp, routeTargetVehicleId, userLocation?.lat, userLocation?.lng, targetVehLat, targetVehLng]);
 
   const handleSaveSpeedLimit = async (e) => {
     e.preventDefault();
