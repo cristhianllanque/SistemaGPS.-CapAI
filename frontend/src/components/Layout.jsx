@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Radio, Truck, Users, Link2, Map, AlertTriangle, Route,
-  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car, Smartphone, User
+  LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car, Smartphone, User, Bell, BellRing
 } from 'lucide-react';
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
@@ -12,6 +12,12 @@ import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
 import MobileBottomNav from './MobileBottomNav';
 import { emitLiveSync, useLiveSync } from '../utils/liveSync';
+import {
+  getNotificationPermissionState,
+  subscribeUserToPush,
+  sendTestPushNotification,
+  showSystemNotification
+} from '../utils/pushNotifications';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin'] },
@@ -41,6 +47,45 @@ export default function Layout() {
   const primaryColor = empresa?.color_primario || '#4F46E5';
 
   const [activeAlert, setActiveAlert] = useState(null);
+  const [pushPermission, setPushPermission] = useState(() => getNotificationPermissionState());
+  const [pushToast, setPushToast] = useState('');
+
+  // Sincronizar automáticamente suscripción Web Push si el usuario ya concedió permiso previamente
+  useEffect(() => {
+    if (!token) return;
+    if (getNotificationPermissionState() === 'granted') {
+      subscribeUserToPush(token, false).then(() => {
+        setPushPermission(getNotificationPermissionState());
+      });
+    }
+  }, [token]);
+
+  const handleTogglePushNotifications = async () => {
+    siren.playSpeedBeep();
+    if (getNotificationPermissionState() === 'unsupported') {
+      if (isIOS && !isStandalone) {
+        setShowPrompt(true);
+        setPushToast('En iPhone: primero agrega la App a Inicio para recibir alertas en el bolsillo.');
+        setTimeout(() => setPushToast(''), 4500);
+        return;
+      }
+      setPushToast('Tu navegador actual no soporta notificaciones en segundo plano.');
+      setTimeout(() => setPushToast(''), 4000);
+      return;
+    }
+
+    const result = await subscribeUserToPush(token, true);
+    setPushPermission(getNotificationPermissionState());
+
+    if (result.ok) {
+      await sendTestPushNotification(token);
+      setPushToast('🔔 ¡Alertas de bolsillo activadas! Recibirás sonido ante Pánico, Sabotaje o Velocidad.');
+      setTimeout(() => setPushToast(''), 4500);
+    } else if (result.reason === 'denied') {
+      setPushToast('Permiso de notificaciones bloqueado en los ajustes de tu teléfono.');
+      setTimeout(() => setPushToast(''), 4500);
+    }
+  };
 
   // Sincronizar cabecera/colores/logo en caliente si se actualiza la empresa localmente
   useLiveSync(['empresas'], (detail) => {
@@ -92,6 +137,13 @@ export default function Layout() {
     if (lastJsonMessage.type === 'panic_alert') {
       // Trigger emergency siren sound in the browser
       siren.start();
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        showSystemNotification(
+          `🚨 ¡BOTÓN DE PÁNICO! (${lastJsonMessage.placa || 'UNIDAD'})`,
+          `Emergencia SOS activada por ${lastJsonMessage.conductor || 'conductor'}.`,
+          `copai-panic-${lastJsonMessage.vehiculo_id}`
+        );
+      }
       
       // Show modal when panic alert comes via websocket
       setActiveAlert({
@@ -106,6 +158,16 @@ export default function Layout() {
       });
       emitLiveSync({ type: 'entity_updated', entity: 'alertas', empresa_id: lastJsonMessage.empresa_id });
     } else if (lastJsonMessage.type === 'speed_alert') {
+      // Play notification tone for speed excess alert
+      siren.playSpeedBeep();
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        showSystemNotification(
+          `⚡ EXCESO DE VELOCIDAD (${lastJsonMessage.placa || 'UNIDAD'})`,
+          `Circula a ${lastJsonMessage.velocidad} km/h (Límite: ${lastJsonMessage.limite} km/h).`,
+          `copai-speed-${lastJsonMessage.vehiculo_id}`
+        );
+      }
+
       // Show modal for speed excess alert
       setActiveAlert({
         id: lastJsonMessage.alerta_id,
@@ -123,6 +185,13 @@ export default function Layout() {
     } else if (lastJsonMessage.type === 'sabotage_alert') {
       // Trigger emergency siren sound for battery sabotage
       siren.start();
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        showSystemNotification(
+          `🛡️ ¡SABOTAJE DE BATERÍA! (${lastJsonMessage.placa || 'UNIDAD'})`,
+          `Corte de energía detectado (${lastJsonMessage.bateria_ext ?? 0}V).`,
+          `copai-sabotage-${lastJsonMessage.vehiculo_id}`
+        );
+      }
       setActiveAlert({
         id: lastJsonMessage.alerta_id,
         vehiculo_id: lastJsonMessage.vehiculo_id,
@@ -225,6 +294,13 @@ export default function Layout() {
         />
       )}
 
+      {/* Toast de Confirmación de Notificaciones en Segundo Plano */}
+      {pushToast && (
+        <div className="fixed top-16 md:top-5 left-1/2 -translate-x-1/2 z-[150] bg-slate-900/95 text-white border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2 max-w-[92vw] animate-in fade-in">
+          <span>{pushToast}</span>
+        </div>
+      )}
+
       {/* Sidebar Desktop */}
       <aside
         className={`${collapsed ? 'w-[72px]' : 'w-64'} bg-slate-900 text-white hidden md:flex flex-col transition-all duration-300 ease-in-out flex-shrink-0 z-50`}
@@ -242,7 +318,7 @@ export default function Layout() {
             <img 
               src="/copai-symbol.png" 
               alt="COPAI" 
-              className="w-9 h-9 object-contain flex-shrink-0 drop-shadow"
+              className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
             />
           )}
           {!collapsed && (
@@ -370,7 +446,7 @@ export default function Layout() {
               <img 
                 src="/copai-symbol.png" 
                 alt="COPAI" 
-                className="w-8 h-8 object-contain flex-shrink-0 drop-shadow"
+                className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow flex-shrink-0"
               />
             )}
             <div className="overflow-hidden">
@@ -391,6 +467,25 @@ export default function Layout() {
                 <span>¡SOS!</span>
               </span>
             )}
+            <button
+              type="button"
+              onClick={handleTogglePushNotifications}
+              className={`p-2 rounded-lg transition-all cursor-pointer relative ${
+                pushPermission === 'granted'
+                  ? 'text-emerald-400 hover:bg-slate-800'
+                  : 'text-amber-400 bg-amber-500/15 border border-amber-400/30 hover:bg-amber-500/25'
+              }`}
+              title={
+                pushPermission === 'granted'
+                  ? 'Alertas con sonido en segundo plano activas (Toca para probar)'
+                  : 'Activar notificaciones con sonido cuando el celular esté en el bolsillo'
+              }
+            >
+              {pushPermission === 'granted' ? <BellRing size={15} /> : <Bell size={15} />}
+              {pushPermission !== 'granted' && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              )}
+            </button>
             {!isStandalone && !isNativeApp && (
               <button
                 onClick={() => setShowPrompt(true)}

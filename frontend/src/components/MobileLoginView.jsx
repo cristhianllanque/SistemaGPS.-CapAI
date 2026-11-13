@@ -34,96 +34,124 @@ export default function MobileLoginView({
   isAndroid,
   onResetCompany
 }) {
+  const isCopaiMaster = !companyPortal;
   const primaryColor = companyPortal?.color_primario || '#0284c7';
   const companyName = companyPortal?.nombre || 'COPAI Telematics GPS';
   const logoSrc = companyPortal?.logo_url ? getAssetUrl(companyPortal.logo_url) : '/copai-symbol.png';
-  const apkHref = 'https://industriascopai.com/descargas/CopaiGPS.apk';
-  const apkFileName = 'CopaiGPS.apk';
 
   return (
     <div
-      className="min-h-screen bg-slate-950 text-white flex flex-col justify-between px-5 relative overflow-hidden select-none"
+      className="h-[100dvh] max-h-[100dvh] bg-slate-950 text-white flex flex-col justify-between px-5 relative overflow-hidden select-none"
       style={{
-        paddingTop: 'calc(1.5rem + var(--android-safe-top, 0px))',
-        paddingBottom: 'calc(1.5rem + var(--android-safe-bottom, 0px))',
+        paddingTop: 'max(0.85rem, calc(0.5rem + var(--android-safe-top, 0px)), calc(0.5rem + env(safe-area-inset-top, 0px)))',
+        paddingBottom: 'max(0.9rem, calc(0.65rem + var(--android-safe-bottom, 0px)), calc(0.65rem + env(safe-area-inset-bottom, 0px)))',
         boxShadow: '0 -100px 0 100px #020617, 0 100px 0 100px #020617'
       }}
     >
       
-      {/* Luces y degradados de fondo inmersivos (alejados del borde superior para mantener el status bar 100% oscuro) */}
-      <div className="absolute top-[18%] left-[10%] w-[320px] h-[320px] rounded-full blur-[120px] opacity-15 pointer-events-none"
-        style={{ backgroundColor: primaryColor }}
+      {/* Luces y degradados de fondo inmersivos (Blanco/Azul Cian Corporativo CopAI o color de empresa) */}
+      <div
+        className="absolute top-[12%] left-[8%] w-[280px] h-[280px] rounded-full blur-[110px] opacity-25 pointer-events-none"
+        style={{ backgroundColor: isCopaiMaster ? '#0ea5e9' : primaryColor }}
       />
-      <div className="absolute bottom-[-10%] right-[10%] w-[300px] h-[300px] rounded-full blur-[120px] bg-blue-600 opacity-20 pointer-events-none" />
+      <div
+        className="absolute bottom-[-8%] right-[8%] w-[260px] h-[260px] rounded-full blur-[110px] opacity-20 pointer-events-none"
+        style={{ backgroundColor: isCopaiMaster ? '#2563eb' : primaryColor }}
+      />
       <div 
-        className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+        className="absolute inset-0 opacity-[0.035] pointer-events-none" 
         style={{ 
           backgroundImage: 'radial-gradient(circle at 1px 1px, #38bdf8 1px, transparent 0)',
-          backgroundSize: '24px 24px' 
+          backgroundSize: '22px 22px' 
         }} 
       />
 
-      {/* Cabecera / Identidad de la Empresa */}
-      <div className="relative z-10 text-center pt-4">
-        <div className="inline-flex items-center justify-center p-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl mb-4">
+      {/* Cabecera / Identidad de la Empresa (Compacta y luminosa) */}
+      <div className="relative z-10 text-center flex-shrink-0">
+        <div
+          className="inline-flex items-center justify-center p-2 bg-white rounded-2xl shadow-2xl mb-2 ring-2 transition-transform"
+          style={{
+            borderColor: isCopaiMaster ? '#38bdf8' : primaryColor,
+            boxShadow: isCopaiMaster
+              ? '0 8px 28px rgba(14, 165, 233, 0.38), 0 0 0 3px rgba(56, 189, 248, 0.28)'
+              : `0 8px 28px ${primaryColor}45, 0 0 0 3px ${primaryColor}30`
+          }}
+        >
           <img 
             src={logoSrc} 
             alt={companyName}
-            className="w-16 h-16 object-contain drop-shadow"
+            className="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl"
             onError={(e) => { e.target.src = '/copai-symbol.png'; }}
           />
         </div>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-300 mb-2">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
-          <span>Telemetría & Rastreo Satelital</span>
+        <div className="flex items-center justify-center mb-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 border border-sky-400/25 text-[9px] font-bold uppercase tracking-wider text-sky-200">
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ backgroundColor: isCopaiMaster ? '#38bdf8' : primaryColor }}
+            />
+            <span>Telemetría & Rastreo Satelital</span>
+          </div>
         </div>
 
-        <h1 className="text-xl font-extrabold tracking-tight text-white leading-tight px-2">
+        <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-white leading-tight px-2 truncate">
           {companyName}
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-[11px] text-sky-200/75 mt-0.5 leading-tight">
           {companyPortal ? 'Acceso a Monitoreo y Despacho' : 'Control Central de Flotas IoT'}
         </p>
         {companyPortal && onResetCompany && (
           <button
             type="button"
             onClick={onResetCompany}
-            className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold underline mt-2 inline-block cursor-pointer"
+            className="text-[10px] text-sky-400 hover:text-sky-300 font-semibold underline mt-1 inline-block cursor-pointer"
           >
             ¿Cambiar de empresa?
           </button>
         )}
       </div>
 
-      {/* Tarjeta Central de Inicio de Sesión Móvil */}
-      <div className="relative z-10 my-auto py-6">
-        <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+      {/* Tarjeta Central de Inicio de Sesión Móvil (Encajada al 100% sin scroll) */}
+      <div className="relative z-10 my-auto py-1.5 flex-shrink-0">
+        <div
+          className="bg-slate-900/90 backdrop-blur-2xl rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3 border"
+          style={{
+            borderColor: isCopaiMaster ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.12)',
+            boxShadow: isCopaiMaster
+              ? '0 20px 50px rgba(2, 132, 199, 0.18)'
+              : '0 20px 50px rgba(0, 0, 0, 0.45)'
+          }}
+        >
           
-          <div className="flex items-center justify-between pb-2 border-b border-white/5">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Iniciar Sesión
+          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-white flex items-center gap-1.5">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: isCopaiMaster ? '#38bdf8' : primaryColor }}
+              />
+              <span>Iniciar Sesión</span>
             </span>
             <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-              <ShieldCheck size={13} />
+              <ShieldCheck size={12} />
               <span>Conexión Segura SSL</span>
             </span>
           </div>
 
           {error && (
-            <div className="p-3 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-medium animate-in fade-in duration-200">
+            <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-[11px] font-medium animate-in fade-in duration-200 leading-snug">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-3">
             {/* Input Correo / Usuario */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-slate-200">
                 Correo Electrónico o Usuario
               </label>
               <div className="relative">
-                <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sky-400/80" />
                 <input
                   type="email"
                   required
@@ -131,28 +159,28 @@ export default function MobileLoginView({
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="ejemplo@empresa.com"
                   autoComplete="username"
-                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                  style={{ focusRingColor: primaryColor }}
+                  className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 rounded-xl bg-white/[0.07] border border-white/15 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:border-sky-400 transition-all"
+                  style={{ '--tw-ring-color': isCopaiMaster ? '#38bdf8' : primaryColor }}
                 />
               </div>
             </div>
 
             {/* Input Contraseña */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold text-slate-300">
+                <label className="block text-[11px] font-semibold text-slate-200">
                   Contraseña
                 </label>
                 <button
                   type="button"
                   onClick={onOpenForgot}
-                  className="text-[11px] font-semibold text-sky-400 hover:text-sky-300 transition-colors"
+                  className="text-[10px] font-semibold text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
                 >
                   ¿Olvidaste tu clave?
                 </button>
               </div>
               <div className="relative">
-                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sky-400/80" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -160,26 +188,31 @@ export default function MobileLoginView({
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-11 py-2.5 sm:py-3 rounded-xl bg-white/[0.07] border border-white/15 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:border-sky-400 transition-all"
+                  style={{ '--tw-ring-color': isCopaiMaster ? '#38bdf8' : primaryColor }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-white transition-colors cursor-pointer"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            {/* Botón de Ingreso Táctil Grande */}
+            {/* Botón de Ingreso Táctil */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 px-4 rounded-2xl font-black text-sm tracking-wide text-white shadow-xl flex items-center justify-center gap-2.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer mt-2"
+              className="w-full py-3 px-4 rounded-xl font-black text-sm tracking-wide text-white shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer mt-1"
               style={{
-                backgroundColor: primaryColor,
-                boxShadow: `0 8px 25px ${primaryColor}50`
+                background: isCopaiMaster
+                  ? 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+                  : primaryColor,
+                boxShadow: isCopaiMaster
+                  ? '0 8px 22px rgba(14, 165, 233, 0.4)'
+                  : `0 8px 22px ${primaryColor}50`
               }}
             >
               {loading ? (
@@ -190,7 +223,7 @@ export default function MobileLoginView({
               ) : (
                 <>
                   <span>Ingresar a Mi Flota</span>
-                  <ArrowRight size={18} />
+                  <ArrowRight size={17} />
                 </>
               )}
             </button>
@@ -199,28 +232,28 @@ export default function MobileLoginView({
         </div>
       </div>
 
-      {/* Pie de Página Móvil: Instalación Inteligente según iOS / Android y Ver Portal Web */}
-      <div className="relative z-10 flex flex-col items-center gap-2.5 pt-2">
+      {/* Pie de Página Móvil: Siempre visible dentro del Safe Area sin cortarse */}
+      <div className="relative z-10 flex flex-col items-center gap-1.5 flex-shrink-0">
         {!isNativeApp && !isStandalone && (
           isIOS ? (
             <button
               type="button"
               onClick={onOpenInstallModal}
-              className="w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg"
+              className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg"
             >
-              <Smartphone size={16} className="text-sky-400" />
+              <Smartphone size={15} className="text-sky-400" />
               <span>Instalar App en mi iPhone (Pantalla Completa)</span>
             </button>
           ) : (
-            <div className="w-full flex flex-col gap-2">
+            <div className="w-full flex flex-col gap-1.5">
               {/* Botón Principal: Google Play Store */}
               <a
                 href={PLAY_STORE_APP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-2.5 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black flex items-center justify-center gap-2.5 transition-all active:scale-95 no-underline shadow-lg"
+                className="w-full py-2 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-95 no-underline shadow-lg"
               >
-                <GooglePlayIcon size={18} />
+                <GooglePlayIcon size={16} />
                 <span>Disponible en Google Play</span>
               </a>
 
@@ -229,15 +262,15 @@ export default function MobileLoginView({
                 <button
                   type="button"
                   onClick={onOpenInstallModal}
-                  className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[11px] font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                  className="w-full py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                 >
-                  <Smartphone size={13} style={{ color: primaryColor }} />
-                  <span>Agregar icono de {companyName} a Pantalla</span>
+                  <Smartphone size={12} style={{ color: primaryColor }} />
+                  <span className="truncate">Agregar icono de {companyName} a Pantalla</span>
                 </button>
               )}
 
               {/* Enlaces de Verificador de Pruebas y Fallback APK */}
-              <div className="flex items-center justify-between px-1 text-[10px] text-slate-400 pt-0.5">
+              <div className="flex items-center justify-between px-1 text-[10px] text-slate-400">
                 <a
                   href={PLAY_STORE_TESTING_URL}
                   target="_blank"
@@ -259,7 +292,7 @@ export default function MobileLoginView({
         )}
 
         {(isNativeApp || isStandalone) && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-bold text-emerald-400">
             <ShieldCheck size={12} />
             <span>Aplicativo Móvil Oficial Activo</span>
           </div>
@@ -269,14 +302,14 @@ export default function MobileLoginView({
           <button
             type="button"
             onClick={onViewWebPortal}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors py-1 cursor-pointer"
+            className="flex items-center gap-1.5 text-[11px] text-slate-300 hover:text-white transition-colors py-0.5 cursor-pointer"
           >
-            <Globe size={14} />
+            <Globe size={13} />
             <span>Ver portal corporativo web completo</span>
           </button>
         )}
 
-        <p className="text-[10px] text-slate-500 text-center">
+        <p className="text-[10px] text-slate-400 text-center leading-tight">
           © 2026 Industrias CopAi • Telematics IoT
         </p>
       </div>

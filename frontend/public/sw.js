@@ -43,12 +43,13 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/copai-symbol.png',
     badge: data.badge || '/copai-symbol.png',
+    silent: false, // Garantiza reproducción del sonido de notificación nativo del teléfono (iOS y Android)
     vibrate: [250, 100, 250, 100, 400],
     tag: data.tag || 'copai-vehicle-alert',
     renotify: true,
     requireInteraction: true, // Se mantiene visible en pantalla hasta que el usuario interactúe
     data: {
-      url: data.url || '/'
+      url: data.url || '/monitoreo'
     }
   };
 

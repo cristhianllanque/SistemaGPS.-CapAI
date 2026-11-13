@@ -3,7 +3,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { 
   Search, Play, Pause, RotateCcw, Gauge, AlertTriangle,
-  SlidersHorizontal, ChevronUp, ChevronDown, Truck
+  SlidersHorizontal, ChevronUp, ChevronDown, Truck, Sun, Moon, Layers
 } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -80,6 +80,20 @@ export default function HistorialRutas() {
   const [playbackSpeed, setPlaybackSpeed] = useState(2);
   const [flyToTarget, setFlyToTarget] = useState(null);
   const [showStopsList, setShowStopsList] = useState(false);
+  const [mapStyle, setMapStyle] = useState(() => {
+    try {
+      return localStorage.getItem('copai_map_style') || 'day';
+    } catch {
+      return 'day';
+    }
+  });
+
+  const handleSelectMapStyle = (style) => {
+    setMapStyle(style);
+    try {
+      localStorage.setItem('copai_map_style', style);
+    } catch {}
+  };
   
   const playIntervalRef = useRef(null);
 
@@ -379,13 +393,89 @@ export default function HistorialRutas() {
 
       {/* Main Content Area */}
       <div className="flex-1 relative flex flex-col overflow-hidden">
+        {/* Selector Flotante de Capas (Día | Oscuro | Satélite con Casitas) */}
+        <div className="absolute top-3 left-14 md:top-4 md:left-14 z-[900] pointer-events-auto">
+          <div className="bg-slate-900/90 backdrop-blur-md p-1 rounded-xl shadow-xl border border-white/15 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleSelectMapStyle('day')}
+              className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                mapStyle === 'day'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Sun size={11} className={mapStyle === 'day' ? 'text-amber-500' : ''} />
+              <span>Día</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectMapStyle('dark')}
+              className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                mapStyle === 'dark'
+                  ? 'bg-sky-500 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Moon size={11} />
+              <span>Oscuro</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectMapStyle('satellite')}
+              className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                mapStyle === 'satellite'
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Layers size={11} />
+              <span>Satélite</span>
+            </button>
+          </div>
+        </div>
+
         {/* Leaflet Map */}
         <div className="flex-1 relative z-0">
-          <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
-            <TileLayer
-              attribution='&copy; OpenStreetMap'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+          <MapContainer center={mapCenter} zoom={13} maxZoom={20} className="h-full w-full">
+            {mapStyle === 'dark' ? (
+              <TileLayer
+                key="hist-dark"
+                attribution='&copy; OpenStreetMap &copy; CARTO'
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                maxZoom={20}
+              />
+            ) : mapStyle === 'satellite' ? (
+              <>
+                <TileLayer
+                  key="hist-sat-base"
+                  attribution='&copy; Esri World Imagery'
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  maxNativeZoom={19}
+                  maxZoom={20}
+                />
+                <TileLayer
+                  key="hist-sat-roads"
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+                  maxNativeZoom={19}
+                  maxZoom={20}
+                />
+                <TileLayer
+                  key="hist-sat-labels"
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                  maxNativeZoom={19}
+                  maxZoom={20}
+                />
+              </>
+            ) : (
+              <TileLayer
+                key="hist-day"
+                attribution='&copy; OpenStreetMap'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maxNativeZoom={19}
+                maxZoom={20}
+              />
+            )}
             
             <MapController bounds={polylinePositions} flyToTarget={flyToTarget} />
 

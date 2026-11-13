@@ -91,3 +91,20 @@
     background: rgba(255, 255, 255, 0.7) !important;
   }
 }
+
+/* Garantizar que cualquier ventana modal dentro de <main> quede siempre por encima de las barras superior/inferior y nunca se corte en iPhone ni Android */
+main .fixed.inset-0 {
+  z-index: 120 !important;
+  padding-top: max(0.75rem, calc(0.5rem + var(--android-safe-top, 0px)), calc(0.5rem + env(safe-area-inset-top, 0px))) !important;
+  padding-bottom: max(0.75rem, calc(0.5rem + var(--android-safe-bottom, 0px)), calc(0.5rem + env(safe-area-inset-bottom, 0px))) !important;
+}
+
+main .fixed.inset-0 > div {
+  max-height: calc(100dvh - 2rem - var(--android-safe-top, 0px) - var(--android-safe-bottom, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Mantener popups de vehículos siempre derechos cuando el usuario gira el mapa 360° */
+.leaflet-popup-content-wrapper {
+  transform: rotate(var(--map-counter-rotate, 0deg));
+  transform-origin: center center;
+}

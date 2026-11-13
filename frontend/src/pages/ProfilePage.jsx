@@ -87,20 +87,34 @@ export default function ProfilePage() {
       {/* Cabecera de Identidad Personal y Empresa */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         <div
-          className="h-20 sm:h-24 w-full relative"
+          className="h-16 sm:h-22 w-full relative overflow-hidden"
           style={{
             background: `linear-gradient(135deg, #0f172a 0%, ${primaryColor} 100%)`
           }}
-        />
-        <div className="px-5 pb-5 -mt-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="flex items-end gap-3.5">
-            <div className="w-20 h-20 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 flex items-center justify-center flex-shrink-0">
+        >
+          <div
+            className="absolute inset-0 opacity-15 pointer-events-none"
+            style={{
+              backgroundImage: 'radial-gradient(circle at 2px 2px, #ffffff 1px, transparent 0)',
+              backgroundSize: '20px 20px'
+            }}
+          />
+        </div>
+        <div className="px-4 sm:px-5 pb-5 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="-mt-9 sm:-mt-11 w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 ring-4 ring-white flex items-center justify-center flex-shrink-0 relative z-10">
               {empresa?.logo_url ? (
                 <img
                   src={getAssetUrl(empresa.logo_url)}
                   alt={empresa.nombre || 'Empresa'}
                   className="w-full h-full object-contain rounded-xl"
                   onError={(e) => { e.target.src = '/copai-symbol.png'; }}
+                />
+              ) : usuario?.rol === 'superadmin' ? (
+                <img
+                  src="/copai-symbol.png"
+                  alt="COPAI"
+                  className="w-full h-full object-contain rounded-xl"
                 />
               ) : (
                 <div
@@ -111,20 +125,20 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-            <div className="pb-0.5 min-w-0">
+            <div className="min-w-0 flex-1">
               <span
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow-xs mb-1"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold text-white shadow-xs mb-1"
                 style={{ backgroundColor: primaryColor }}
               >
                 <Shield size={11} />
                 <span>{roleLabel}</span>
               </span>
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 truncate">
+              <h1 className="text-base sm:text-xl font-extrabold text-slate-900 truncate leading-tight">
                 {usuario?.nombre || 'Usuario Activo'}
               </h1>
-              <p className="text-xs text-slate-500 truncate flex items-center gap-1.5">
+              <p className="text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
                 <Mail size={13} className="text-slate-400 flex-shrink-0" />
-                <span>{usuario?.email || 'Sin correo'}</span>
+                <span className="truncate">{usuario?.email || 'Sin correo'}</span>
               </p>
             </div>
           </div>
@@ -132,7 +146,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={handleCleanLogout}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold transition-colors cursor-pointer self-start sm:self-auto"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold transition-colors cursor-pointer flex-shrink-0"
           >
             <LogOut size={15} />
             <span>Cerrar Sesión</span>

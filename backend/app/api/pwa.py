@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, Response, HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import Optional
-from app.api.deps import get_db
-from app.db.models import Empresa
+from typing import Optional, Dict
+from app.api.deps import get_db, get_current_user
+from app.db.models import Empresa, Usuario, PushSubscription
+from app.services.push_service import get_or_create_vapid_keys, send_web_push_sync
 import html
 import io
 import os
@@ -357,3 +359,73 @@ def get_dynamic_tenant_index_html(
             "Expires": "0",
         }
     )
+
+
+class PushSubscriptionPayload(BaseModel):
+    endpoint: str
+    keys: Dict[str, str]
+
+
+@router.get("/vapid-public-key")
+def get_vapid_public_key():
+    keys = get_or_create_vapid_keys()
+    return {"publicKey": keys.get("public_key", "")}
+
+
+@router.post("/push/subscribe")
+def subscribe_push_notifications(
+    payload: PushSubscriptionPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    endpoint = (payload.endpoint or "").strip()
+    p256dh = (payload.keys or {}).get("p256dh", "").strip()
+    auth_key = (payload.keys or {}).get("auth", "").strip()
+
+    if not endpoint or not p256dh or not auth_key:
+        raise HTTPException(status_code=400, detail="Suscripción Push incompleta")
+
+    ua = (request.headers.get("user-agent") or "")[:250]
+    existing = (
+        db.query(PushSubscription)
+        .filter(PushSubscription.endpoint == endpoint)
+        .first()
+    )
+    if existing:
+        existing.usuario_id = current_user.id
+        existing.empresa_id = current_user.empresa_id
+        existing.rol = current_user.rol
+        existing.p256dh = p256dh
+        existing.auth = auth_key
+        existing.user_agent = ua
+    else:
+        sub = PushSubscription(
+            usuario_id=current_user.id,
+            empresa_id=current_user.empresa_id,
+            rol=current_user.rol,
+            endpoint=endpoint,
+            p256dh=p256dh,
+            auth=auth_key,
+            user_agent=ua,
+        )
+        db.add(sub)
+
+    db.commit()
+    return {"status": "subscribed", "rol": current_user.rol}
+
+
+@router.post("/push/test")
+def test_push_notification(
+    current_user: Usuario = Depends(get_current_user),
+):
+    target_empresa = current_user.empresa_id or 1
+    sent = send_web_push_sync(
+        empresa_id=target_empresa,
+        title="🔔 Alertas COPAI GPS Activas",
+        body="Tu teléfono sonará en tu bolsillo ante Botón de Pánico, Sabotaje o Exceso de Velocidad.",
+        url="/monitoreo",
+        tag="copai-test-alert",
+    )
+    return {"status": "ok", "sent": sent}
+

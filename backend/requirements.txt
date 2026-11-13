@@ -13,3 +13,4 @@ python-multipart
 openpyxl
 reportlab
 pillow
+pywebpush

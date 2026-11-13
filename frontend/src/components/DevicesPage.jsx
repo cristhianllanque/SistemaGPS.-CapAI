@@ -256,18 +256,18 @@ export default function DevicesPage() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal (Cabecera y Botones Fijos) */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[120] p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0 bg-white">
+              <h2 className="text-base sm:text-lg font-bold text-slate-800">
                 {editingId ? 'Editar Dispositivo' : 'Registrar Nuevo Dispositivo'}
               </h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-slate-100 rounded"><X size={20} /></button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
                   <AlertCircle size={16} /> {error}
@@ -383,7 +383,7 @@ export default function DevicesPage() {
               )}
             </div>
 
-            <div className="flex justify-end gap-3 p-5 border-t border-slate-200">
+            <div className="flex justify-end gap-3 px-5 py-3.5 border-t border-slate-200 flex-shrink-0 bg-white">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
                 Cancelar
               </button>

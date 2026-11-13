@@ -62,6 +62,37 @@ class EmergencySiren {
       this.isPlaying = false;
     }
   }
+
+  // Sonido corto de notificación (doble tono limpio) para alertas de exceso de velocidad o avisos
+  playSpeedBeep() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const now = ctx.currentTime;
+
+      const playTone = (freq, startOffset, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + startOffset);
+        gain.gain.setValueAtTime(0.16, now + startOffset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + startOffset);
+        osc.stop(now + startOffset + duration);
+      };
+
+      playTone(880, 0, 0.16);
+      playTone(1174.66, 0.18, 0.24);
+      setTimeout(() => {
+        if (ctx.state !== 'closed') ctx.close().catch(() => {});
+      }, 600);
+    } catch (e) {
+      // Ignorar si el navegador aún no tuvo interacción de audio
+    }
+  }
 }
 
 export const siren = new EmergencySiren();

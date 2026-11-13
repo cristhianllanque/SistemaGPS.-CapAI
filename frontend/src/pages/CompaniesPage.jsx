@@ -669,29 +669,30 @@ export default function CompaniesPage() {
 
       {/* ================= MODAL: NUEVA EMPRESA (LAYOUT 2 COLUMNAS) ================= */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden my-4 max-h-[92vh] flex flex-col animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden max-h-[85dvh] sm:max-h-[90vh] flex flex-col animate-in zoom-in-95">
             
-            {/* Header del Modal */}
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-5 flex justify-between items-center flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl">
-                  <Building2 size={24} />
+            {/* Header del Modal (Siempre visible arriba) */}
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-4 py-3.5 sm:p-5 flex justify-between items-center flex-shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="p-2 bg-white/20 rounded-xl flex-shrink-0">
+                  <Building2 size={20} />
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold">Registrar Nueva Empresa Cliente</h2>
-                  <p className="text-xs text-indigo-100">Configura la identidad corporativa, colores de marca y portal exclusivo</p>
+                <div className="min-w-0">
+                  <h2 className="text-sm sm:text-lg font-bold truncate">Registrar Nueva Empresa Cliente</h2>
+                  <p className="text-[11px] sm:text-xs text-indigo-100 truncate">Configura la identidad corporativa, colores de marca y portal exclusivo</p>
                 </div>
               </div>
               <button 
                 onClick={() => setShowCreateModal(false)}
-                className="text-indigo-200 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-indigo-200 hover:text-white p-1.5 rounded-lg transition-colors cursor-pointer flex-shrink-0"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+            <form onSubmit={handleCreateSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
               {errorMsg && (
                 <div className="bg-red-50 text-red-600 text-xs p-3 rounded-xl border border-red-200">
                   {errorMsg}
@@ -1192,9 +1193,10 @@ export default function CompaniesPage() {
                 </div>
 
               </div>
+              </div>
 
-              {/* Botones de Acción Fijos */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              {/* Botones de Acción Fijos (Sticky Footer siempre visible) */}
+              <div className="flex-shrink-0 flex justify-end gap-3 px-4 sm:px-6 py-3.5 border-t border-slate-200 bg-white">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
@@ -1218,25 +1220,25 @@ export default function CompaniesPage() {
 
       {/* ================= MODAL: EDITAR EMPRESA (LAYOUT 2 COLUMNAS) ================= */}
       {showEditModal && selectedEmpresa && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden my-4 max-h-[92vh] flex flex-col animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden max-h-[85dvh] sm:max-h-[90vh] flex flex-col animate-in zoom-in-95">
             
             {/* Header del Modal */}
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center flex-shrink-0 bg-slate-50/70">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Edit3 size={20} className="text-indigo-600" />
-                Editar Empresa: {selectedEmpresa.nombre}
+            <div className="px-4 py-3.5 sm:p-5 border-b border-slate-100 flex justify-between items-center flex-shrink-0 bg-slate-50/70 gap-2">
+              <h2 className="text-sm sm:text-lg font-bold text-slate-800 flex items-center gap-2 truncate">
+                <Edit3 size={18} className="text-indigo-600 flex-shrink-0" />
+                <span className="truncate">Editar Empresa: {selectedEmpresa.nombre}</span>
               </h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 <a
                   href={`https://${editForm.slug || selectedEmpresa.slug}.industriascopai.com`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-all active:scale-95 shadow-xs"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-all active:scale-95 shadow-xs"
                   title="Abrir portal web exclusivo de la empresa en una nueva pestaña"
                 >
                   <Globe size={13} className="text-indigo-600" />
-                  <span>Ver Portal Web</span>
+                  <span className="hidden sm:inline">Ver Portal Web</span>
                   <ExternalLink size={12} className="text-indigo-500" />
                 </a>
                 <button 
@@ -1249,7 +1251,8 @@ export default function CompaniesPage() {
               </div>
             </div>
 
-            <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+            <form onSubmit={handleEditSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
               {errorMsg && (
                 <div className="bg-red-50 text-red-600 text-xs p-3 rounded-xl border border-red-200">
                   {errorMsg}
@@ -1664,9 +1667,10 @@ export default function CompaniesPage() {
                 </div>
 
               </div>
+              </div>
 
-              {/* Botones de Acción Fijos */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              {/* Botones de Acción Fijos (Sticky Footer siempre visible) */}
+              <div className="flex-shrink-0 flex justify-end gap-3 px-4 sm:px-6 py-3.5 border-t border-slate-200 bg-white">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
@@ -1690,9 +1694,9 @@ export default function CompaniesPage() {
 
       {/* ================= MODAL: NUEVO GERENTE PARA EMPRESA ================= */}
       {showGerenteModal && selectedEmpresa && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85dvh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
               <div>
                 <h2 className="text-base font-bold text-slate-800">Crear Gerente / Usuario</h2>
                 <p className="text-xs text-slate-400">Para: {selectedEmpresa.nombre}</p>
@@ -1702,7 +1706,7 @@ export default function CompaniesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleGerenteSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleGerenteSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
               {errorMsg && (
                 <div className="bg-red-50 text-red-600 text-xs p-3 rounded-xl border border-red-200">
                   {errorMsg}

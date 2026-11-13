@@ -173,7 +173,63 @@ export default function DriversPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* VISTA TARJETAS MÓVILES (< 768px) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {conductores.length === 0 ? (
+            <div className="text-center py-12 px-4 text-slate-400">
+              <Users size={38} className="mx-auto mb-3 opacity-30" />
+              <p className="font-medium text-sm">No hay conductores registrados</p>
+              <p className="text-xs mt-1">
+                {isSuperAdmin ? 'Registre su primer conductor' : 'Comuníquese con Copai para dar de alta conductores'}
+              </p>
+            </div>
+          ) : (
+            conductores.map((c) => (
+              <div key={c.id} className="p-4 space-y-2.5 hover:bg-slate-50/70 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      {c.nombre?.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-800 text-sm truncate">{c.nombre}</p>
+                      <p className="text-xs font-mono text-slate-500">DNI: {c.dni}</p>
+                    </div>
+                  </div>
+                  {isSuperAdmin && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => openEdit(c)} className="p-2 text-slate-500 hover:text-violet-600 bg-slate-50 hover:bg-violet-50 rounded-lg border border-slate-200/80"><Edit2 size={15} /></button>
+                      {!c.vehiculo_placa && (
+                        <button onClick={() => handleDelete(c.id)} className="p-2 text-slate-500 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg border border-slate-200/80"><Trash2 size={15} /></button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Licencia</span>
+                    <span className="font-semibold text-slate-700 truncate block">{c.licencia_conducir || '—'} {c.categoria_licencia ? `(${c.categoria_licencia})` : ''}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Teléfono</span>
+                    <span className="font-semibold text-slate-700 truncate block">{c.telefono || '—'}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Vehículo</span>
+                    {c.vehiculo_placa ? (
+                      <span className="text-[11px] font-bold text-emerald-700 font-mono truncate block">{c.vehiculo_placa}</span>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 truncate block">No asignado</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* VISTA TABLA ESCRITORIO (>= 768px) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
@@ -241,15 +297,15 @@ export default function DriversPage() {
         </div>
       </div>
 
-      {/* Modal - Exclusively for Superadmin */}
+      {/* Modal - Exclusively for Superadmin (Cabecera y Botones Fijos) */}
       {isSuperAdmin && showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800">{editingId ? 'Editar Conductor' : 'Registrar Nuevo Conductor'}</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[120] p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0 bg-white">
+              <h2 className="text-base sm:text-lg font-bold text-slate-800">{editingId ? 'Editar Conductor' : 'Registrar Nuevo Conductor'}</h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-slate-100 rounded"><X size={20} /></button>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
               {error && <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm"><AlertCircle size={16} /> {error}</div>}
               <div className="grid grid-cols-2 gap-4">
                 {isSuperAdmin && (
@@ -309,7 +365,7 @@ export default function DriversPage() {
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-3 p-5 border-t border-slate-200">
+            <div className="flex justify-end gap-3 px-5 py-3.5 border-t border-slate-200 flex-shrink-0 bg-white">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
               <button onClick={handleSave} disabled={saving}
                 className="flex items-center gap-2 px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">

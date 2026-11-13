@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateFixed } from 'lucide-react';
+import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateFixed, Sun, Moon, Layers, RotateCw, Plus, Minus } from 'lucide-react';
 import { parseServerUTC, formatPeruTime } from '../utils/peruTime';
 
-// Create custom icons based on status
+// Create custom icons based on status (con contra-rotación automática cuando el mapa gira)
 const createIcon = (color, isPanic = false, isSpeed = false) => {
   const size = isPanic ? 28 : (isSpeed ? 26 : 22);
   return L.divIcon({
@@ -21,6 +21,7 @@ const createIcon = (color, isPanic = false, isSpeed = false) => {
         display: flex;
         align-items: center;
         justify-content: center;
+        transform: rotate(var(--map-counter-rotate, 0deg));
         ${isPanic ? 'animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;' : (isSpeed ? 'animation: pulse 1.2s infinite;' : '')}
       ">
         ${isPanic ? '<div style="width: 10px; height: 10px; background: white; border-radius: 50%;"></div>' : (isSpeed ? '<div style="font-size: 11px; color: white; font-weight: 900; line-height: 1;">⚡</div>' : '')}
@@ -44,7 +45,7 @@ const icons = {
 const userLocationIcon = L.divIcon({
   className: 'user-gps-icon',
   html: `
-    <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+    <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transform: rotate(var(--map-counter-rotate, 0deg));">
       <div style="
         position: absolute;
         inset: 0;
@@ -81,26 +82,60 @@ const userLocationIcon = L.divIcon({
   popupAnchor: [0, -18]
 });
 
-// Internal map controller for programmatic camera movement, route bounds & live tracking
+// Internal map controller for programmatic camera movement, route bounds, live tracking & 360° rotation drag compensation
 function MapController({
   targetCoords,
   isEmergency,
   userCoords,
   routeActive,
   fitRouteTrigger,
-  centerUserTrigger
+  centerUserTrigger,
+  bearingRef,
+  onMapReady
 }) {
   const map = useMap();
   const prevCoordsRef = useRef(null);
   const lastFitTriggerRef = useRef(0);
   const lastCenterUserRef = useRef(0);
 
+  // Exponer instancia del mapa para controles personalizados de zoom y sincronizar arrastre con rotación 360°
+  useEffect(() => {
+    if (!map) return;
+    if (onMapReady) onMapReady(map);
+
+    const draggable = map.dragging?._draggable;
+    if (!draggable) return;
+
+    const handlePreDrag = () => {
+      const deg = bearingRef?.current || 0;
+      if (!deg || Math.abs(deg % 360) < 0.5) return;
+      const ev = draggable._lastEvent;
+      if (!ev || !draggable._startPoint || !draggable._startPos) return;
+      const pt = ev.touches && ev.touches.length > 0 ? ev.touches[0] : ev;
+      if (typeof pt.clientX !== 'number' || typeof pt.clientY !== 'number') return;
+
+      const dx = pt.clientX - draggable._startPoint.x;
+      const dy = pt.clientY - draggable._startPoint.y;
+      const rad = (-deg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rdx = dx * cos - dy * sin;
+      const rdy = dx * sin + dy * cos;
+      draggable._newPos = draggable._startPos.add(new L.Point(rdx, rdy));
+    };
+
+    draggable.on('predrag', handlePreDrag);
+    return () => {
+      draggable.off('predrag', handlePreDrag);
+    };
+  }, [map, bearingRef, onMapReady]);
+
   // 1. Centrar en la ubicación del usuario cuando presione "Mi Ubicación"
   useEffect(() => {
     if (!centerUserTrigger || centerUserTrigger === lastCenterUserRef.current) return;
     if (!userCoords || isNaN(userCoords[0]) || isNaN(userCoords[1])) return;
     lastCenterUserRef.current = centerUserTrigger;
-    map.flyTo(userCoords, 16, { animate: true, duration: 1.0 });
+    map.flyTo(userCoords, 17, { animate: true, duration: 1.0 });
   }, [centerUserTrigger, userCoords, map]);
 
   // 2. Encuadrar tanto la ubicación del usuario como el vehículo cuando se active "Cómo llegar"
@@ -111,9 +146,12 @@ function MapController({
 
     lastFitTriggerRef.current = fitRouteTrigger;
     const bounds = L.latLngBounds([userCoords, targetCoords]);
+    const size = map.getSize();
+    const padX = Math.round(size.x * 0.2) + 35;
+    const padY = Math.round(size.y * 0.2) + 65;
     map.fitBounds(bounds, {
-      paddingTopLeft: [45, 95],
-      paddingBottomRight: [45, 75],
+      paddingTopLeft: [padX, padY],
+      paddingBottomRight: [padX, padY],
       maxZoom: 17,
       animate: true,
       duration: 1.1
@@ -130,13 +168,11 @@ function MapController({
     prevCoordsRef.current = targetCoords;
 
     if (isEmergency || isFirstTime) {
-      // Emergency: smooth flyTo with deep zoom to immediate street level
       map.flyTo([lat, lng], 17, {
         animate: true,
         duration: 1.4
       });
     } else {
-      // Normal follow mode: pan smoothly to follow vehicle movement
       map.panTo([lat, lng], {
         animate: true,
         duration: 0.8
@@ -169,6 +205,89 @@ export default function LiveMap({
 }) {
   // Center in default coordinates (Peru)
   const defaultCenter = [-15.5, -70.1];
+
+  // Estilo de mapa persistente: 'day' (Calles), 'dark' (Modo Oscuro), 'satellite' (Satélite con Casitas + Calles)
+  const [mapStyle, setMapStyle] = useState(() => {
+    try {
+      return localStorage.getItem('copai_map_style') || 'day';
+    } catch {
+      return 'day';
+    }
+  });
+
+  const handleSelectMapStyle = (style) => {
+    setMapStyle(style);
+    try {
+      localStorage.setItem('copai_map_style', style);
+    } catch {}
+  };
+
+  // Estado de rotación 360° del mapa (con dos dedos en móvil o botón de giro 90°/Brújula)
+  const [bearing, setBearing] = useState(0);
+  const bearingRef = useRef(0);
+  const mapInstanceRef = useRef(null);
+  const touchRotateRef = useRef({
+    active: false,
+    locked: false,
+    startAngle: 0,
+    startBearing: 0
+  });
+
+  const updateBearing = useCallback((nextDeg) => {
+    const normalized = ((nextDeg % 360) + 360) % 360;
+    const snapped = normalized < 2 || normalized > 358 ? 0 : Math.round(normalized);
+    bearingRef.current = snapped;
+    setBearing(snapped);
+  }, []);
+
+  const handleRotateStep = () => {
+    const next = (Math.round(bearingRef.current / 90) * 90 + 90) % 360;
+    updateBearing(next);
+  };
+
+  const handleResetNorth = () => {
+    updateBearing(0);
+  };
+
+  // Gesto táctil de 2 dedos para girar el mapa 360° libremente
+  const handleTouchStart = (e) => {
+    if (e.touches && e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      touchRotateRef.current = {
+        active: true,
+        locked: false,
+        startAngle: angle,
+        startBearing: bearingRef.current
+      };
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchRotateRef.current.active || !e.touches || e.touches.length !== 2) return;
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    let delta = angle - touchRotateRef.current.startAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+
+    if (!touchRotateRef.current.locked && Math.abs(delta) > 4.5) {
+      touchRotateRef.current.locked = true;
+    }
+
+    if (touchRotateRef.current.locked) {
+      updateBearing(touchRotateRef.current.startBearing + delta);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!e.touches || e.touches.length < 2) {
+      touchRotateRef.current.active = false;
+      touchRotateRef.current.locked = false;
+    }
+  };
 
   const activeId = routeTargetVehicleId || emergencyVehicleId || selectedVehicleId;
   const trackedVehicle = vehiculos.find(v => v.id === activeId);
@@ -203,7 +322,106 @@ export default function LiveMap({
   };
 
   return (
-    <div className="h-full w-full relative">
+    <div
+      className="h-full w-full relative overflow-hidden bg-slate-900 select-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
+      {/* CONTROLES FLOTANTES IZQUIERDOS: Zoom (+/-), Rotación 90°/360° y Brújula */}
+      <div className="absolute top-14 md:top-20 left-2.5 md:left-4 z-[900] flex flex-col gap-1.5 pointer-events-auto">
+        <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-xl border border-slate-200/90 overflow-hidden flex flex-col divide-y divide-slate-200/80">
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomIn()}
+            className="w-9 h-9 flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer"
+            title="Acercar mapa"
+          >
+            <Plus size={17} />
+          </button>
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomOut()}
+            className="w-9 h-9 flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer"
+            title="Alejar mapa"
+          >
+            <Minus size={17} />
+          </button>
+        </div>
+
+        {/* Botón Girar Mapa 90° / 360° */}
+        <button
+          type="button"
+          onClick={handleRotateStep}
+          className="w-9 h-9 bg-white/95 backdrop-blur-md rounded-xl shadow-xl border border-slate-200/90 flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
+          title="Girar mapa 90° (también puedes girar con 2 dedos)"
+        >
+          <RotateCw size={16} />
+        </button>
+
+        {/* Brújula Activa: Aparece resaltada cuando el mapa está girado para volver al Norte (0°) */}
+        {bearing !== 0 && (
+          <button
+            type="button"
+            onClick={handleResetNorth}
+            className="w-9 h-9 bg-slate-900/95 text-sky-400 backdrop-blur-md rounded-xl shadow-xl border border-sky-400/50 flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer animate-in fade-in"
+            title="Restablecer orientación al Norte (0°)"
+          >
+            <Compass
+              size={15}
+              style={{ transform: `rotate(${bearing}deg)`, transition: 'transform 0.15s ease-out' }}
+            />
+            <span className="text-[8px] font-black text-white leading-none mt-0.5">{bearing}°</span>
+          </button>
+        )}
+      </div>
+
+      {/* SELECTOR FLOTANTE DE CAPAS DE MAPA: Día | Oscuro | Satélite (Casitas) */}
+      <div className="absolute bottom-14 md:bottom-5 left-2.5 md:left-4 z-[900] pointer-events-auto">
+        <div className="bg-slate-900/90 backdrop-blur-md p-1 rounded-xl shadow-2xl border border-white/15 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleSelectMapStyle('day')}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+              mapStyle === 'day'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-300 hover:text-white'
+            }`}
+            title="Mapa Modo Día (Calles Claras)"
+          >
+            <Sun size={12} className={mapStyle === 'day' ? 'text-amber-500' : ''} />
+            <span>Día</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectMapStyle('dark')}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+              mapStyle === 'dark'
+                ? 'bg-sky-500 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white'
+            }`}
+            title="Mapa Modo Oscuro (Nocturno)"
+          >
+            <Moon size={12} />
+            <span>Oscuro</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectMapStyle('satellite')}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+              mapStyle === 'satellite'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white'
+            }`}
+            title="Mapa Satélite Real (Casitas y Calles)"
+          >
+            <Layers size={12} />
+            <span>Satélite</span>
+          </button>
+        </div>
+      </div>
+
       {/* BARRA MÓVIL DE RUTA ACTIVA ("CÓMO LLEGAR AL VEHÍCULO") - Exclusiva Móvil */}
       {isRouteActive && (
         <div className="md:hidden absolute top-14 left-2.5 right-2.5 z-[950] bg-slate-900/95 backdrop-blur-md text-white px-3.5 py-2.5 rounded-2xl shadow-2xl border border-blue-500/40 flex items-center justify-between gap-2 animate-in fade-in duration-200">
@@ -328,20 +546,77 @@ export default function LiveMap({
         </div>
       )}
 
-      <MapContainer center={defaultCenter} zoom={13} className="h-full w-full z-0">
-        <TileLayer
-          attribution='&copy; OpenStreetMap'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+      {/* Escenario Rotable 360° (Sobredimensionado al 144% para cubrir las 4 esquinas en cualquier ángulo) */}
+      <div
+        className="absolute"
+        style={{
+          width: '144%',
+          height: '144%',
+          left: '-22%',
+          top: '-22%',
+          transform: `rotate(${bearing}deg)`,
+          transformOrigin: '50% 50%',
+          transition: touchRotateRef.current.active ? 'none' : 'transform 0.25s ease-out',
+          '--map-counter-rotate': `${-bearing}deg`
+        }}
+      >
+        <MapContainer
+          center={defaultCenter}
+          zoom={13}
+          maxZoom={20}
+          zoomControl={false}
+          className="h-full w-full z-0"
+        >
+          {/* CAPA ACTIVA SEGÚN EL MODO ELEGIDO */}
+          {mapStyle === 'dark' ? (
+            <TileLayer
+              key="dark-tiles"
+              attribution='&copy; OpenStreetMap &copy; CARTO'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              maxZoom={20}
+            />
+          ) : mapStyle === 'satellite' ? (
+            <>
+              <TileLayer
+                key="sat-base"
+                attribution='&copy; Esri World Imagery'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                maxNativeZoom={19}
+                maxZoom={20}
+              />
+              <TileLayer
+                key="sat-roads"
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+                maxNativeZoom={19}
+                maxZoom={20}
+              />
+              <TileLayer
+                key="sat-labels"
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                maxNativeZoom={19}
+                maxZoom={20}
+              />
+            </>
+          ) : (
+            <TileLayer
+              key="day-tiles"
+              attribution='&copy; OpenStreetMap'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxNativeZoom={19}
+              maxZoom={20}
+            />
+          )}
 
-        <MapController 
-          targetCoords={targetCoords} 
-          isEmergency={Boolean(emergencyVehicleId)}
-          userCoords={userCoords}
-          routeActive={isRouteActive}
-          fitRouteTrigger={fitRouteTrigger}
-          centerUserTrigger={centerUserTrigger}
-        />
+          <MapController 
+            targetCoords={targetCoords} 
+            isEmergency={Boolean(emergencyVehicleId)}
+            userCoords={userCoords}
+            routeActive={isRouteActive}
+            fitRouteTrigger={fitRouteTrigger}
+            centerUserTrigger={centerUserTrigger}
+            bearingRef={bearingRef}
+            onMapReady={(m) => { mapInstanceRef.current = m; }}
+          />
 
         {/* MARCADOR DE LA UBICACIÓN ACTUAL DEL CELULAR (Exclusivo Móvil) */}
         {isMobileApp && userCoords && (
@@ -523,7 +798,8 @@ export default function LiveMap({
             </Marker>
           );
         })}
-      </MapContainer>
+        </MapContainer>
+      </div>
     </div>
   );
 }

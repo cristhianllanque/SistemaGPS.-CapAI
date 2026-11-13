@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.db import models
 from app.services.teltonika_parser import TeltonikaCodec8Parser
+from app.services.push_service import send_web_push_sync
 from app.websockets.manager import manager
 
 logger = logging.getLogger(__name__)
@@ -349,6 +350,16 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "message": "¡Alerta de pánico recibida!"
                             }
                             await manager.broadcast_flota(empresa_id, panic_msg)
+                            asyncio.create_task(
+                                run_in_thread(
+                                    send_web_push_sync,
+                                    empresa_id,
+                                    f"🚨 ¡BOTÓN DE PÁNICO! ({placa})",
+                                    f"Unidad {placa} ({conductor}) activó emergencia SOS en tiempo real.",
+                                    "/monitoreo",
+                                    f"copai-panic-{vehiculo_id}",
+                                )
+                            )
 
                         if speed_alert_info:
                             speed_msg = {
@@ -365,6 +376,16 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "message": f"¡Exceso de velocidad: {speed_alert_info['velocidad']} km/h! (Límite configurado: {speed_alert_info['limite']} km/h)"
                             }
                             await manager.broadcast_flota(empresa_id, speed_msg)
+                            asyncio.create_task(
+                                run_in_thread(
+                                    send_web_push_sync,
+                                    empresa_id,
+                                    f"⚡ EXCESO DE VELOCIDAD ({placa})",
+                                    f"Unidad {placa} circula a {speed_alert_info['velocidad']} km/h (Límite: {speed_alert_info['limite']} km/h).",
+                                    "/monitoreo",
+                                    f"copai-speed-{vehiculo_id}",
+                                )
+                            )
 
                         if sabotage_alert_info:
                             sabotage_msg = {
@@ -382,6 +403,16 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 "message": f"¡ALERTA DE SABOTAJE! Corte de energía / Batería principal desconectada en vehículo {placa} ({sabotage_alert_info['bateria_ext']}V)"
                             }
                             await manager.broadcast_flota(empresa_id, sabotage_msg)
+                            asyncio.create_task(
+                                run_in_thread(
+                                    send_web_push_sync,
+                                    empresa_id,
+                                    f"🛡️ ¡SABOTAJE DE BATERÍA! ({placa})",
+                                    f"Corte de energía detectado en unidad {placa} ({sabotage_alert_info['bateria_ext']}V).",
+                                    "/monitoreo",
+                                    f"copai-sabotage-{vehiculo_id}",
+                                )
+                            )
                     
                     # Respond with AVL ACK: 4 bytes big endian count of records
                     ack_response = TeltonikaCodec8Parser.generate_ack(len(records))

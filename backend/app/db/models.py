@@ -148,3 +148,17 @@ class AlertaPanico(Base):
 
     vehiculo = relationship("Vehiculo", back_populates="alertas")
     usuario_atendio = relationship("Usuario")
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
+    empresa_id = Column(Integer, nullable=True, index=True)
+    rol = Column(String(30), nullable=False, default="operador")
+    endpoint = Column(String(600), unique=True, nullable=False)
+    p256dh = Column(String(255), nullable=False)
+    auth = Column(String(255), nullable=False)
+    user_agent = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
