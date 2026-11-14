@@ -7,7 +7,7 @@ import {
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { siren } from '../utils/sound';
-import { WS_BASE_URL, getAssetUrl, isNativeApp } from '../config';
+import { WS_BASE_URL, getAssetUrl, isNativeApp, checkIsNativeApp } from '../config';
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
 import MobileBottomNav from './MobileBottomNav';
@@ -62,14 +62,14 @@ export default function Layout() {
 
   const handleTogglePushNotifications = async () => {
     siren.playSpeedBeep();
-    if (getNotificationPermissionState() === 'unsupported') {
+    if (getNotificationPermissionState() === 'unsupported' && !checkIsNativeApp()) {
       if (isIOS && !isStandalone) {
         setShowPrompt(true);
         setPushToast('En iPhone: primero agrega la App a Inicio para recibir alertas en el bolsillo.');
         setTimeout(() => setPushToast(''), 4500);
         return;
       }
-      setPushToast('Tu navegador actual no soporta notificaciones en segundo plano.');
+      setPushToast('Activa los permisos de notificación en los ajustes de tu equipo.');
       setTimeout(() => setPushToast(''), 4000);
       return;
     }
@@ -79,7 +79,11 @@ export default function Layout() {
 
     if (result.ok) {
       await sendTestPushNotification(token);
-      setPushToast('🔔 ¡Alertas de bolsillo activadas! Recibirás sonido ante Pánico, Sabotaje o Velocidad.');
+      if (checkIsNativeApp() || result.mode === 'native-android') {
+        setPushToast('🔔 ¡Alertas de tu App Oficial activadas! Sirena sonora y vibración listas ante Pánico, Sabotaje o Velocidad.');
+      } else {
+        setPushToast('🔔 ¡Alertas de bolsillo activadas! Recibirás sonido ante Pánico, Sabotaje o Velocidad.');
+      }
       setTimeout(() => setPushToast(''), 4500);
     } else if (result.reason === 'denied') {
       setPushToast('Permiso de notificaciones bloqueado en los ajustes de tu teléfono.');
@@ -135,9 +139,10 @@ export default function Layout() {
     }
 
     if (lastJsonMessage.type === 'panic_alert') {
-      // Trigger emergency siren sound in the browser
+      // Trigger emergency siren sound in the browser / native app
       siren.start();
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([400, 120, 400, 120, 600]); } catch {}
+      if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
         showSystemNotification(
           `🚨 ¡BOTÓN DE PÁNICO! (${lastJsonMessage.placa || 'UNIDAD'})`,
           `Emergencia SOS activada por ${lastJsonMessage.conductor || 'conductor'}.`,
@@ -160,7 +165,8 @@ export default function Layout() {
     } else if (lastJsonMessage.type === 'speed_alert') {
       // Play notification tone for speed excess alert
       siren.playSpeedBeep();
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([250, 100, 250]); } catch {}
+      if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
         showSystemNotification(
           `⚡ EXCESO DE VELOCIDAD (${lastJsonMessage.placa || 'UNIDAD'})`,
           `Circula a ${lastJsonMessage.velocidad} km/h (Límite: ${lastJsonMessage.limite} km/h).`,
@@ -185,7 +191,8 @@ export default function Layout() {
     } else if (lastJsonMessage.type === 'sabotage_alert') {
       // Trigger emergency siren sound for battery sabotage
       siren.start();
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([400, 120, 400, 120, 600]); } catch {}
+      if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
         showSystemNotification(
           `🛡️ ¡SABOTAJE DE BATERÍA! (${lastJsonMessage.placa || 'UNIDAD'})`,
           `Corte de energía detectado (${lastJsonMessage.bateria_ext ?? 0}V).`,

@@ -4,16 +4,23 @@ import { Capacitor } from '@capacitor/core';
 // Soporta desarrollo local en localhost:8000, App Móvil Nativa (Android/iOS) y producción en industriascopai.com
 
 // Detección de entorno: App Nativa Capacitor vs Web Localhost vs Web Producción
-export const isNativeApp = Boolean(
-  typeof window !== 'undefined' && (
+export function checkIsNativeApp() {
+  if (typeof window === 'undefined') return false;
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+  return Boolean(
     Capacitor.isNativePlatform() || 
     Capacitor.getPlatform() === 'android' ||
     Capacitor.getPlatform() === 'ios' ||
     window.location.protocol === 'capacitor:' ||
     window.location.protocol === 'ionic:' ||
+    window.__COPAI_NATIVE_FRAMED === true ||
+    (typeof document !== 'undefined' && document.documentElement?.classList?.contains('is-android-native-framed')) ||
+    /; wv\)/i.test(ua) ||
     (window.location.hostname === 'localhost' && Boolean(window.Capacitor))
-  )
-);
+  );
+}
+
+export const isNativeApp = checkIsNativeApp();
 
 const isLocalhost = Boolean(
   !isNativeApp && (
