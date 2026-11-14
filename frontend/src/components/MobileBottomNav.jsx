@@ -55,7 +55,7 @@ export default function MobileBottomNav({
       { to: '/vinculacion', icon: Link2, label: 'Vinculación GPS', desc: 'Unir GPS, unidad y chofer', color: '#7C3AED' },
       { to: '/empresas', icon: Building2, label: 'Empresas Clientes', desc: 'Subdominios y flotas', color: '#4F46E5' },
       { to: '/particulares', icon: Car, label: 'Particulares', desc: 'Dueños de vehículos propios', color: '#0D9488' },
-      { to: '/vehiculos', icon: Truck, label: 'Vehículos', desc: 'Padrón general de unidades', color: '#16A34A' },
+      { to: '/vehiculos', icon: Truck, label: 'Vehículos y Activos', desc: 'Estado en vivo y padrón', color: '#16A34A' },
       { to: '/conductores', icon: Users, label: 'Conductores', desc: 'Licencias y choferes', color: '#D97706' },
       { to: '/historial-rutas', icon: Route, label: 'Historial de Rutas', desc: 'Reproducción y paradas', color: '#0284C7' },
       { to: '/usuarios', icon: Shield, label: 'Usuarios y Accesos', desc: 'Cuentas y verificación', color: '#E11D48' },
@@ -77,13 +77,13 @@ export default function MobileBottomNav({
       { to: '/vinculacion', icon: Link2, label: 'Vinculación GPS', desc: 'Asignar chofer y equipo', color: '#7C3AED' },
       { to: '/usuarios', icon: Shield, label: 'Usuarios y Accesos', desc: 'Operadores de despacho', color: '#2563EB' },
       { to: '/reportes', icon: Activity, label: 'Reportes de Flota', desc: 'Estadísticas operativas', color: '#0284C7' },
-      { to: '/vehiculos', icon: Truck, label: 'Mis Vehículos', desc: 'Padrón de unidades', color: '#16A34A' },
+      { to: '/vehiculos?vista=padron', icon: Truck, label: 'Mis Vehículos', desc: 'Padrón y ficha técnica', color: '#16A34A' },
     ];
   } else {
     // Operador de Despacho
     navItems = [
       { to: '/monitoreo', icon: Map, label: 'Mapa Vivo' },
-      { to: '/vehiculos', icon: Truck, label: 'Unidades' },
+      { to: '/vehiculos', icon: Truck, label: 'Mi Flota' },
       { to: '/alertas', icon: AlertTriangle, label: 'Alertas', badge: activeAlertCount },
       { to: '/historial-rutas', icon: Route, label: 'Historial' },
       { to: '/perfil', icon: User, label: 'Mi Perfil' },

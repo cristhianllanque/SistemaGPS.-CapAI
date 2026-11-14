@@ -468,3 +468,107 @@ def get_street_route(
     raise HTTPException(status_code=502, detail="No se pudo obtener ruta vial en este momento")
 
 
+_REVERSE_GEO_CACHE: Dict[str, str] = {}
+
+
+@router.get("/reverse-geocode")
+def reverse_geocode_coords(
+    lat: float,
+    lng: float,
+):
+    """
+    Obtiene el nombre exacto de la avenida, jirón, calle y ciudad (Geocodificación Inversa)
+    con caché en memoria para respuesta instantánea en Web y App Móvil.
+    """
+    import json
+    import urllib.request
+
+    cache_key = f"{round(lat, 4)},{round(lng, 4)}"
+    if cache_key in _REVERSE_GEO_CACHE:
+        return {"address": _REVERSE_GEO_CACHE[cache_key], "cached": True}
+
+    headers = {
+        "User-Agent": "CopAI-Telematics-GPS/2.0 (https://industriascopai.com)",
+        "Accept": "application/json",
+        "Accept-Language": "es-PE,es;q=0.9",
+    }
+
+    # 1. Intentar con OpenStreetMap Nominatim (excelente detalle de jirones y avenidas en Perú)
+    try:
+        nom_url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lng}&zoom=18&addressdetails=1"
+        req = urllib.request.Request(nom_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            addr = data.get("address") or {}
+            road = (
+                addr.get("road")
+                or addr.get("pedestrian")
+                or addr.get("highway")
+                or addr.get("path")
+                or addr.get("amenity")
+                or addr.get("Aeroway")
+                or data.get("name")
+                or ""
+            ).strip()
+            house_number = (addr.get("house_number") or "").strip()
+            suburb = (
+                addr.get("suburb")
+                or addr.get("neighbourhood")
+                or addr.get("quarter")
+                or addr.get("residential")
+                or ""
+            ).strip()
+            city = (
+                addr.get("city")
+                or addr.get("town")
+                or addr.get("municipality")
+                or addr.get("village")
+                or addr.get("county")
+                or ""
+            ).strip()
+
+            parts = []
+            if road:
+                parts.append(f"{road} {house_number}".strip() if house_number else road)
+            if suburb and suburb.lower() != road.lower():
+                parts.append(suburb)
+            if city and city.lower() != suburb.lower():
+                parts.append(city)
+
+            formatted = ", ".join(parts)
+            if not formatted and data.get("display_name"):
+                formatted = ", ".join([p.strip() for p in data["display_name"].split(",")[:3]])
+
+            if formatted:
+                if len(_REVERSE_GEO_CACHE) > 2500:
+                    _REVERSE_GEO_CACHE.clear()
+                _REVERSE_GEO_CACHE[cache_key] = formatted
+                return {"address": formatted, "cached": False}
+    except Exception:
+        pass
+
+    # 2. Respaldo con Photon Komoot (OpenStreetMap)
+    try:
+        photon_url = f"https://photon.komoot.io/reverse?lat={lat}&lon={lng}"
+        req = urllib.request.Request(photon_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            features = data.get("features") or []
+            if features:
+                props = features[0].get("properties") or {}
+                street = (props.get("street") or props.get("name") or "").strip()
+                district = (props.get("district") or props.get("locality") or "").strip()
+                city = (props.get("city") or props.get("county") or "").strip()
+                parts = [p for p in [street, district, city] if p]
+                if parts:
+                    formatted = ", ".join(parts)
+                    _REVERSE_GEO_CACHE[cache_key] = formatted
+                    return {"address": formatted, "cached": False}
+    except Exception:
+        pass
+
+    fallback = f"Lat {lat:.4f}, Lng {lng:.4f}"
+    return {"address": fallback, "cached": False}
+
+
+

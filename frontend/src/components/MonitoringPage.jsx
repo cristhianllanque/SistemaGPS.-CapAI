@@ -236,16 +236,22 @@ export default function MonitoringPage() {
     reconnectInterval: 3000,
   });
 
-  // Check URL search parameters (e.g., ?vehiculo=12)
+  // Check URL search parameters (e.g., ?vehiculo=12 or ?vehiculo=12&ruta=1)
   useEffect(() => {
     const urlVehiculoId = searchParams.get('vehiculo');
+    const urlRuta = searchParams.get('ruta');
     if (urlVehiculoId) {
       const parsedId = parseInt(urlVehiculoId, 10);
       if (!isNaN(parsedId)) {
         setSelectedVehicleId(parsedId);
+        if (urlRuta === '1' || urlRuta === 'true') {
+          setRouteTargetVehicleId(parsedId);
+          ensureUserLocationWatching(false);
+          setFitRouteTrigger((prev) => prev + 1);
+        }
       }
     }
-  }, [searchParams]);
+  }, [searchParams, ensureUserLocationWatching]);
 
   const refreshVehiculosSilently = useCallback(async () => {
     try {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X, Compass } from 'lucide-react';
+import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X, Compass, MapPin } from 'lucide-react';
 import { parseServerUTC } from '../utils/peruTime';
+import { useVehicleAddresses } from '../utils/reverseGeocode';
 
 export default function Sidebar({
   vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90,
@@ -10,11 +11,17 @@ export default function Sidebar({
   isMobileApp = false, routeTargetVehicleId = null, onStartRouteToVehicle, onStopRoute
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const addresses = useVehicleAddresses(vehiculos);
 
-  const filtered = vehiculos.filter(v => 
-    v.placa.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (v.conductor && v.conductor.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filtered = vehiculos.filter((v) => {
+    const q = searchTerm.toLowerCase();
+    return (
+      (v.placa || '').toLowerCase().includes(q) ||
+      (v.padron || '').toLowerCase().includes(q) ||
+      (v.conductor && (v.conductor.nombre || '').toLowerCase().includes(q)) ||
+      (addresses[v.id] && addresses[v.id].toLowerCase().includes(q))
+    );
+  });
 
   return (
     <>
@@ -163,6 +170,12 @@ export default function Sidebar({
                     <span className={`w-2 h-2 rounded-full ${statusDot}`} title={statusLabel}></span>
                   </h3>
                   <p className="text-xs text-slate-500">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
+                  {u && u.latitud != null && (
+                    <p className="text-[11px] text-slate-600 font-medium flex items-start gap-1 mt-1 leading-snug">
+                      <MapPin size={12} className="text-sky-600 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{addresses[v.id] || 'Ubicando avenida / calle...'}</span>
+                    </p>
+                  )}
                   {showEmpresaFilter && v.empresa_nombre && (
                     <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                       <Building2 size={10} /> {v.empresa_nombre}

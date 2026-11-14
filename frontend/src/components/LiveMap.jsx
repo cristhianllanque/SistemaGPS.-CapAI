@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateFixed, Sun, Moon, Layers, RotateCw, Plus, Minus } from 'lucide-react';
+import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateFixed, Sun, Moon, Layers, RotateCw, Plus, Minus, MapPin } from 'lucide-react';
 import { parseServerUTC, formatPeruTime } from '../utils/peruTime';
+import { useVehicleAddresses } from '../utils/reverseGeocode';
 
 // Create custom icons based on status (con contra-rotación automática cuando el mapa gira)
 const createIcon = (color, isPanic = false, isSpeed = false) => {
@@ -210,6 +211,7 @@ export default function LiveMap({
 }) {
   // Center in default coordinates (Peru)
   const defaultCenter = [-15.5, -70.1];
+  const addresses = useVehicleAddresses(vehiculos);
 
   // Estilo de mapa persistente: 'day' (Calles), 'dark' (Modo Oscuro), 'satellite' (Satélite con Casitas + Calles)
   const [mapStyle, setMapStyle] = useState(() => {
@@ -722,7 +724,11 @@ export default function LiveMap({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mb-2">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
+                  <p className="text-xs text-slate-500 mb-1.5">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
+                  <div className="flex items-start gap-1.5 text-[11px] text-slate-700 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1.5 mb-2 leading-snug">
+                    <MapPin size={13} className="text-sky-600 shrink-0 mt-0.5" />
+                    <span className="font-semibold">{addresses[v.id] || 'Ubicando avenida / calle...'}</span>
+                  </div>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
                     <span className="font-semibold text-slate-600">Estado:</span>
                     <span className={isSabotage ? "text-rose-600 font-bold" : (isSpeeding ? "text-amber-600 font-bold" : (u.velocidad > 0 ? "text-green-600 font-bold" : (isIgnitionOn ? "text-emerald-600 font-bold" : "text-slate-500 font-medium")))}>
