@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import useWebSocket from 'react-use-websocket';
+import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import axios from 'axios';
 import {
   Truck, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Building2,
