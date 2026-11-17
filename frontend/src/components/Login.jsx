@@ -341,8 +341,8 @@ export default function Login() {
         <div className="relative z-10 flex flex-col min-h-screen bg-white text-slate-900">
           
           {/* Header Superior Corporativo Limpio (Blanco Translúcido estilo Apple) */}
-          <header className="fixed top-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 transition-colors shadow-2xs">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+          <header className="fixed top-0 left-0 right-0 z-40 bg-white/92 backdrop-blur-xl border-b border-slate-200/80 transition-colors shadow-2xs">
+            <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-14 h-20 flex items-center justify-between gap-4">
               
               {/* Logo y Nombre de la Empresa Cliente */}
               <div 
@@ -510,7 +510,7 @@ export default function Login() {
               <div className="h-24 sm:h-28" />
 
               {/* Contenido Central del Hero */}
-              <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full flex-1 flex flex-col justify-center">
+              <div className="relative z-10 w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-14 py-8 sm:py-12 flex-1 flex flex-col justify-center">
                 <div className="max-w-3xl space-y-5">
                   
                   {/* Badge de Estado Satelital con el color primario de la empresa */}
@@ -569,7 +569,7 @@ export default function Login() {
               </div>
 
               {/* Fila de Métricas y KPIs en Tarjetas Blancas Limpias */}
-              <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 w-full">
+              <div className="relative z-10 w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-14 pb-8">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                   
                   <div className="bg-white/95 backdrop-blur-xl border border-white/60 rounded-2xl p-4 sm:p-5 shadow-lg">
@@ -639,8 +639,8 @@ export default function Login() {
 
             {/* SECCIÓN 1 (BLANCA): RUTAS & COBERTURA DE LA EMPRESA */}
             {companyPortal.servicios && (
-              <section id="rutas" className="py-20 bg-white border-b border-slate-200/70 scroll-mt-20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <section id="rutas" className="w-full py-16 sm:py-20 bg-white border-b border-slate-200/70 scroll-mt-20">
+                <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-14">
                   <div className="rounded-3xl p-7 sm:p-12 bg-[#F5F5F7] border border-slate-200/80">
                     <div className="flex flex-col sm:flex-row items-start gap-5 sm:gap-7">
                       <div 
@@ -687,84 +687,99 @@ export default function Login() {
               </section>
             )}
 
-            {/* SECCIÓN 2 (GRIS PERLA / MATIZ SUAVE DE LA EMPRESA): TELEMETRÍA & MONITOREO */}
-            <section
-              id="telemetria"
-              className="py-20 border-b border-slate-200/70 scroll-mt-20"
-              style={{
-                backgroundColor: isLightPortal ? cTerciario : '#F5F5F7'
-              }}
-            >
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center max-w-2xl mx-auto mb-14">
-                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: cPrimario }}>
-                    TECNOLOGÍA DE FLOTA
-                  </span>
-                  <h3 className="mt-2 text-3xl sm:text-4xl font-black tracking-tight text-slate-950">
-                    Telemetría &amp; Monitoreo en Tiempo Real
-                  </h3>
-                  <p className="text-sm text-slate-600 mt-2">
-                    Nuestra flota opera con tecnología satelital homologada y monitoreada continuamente.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  
-                  <div className="rounded-3xl p-8 bg-white border border-slate-200/80 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
-                    <div 
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                      style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                    >
-                      <Navigation size={24} />
+            {/* SECCIÓN 2 (DE PARED A PARED EN EL COLOR DE LA EMPRESA): TELEMETRÍA & MONITOREO */}
+            {(() => {
+              const telemetriaBg = isLightPortal ? cTerciario : cPrimario;
+              const isVeryLightBand = getLuminance(telemetriaBg) > 0.72;
+              return (
+                <section
+                  id="telemetria"
+                  className="w-full py-20 border-b border-slate-200/70 scroll-mt-20"
+                  style={{
+                    backgroundColor: telemetriaBg
+                  }}
+                >
+                  <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-14">
+                    <div className="text-center max-w-3xl mx-auto mb-14">
+                      <span
+                        className="text-xs font-bold uppercase tracking-widest"
+                        style={{ color: isVeryLightBand ? cPrimario : '#FFFFFF' }}
+                      >
+                        TECNOLOGÍA DE FLOTA
+                      </span>
+                      <h3
+                        className="mt-2 text-3xl sm:text-5xl font-black tracking-tight"
+                        style={{ color: isVeryLightBand ? '#0F172A' : '#FFFFFF' }}
+                      >
+                        Telemetría &amp; Monitoreo en Tiempo Real
+                      </h3>
+                      <p
+                        className="text-sm sm:text-base mt-2.5"
+                        style={{ color: isVeryLightBand ? '#475569' : 'rgba(255, 255, 255, 0.9)' }}
+                      >
+                        Nuestra flota opera con tecnología satelital homologada y monitoreada continuamente.
+                      </p>
                     </div>
-                    <h4 className="font-bold text-lg text-slate-950 mb-2">
-                      Rastreo Satelital GNSS 4G
-                    </h4>
-                    <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Transmisión continua de posición, avenida exacta, velocidad, odómetro satelital y estado de ignición con equipos Teltonika.
-                    </p>
-                  </div>
 
-                  <div 
-                    id="seguridad"
-                    className="rounded-3xl p-8 bg-white border border-slate-200/80 shadow-[0_8px_30px_rgba(15,23,42,0.04)] scroll-mt-24"
-                  >
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                      style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                    >
-                      <Gauge size={24} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+                      
+                      <div className="rounded-3xl p-8 sm:p-9 bg-white border border-slate-200/80 shadow-xl">
+                        <div 
+                          className="w-13 h-13 rounded-2xl flex items-center justify-center mb-6"
+                          style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
+                        >
+                          <Navigation size={24} />
+                        </div>
+                        <h4 className="font-bold text-xl text-slate-950 mb-2.5">
+                          Rastreo Satelital GNSS 4G
+                        </h4>
+                        <p className="text-sm leading-relaxed text-slate-600">
+                          Transmisión continua de posición, avenida exacta, velocidad, odómetro satelital y estado de ignición con equipos Teltonika.
+                        </p>
+                      </div>
+
+                      <div 
+                        id="seguridad"
+                        className="rounded-3xl p-8 sm:p-9 bg-white border border-slate-200/80 shadow-xl scroll-mt-24"
+                      >
+                        <div
+                          className="w-13 h-13 rounded-2xl flex items-center justify-center mb-6"
+                          style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
+                        >
+                          <Gauge size={24} />
+                        </div>
+                        <h4 className="font-bold text-xl text-slate-950 mb-2.5">
+                          Límite Seguro ({companyPortal.limite_velocidad || 90} km/h)
+                        </h4>
+                        <p className="text-sm leading-relaxed text-slate-600">
+                          Control riguroso de velocidad configurado para prevenir incidentes y proteger a los pasajeros en todo el trayecto.
+                        </p>
+                      </div>
+
+                      <div className="rounded-3xl p-8 sm:p-9 bg-white border border-slate-200/80 shadow-xl">
+                        <div 
+                          className="w-13 h-13 rounded-2xl flex items-center justify-center mb-6"
+                          style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
+                        >
+                          <ShieldCheck size={24} />
+                        </div>
+                        <h4 className="font-bold text-xl text-slate-950 mb-2.5">
+                          Seguridad &amp; Botón de Pánico
+                        </h4>
+                        <p className="text-sm leading-relaxed text-slate-600">
+                          Detección de paradas no autorizadas, avisos ante desconexión de batería y botón de emergencia SOS con alerta sonora inmediata.
+                        </p>
+                      </div>
+
                     </div>
-                    <h4 className="font-bold text-lg text-slate-950 mb-2">
-                      Límite Seguro ({companyPortal.limite_velocidad || 90} km/h)
-                    </h4>
-                    <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Control riguroso de velocidad configurado para prevenir incidentes y proteger a los pasajeros en todo el trayecto.
-                    </p>
                   </div>
-
-                  <div className="rounded-3xl p-8 bg-white border border-slate-200/80 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
-                    <div 
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                      style={{ backgroundColor: `${cPrimario}15`, color: cPrimario }}
-                    >
-                      <ShieldCheck size={24} />
-                    </div>
-                    <h4 className="font-bold text-lg text-slate-950 mb-2">
-                      Seguridad &amp; Botón de Pánico
-                    </h4>
-                    <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Detección de paradas no autorizadas, avisos ante desconexión de batería y botón de emergencia SOS con alerta sonora inmediata.
-                    </p>
-                  </div>
-
-                </div>
-              </div>
-            </section>
+                </section>
+              );
+            })()}
 
             {/* SECCIÓN 3 (CONTRASTE OSCURO ELEGANTE + BLANCO): CONTACTO & CENTRAL DE DESPACHO */}
-            <section id="contacto" className="py-20 bg-white scroll-mt-20">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <section id="contacto" className="w-full py-20 bg-white scroll-mt-20">
+              <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-14">
                 <div className="rounded-3xl p-8 sm:p-14 bg-[#0B0F17] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8">
                   <div className="space-y-3 max-w-xl">
                     <div
@@ -815,8 +830,8 @@ export default function Login() {
           </main>
 
           {/* Footer White-Label Limpio */}
-          <footer className="border-t border-slate-200/80 bg-[#F5F5F7] py-10 px-4 text-center">
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <footer className="w-full border-t border-slate-200/80 bg-[#F5F5F7] py-10 px-4 sm:px-8 lg:px-14 text-center">
+            <div className="w-full max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
               <div className="flex items-center gap-2.5">
                 <span className="font-bold text-sm text-slate-900">{companyPortal.nombre}</span>
                 {companyPortal.documento && (
