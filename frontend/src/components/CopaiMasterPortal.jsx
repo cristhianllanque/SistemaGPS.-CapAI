@@ -1,34 +1,31 @@
 import React, { useState } from 'react';
 import {
-  Radio, Bot, Brain, ShieldCheck, Cpu, Activity, Satellite,
+  Bot, ShieldCheck, Cpu, Satellite,
   ChevronRight, ChevronDown, Check, Smartphone, Lock, ArrowRight,
-  Eye, Sparkles, MapPin, Shield, Layers, Globe, Camera, Compass,
-  Terminal, Zap, Maximize2, X, Play, Code2, Server, Wifi
+  Eye, MapPin, Layers, Globe, Camera, Compass,
+  Maximize2, X, Play, Code2, Wifi, Mail, Phone, MessageCircle
 } from 'lucide-react';
 
 const DIVISIONES_PRINCIPALES = [
   {
     id: 'gps',
     numero: '01',
-    codigoHud: 'SYS-GPS // TELTONIKA-IOT',
+    codigoHud: 'DIVISIÓN 01 • TELEMETRÍA VEHICULAR',
     titulo: 'Telemetría Satelital GPS & Seguridad de Flotas',
-    subtitulo: 'Rastreo en Tiempo Real, Antirrobo Vehicular y Despacho Inteligente',
+    subtitulo: 'Rastreo en tiempo real, antirrobo vehicular y despacho inteligente',
     estado: 'EN PRODUCCIÓN ACTIVA',
-    estadoColor: 'emerald',
-    acento: '#06B6D4', // cyan-500
-    gradiente: 'from-cyan-500 to-blue-600',
     imagen: '/copai-media/gps.jpg',
     icono: Satellite,
     resumen:
-      'Plataforma satelital de grado industrial conectada a dispositivos Teltonika de última generación. Brindamos seguridad total para flotas de transporte y vehículos particulares con detección instantánea de botón de pánico, alerta de sabotaje por corte de energía, geocercas inteligentes y subdominios corporativos propios.',
+      'Plataforma satelital de grado industrial conectada a dispositivos Teltonika de última generación. Brindamos seguridad integral para flotas de transporte y vehículos particulares con detección instantánea de botón de pánico, alerta de sabotaje por corte de energía, geocercas inteligentes y subdominios corporativos propios.',
     metricas: [
       { label: 'Latencia TCP/WS', valor: '< 100ms' },
       { label: 'Seguridad Activa', valor: 'Pánico + Sabotaje' },
-      { label: 'Multi-Plataforma', valor: 'Web + iOS + Android' }
+      { label: 'Multi-Plataforma', valor: 'Web • iOS • Android' }
     ],
     puntosClave: [
       'Detección inmediata de Botón de Pánico en cabina y Sabotaje de batería en tiempo real',
-      'Reproducción histórica de rutas con telemetría de velocidad, paradas y motor ON/OFF',
+      'Reproducción histórica de rutas con telemetría de velocidad, paradas, avenidas y motor ON/OFF',
       'Portales corporativos dedicados (tuempresa.industriascopai.com) y Apps nativas por rol'
     ],
     especificacionesDesplegables: [
@@ -49,13 +46,10 @@ const DIVISIONES_PRINCIPALES = [
   {
     id: 'camara',
     numero: '02',
-    codigoHud: 'SYS-VISION // AI-SECURITY-IR',
+    codigoHud: 'DIVISIÓN 02 • VISIÓN COMPUTACIONAL',
     titulo: 'Visión Computacional IA & Antirrobo en Tiendas',
-    subtitulo: 'Cámaras Inteligentes con Visión Nocturna Infrarroja y Detección Preventiva',
+    subtitulo: 'Cámaras inteligentes con visión nocturna infrarroja y detección preventiva',
     estado: 'TECNOLOGÍA IA ACTIVA',
-    estadoColor: 'blue',
-    acento: '#EC4899', // pink/magenta IR accent + blue
-    gradiente: 'from-fuchsia-500 to-blue-600',
     imagen: '/copai-media/camara.jpg',
     icono: Camera,
     resumen:
@@ -63,12 +57,12 @@ const DIVISIONES_PRINCIPALES = [
     metricas: [
       { label: 'Visión Nocturna', valor: 'Anillo IR Activo' },
       { label: 'Inferencia IA', valor: 'Tiempo Real 30fps' },
-      { label: 'Alertas', valor: 'Instantáneas Móvil' }
+      { label: 'Alertas', valor: 'Directas al Móvil' }
     ],
     puntosClave: [
-      'Detección automática de sustracción de prendas o productos y alertas silenciosas al encargado',
+      'Detección automática de sustracción de prendas o productos y alertas inmediatas al encargado',
       'Anillo de LEDs infrarrojos de alta sensibilidad para operación continua día y noche (0 Lux)',
-      'Reconocimiento de zonas restringidas, conteo de clientes y mapas de calor en tienda'
+      'Reconocimiento de zonas restringidas, conteo de clientes y analítica visual en tienda'
     ],
     especificacionesDesplegables: [
       {
@@ -88,13 +82,10 @@ const DIVISIONES_PRINCIPALES = [
   {
     id: 'robot',
     numero: '03',
-    codigoHud: 'SYS-ROBOTICS // ASISTENTE-3D',
+    codigoHud: 'DIVISIÓN 03 • ROBÓTICA & MECATRÓNICA',
     titulo: 'Robótica Autónoma & Asistentes Inteligentes',
-    subtitulo: 'Asistente Robótico para Alquiler de Pañeras y Artefactos en Mercados',
+    subtitulo: 'Asistente robótico para alquiler de pañeras y artefactos en mercados',
     estado: 'INGENIERÍA 3D & PROTOTIPADO',
-    estadoColor: 'violet',
-    acento: '#8B5CF6', // violet-500
-    gradiente: 'from-violet-500 to-cyan-500',
     imagen: '/copai-media/robot.jpg',
     icono: Bot,
     resumen:
@@ -119,7 +110,7 @@ const DIVISIONES_PRINCIPALES = [
         detalle: 'Permite a los comerciantes solicitar pañeras, bandejas o equipos desde su puesto con un toque o comando, reduciendo tiempos muertos.'
       },
       {
-        titulo: 'Cerebro Conectado a la Nube CopAI',
+        titulo: 'Conectividad con la Nube CopAI',
         detalle: 'Sincronización inalámbrica con el panel administrativo para monitorear batería, ubicación del robot y arqueo diario de alquileres.'
       }
     ]
@@ -127,13 +118,10 @@ const DIVISIONES_PRINCIPALES = [
   {
     id: 'turistico',
     numero: '04',
-    codigoHud: 'SYS-TOURISM // SMART-HERITAGE',
+    codigoHud: 'DIVISIÓN 04 • TURISMO INTELIGENTE',
     titulo: 'Sistemas Turísticos Inteligentes & Rutas Digitales',
-    subtitulo: 'Plataformas Tecnológicas para Turismo, Arqueología y Transporte Turístico',
+    subtitulo: 'Plataformas tecnológicas para turismo, arqueología y transporte turístico',
     estado: 'SOLUCIÓN INTEGRAL',
-    estadoColor: 'amber',
-    acento: '#0EA5E9', // sky-500
-    gradiente: 'from-sky-500 to-emerald-500',
     imagen: '/copai-media/turistico.jpg',
     icono: Compass,
     resumen:
@@ -180,7 +168,7 @@ const ECOSISTEMA_360 = [
     titulo: 'Aplicaciones Móviles Nativas (iOS & Android)',
     etiqueta: 'EXPERIENCIA MÓVIL',
     descripcion: 'Creamos aplicativos móviles de alto rendimiento con interfaz nativa de pantalla completa, notificaciones instantáneas y vistas adaptadas a cada perfil de usuario.',
-    items: ['Disponible en Google Play Store para Android', 'Experiencia WebApp nativa en iPhone (iOS)', 'Modo oscuro de alto contraste y bajo consumo']
+    items: ['Disponible en Google Play Store para Android', 'Experiencia WebApp nativa en iPhone (iOS)', 'Alertas sonoras y vibración en tiempo real']
   },
   {
     id: 'vision',
@@ -240,7 +228,7 @@ const PREGUNTAS_ARQUITECTURA = [
   {
     pregunta: '¿Qué nivel de seguridad ofrece el rastreo GPS con equipos Teltonika?',
     respuesta:
-      'Trabajamos con hardware Teltonika homologado que reporta ubicación exacta al segundo, velocidad, estado de motor (ON/OFF), voltaje de batería del vehículo y nivel de batería interna. Si alguien intenta desconectar la batería (sabotaje) o el conductor presiona el botón de pánico, la central y el celular reciben una alarma sonora instantánea.'
+      'Trabajamos con hardware Teltonika homologado que reporta ubicación exacta al segundo, avenida o calle en vivo, velocidad, estado de motor (ON/OFF), voltaje de batería del vehículo y nivel de batería interna. Si alguien intenta desconectar la batería (sabotaje) o el conductor presiona el botón de pánico, la central y el celular reciben una alarma sonora instantánea.'
   }
 ];
 
@@ -249,8 +237,8 @@ export default function CopaiMasterPortal({
   onOpenLoginModal,
   onOpenInstallModal
 }) {
-  // División activa en el visor interactivo del Hero y filtro de tarjetas
-  const [activeHeroIdx, setActiveHeroIdx] = useState(0);
+  // Modo activo en el escaparate principal: 'video' (Video de Juliaca) o índice 0..3 de división
+  const [activeShowcase, setActiveShowcase] = useState('video');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
   // Desplegables (accordions) abiertos en las 4 tarjetas principales
@@ -261,13 +249,10 @@ export default function CopaiMasterPortal({
     turistico: false
   });
 
-  // Desplegable del menú superior "Divisiones Tecnológicas"
+  // Desplegable del menú superior "Divisiones"
   const [navDropdownOpen, setNavDropdownOpen] = useState(false);
 
-  // Modo Video Panorámico en Hero (atenúa el overlay oscuro para apreciar más el video de Juliaca)
-  const [clearVideoMode, setClearVideoMode] = useState(false);
-
-  // Modal HUD de inspección de imagen/división en pantalla completa
+  // Modal Lightbox de inspección de imagen/división en pantalla completa
   const [inspectedDivision, setInspectedDivision] = useState(null);
 
   // Accordion de Preguntas / Arquitectura
@@ -285,56 +270,36 @@ export default function CopaiMasterPortal({
       ? DIVISIONES_PRINCIPALES
       : DIVISIONES_PRINCIPALES.filter((d) => d.id === selectedFilter);
 
-  const heroDivision = DIVISIONES_PRINCIPALES[activeHeroIdx] || DIVISIONES_PRINCIPALES[0];
-  const HeroIcon = heroDivision.icono;
+  const activeDivisionObj =
+    typeof activeShowcase === 'number'
+      ? DIVISIONES_PRINCIPALES[activeShowcase] || DIVISIONES_PRINCIPALES[0]
+      : DIVISIONES_PRINCIPALES[0];
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 relative selection:bg-cyan-500 selection:text-slate-950">
-      {/* ================= LUCES Y GRILLA CYBER DE FONDO GLOBAL ================= */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[150px]" />
-        <div className="absolute top-[30%] -right-40 w-[550px] h-[550px] rounded-full bg-cyan-500/12 blur-[150px]" />
-        <div className="absolute bottom-[-10%] left-[25%] w-[600px] h-[600px] rounded-full bg-indigo-600/12 blur-[160px]" />
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, #38bdf8 1px, transparent 1px), linear-gradient(to bottom, #38bdf8 1px, transparent 1px)',
-            backgroundSize: '48px 48px'
-          }}
-        />
-      </div>
-
-      {/* ================= BARRA SUPERIOR FUTURISTA (NAVBAR COPAI) ================= */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-2xl border-b border-cyan-500/20 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+    <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-sky-500 selection:text-white">
+      {/* ================= BARRA SUPERIOR LIMPIA ESTILO APPLE (BLANCA TRANSLÚCIDA) ================= */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
-          {/* ESQUINA IZQUIERDA: LOGO COMPLETO COPAI INDUSTRIAS + EMBLEMA C */}
+          {/* ESQUINA IZQUIERDA: LOGOTIPO OFICIAL COPAI SOBRE BLANCO */}
           <div className="flex items-center gap-4">
             <a href="#inicio" className="flex items-center gap-3 group">
-              <div className="relative flex items-center">
-                <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-blue-600/25 to-cyan-400/25 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <img
-                  src="/copai-media/logo-copai-dark.png"
-                  alt="CopAI Industrias"
-                  className="relative h-10 sm:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
+              <img
+                src="/logo-copai.png"
+                alt="CopAI Industrias"
+                className="h-10 sm:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              />
             </a>
 
-            <div className="hidden xl:flex items-center gap-2 pl-4 border-l border-slate-800">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-400" />
-              </span>
-              <span className="text-[11px] font-bold tracking-widest uppercase text-cyan-300/90">
-                INGENIERÍA &amp; TECNOLOGÍA 4.0
+            <div className="hidden xl:flex items-center gap-2 pl-4 border-l border-slate-200">
+              <span className="h-2 w-2 rounded-full bg-sky-500" />
+              <span className="text-[11px] font-semibold tracking-widest uppercase text-slate-500">
+                Ingeniería &amp; Tecnología
               </span>
             </div>
           </div>
 
-          {/* NAVEGACIÓN CENTRAL CON MENÚ DESPLEGABLE INTERACTIVO */}
-          <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-300">
-            {/* Desplegable de las 4 Divisiones */}
+          {/* NAVEGACIÓN CENTRAL MINIMALISTA */}
+          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-600">
             <div
               className="relative"
               onMouseEnter={() => setNavDropdownOpen(true)}
@@ -343,23 +308,22 @@ export default function CopaiMasterPortal({
               <button
                 type="button"
                 onClick={() => setNavDropdownOpen(!navDropdownOpen)}
-                className="flex items-center gap-1.5 py-2 px-3 rounded-xl hover:bg-slate-900/90 hover:text-cyan-400 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 py-2 text-slate-700 hover:text-slate-950 transition-colors cursor-pointer font-semibold"
               >
-                <Sparkles size={15} className="text-cyan-400" />
-                <span>Divisiones Tecnológicas</span>
+                <span>Divisiones</span>
                 <ChevronDown
                   size={15}
                   className={`text-slate-400 transition-transform duration-200 ${
-                    navDropdownOpen ? 'rotate-180 text-cyan-400' : ''
+                    navDropdownOpen ? 'rotate-180 text-slate-900' : ''
                   }`}
                 />
               </button>
 
               {navDropdownOpen && (
                 <div className="absolute left-0 top-full pt-2 w-80 z-50 animate-in fade-in duration-150">
-                  <div className="p-2.5 rounded-2xl bg-slate-900/95 backdrop-blur-2xl border border-cyan-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.8)] space-y-1">
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-400/80 border-b border-slate-800/80">
-                      4 Pilares Principales CopAI
+                  <div className="p-2.5 rounded-2xl bg-white/95 backdrop-blur-2xl border border-slate-200/90 shadow-[0_20px_50px_rgba(15,23,42,0.12)] space-y-1">
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100">
+                      4 Divisiones de Ingeniería
                     </div>
                     {DIVISIONES_PRINCIPALES.map((div) => {
                       const IconComp = div.icono;
@@ -372,16 +336,16 @@ export default function CopaiMasterPortal({
                             setExpandedCards((prev) => ({ ...prev, [div.id]: true }));
                             setNavDropdownOpen(false);
                           }}
-                          className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                          className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
                         >
-                          <div className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-cyan-400 group-hover:border-cyan-500/50 group-hover:bg-cyan-500/10 transition-colors mt-0.5">
+                          <div className="p-2 rounded-xl bg-slate-100 text-slate-700 group-hover:bg-sky-50 group-hover:text-sky-600 transition-colors mt-0.5">
                             <IconComp size={16} />
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors">
+                            <div className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">
                               {div.titulo}
                             </div>
-                            <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                            <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
                               {div.subtitulo}
                             </div>
                           </div>
@@ -395,38 +359,42 @@ export default function CopaiMasterPortal({
 
             <a
               href="#divisiones"
-              className="hover:text-cyan-400 transition-colors flex items-center gap-1.5 py-2"
+              className="hover:text-slate-950 transition-colors py-2"
             >
-              <Layers size={15} className="text-blue-400" />
-              <span>Proyectos &amp; Sistemas</span>
+              Proyectos &amp; Sistemas
             </a>
 
             <a
               href="#ecosistema"
-              className="hover:text-cyan-400 transition-colors flex items-center gap-1.5 py-2"
+              className="hover:text-slate-950 transition-colors py-2"
             >
-              <Cpu size={15} className="text-cyan-400" />
-              <span>Ecosistema 360°</span>
+              Ecosistema 360°
             </a>
 
             <a
               href="#arquitectura"
-              className="hover:text-cyan-400 transition-colors flex items-center gap-1.5 py-2"
+              className="hover:text-slate-950 transition-colors py-2"
             >
-              <ShieldCheck size={15} className="text-emerald-400" />
-              <span>Preguntas &amp; Seguridad</span>
+              Preguntas
+            </a>
+
+            <a
+              href="#contacto-copai"
+              className="hover:text-slate-950 transition-colors py-2"
+            >
+              Contacto
             </a>
           </nav>
 
-          {/* BOTONES DERECHA: INSTALAR APP E INICIAR SESIÓN */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* BOTONES DERECHA: DESCARGAR APP E INICIAR SESIÓN */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
             {!isStandalone && (
               <button
                 onClick={onOpenInstallModal}
-                className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-cyan-500/30 bg-slate-900/80 hover:bg-slate-800 text-cyan-300 hover:border-cyan-400 transition-all cursor-pointer shadow-sm active:scale-95"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2.5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 transition-all cursor-pointer active:scale-95"
                 title="Instalar Aplicativo Oficial COPAI en iPhone o Google Play"
               >
-                <Smartphone size={15} className="text-cyan-400" />
+                <Smartphone size={14} className="text-sky-600" />
                 <span className="hidden sm:inline">Descargar App</span>
                 <span className="sm:hidden">App</span>
               </button>
@@ -434,541 +402,478 @@ export default function CopaiMasterPortal({
 
             <button
               onClick={onOpenLoginModal}
-              className="px-5 sm:px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.35)] hover:shadow-[0_0_35px_rgba(6,182,212,0.55)] border border-cyan-300/30 transition-all duration-200 flex items-center gap-2 cursor-pointer active:scale-95"
+              className="px-5 sm:px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm text-white bg-slate-950 hover:bg-blue-600 shadow-sm transition-all duration-200 flex items-center gap-2 cursor-pointer active:scale-95"
             >
-              <Lock size={15} />
+              <Lock size={14} />
               <span>Iniciar Sesión</span>
-              <ArrowRight size={15} />
+              <ArrowRight size={14} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* ================= HERO PRINCIPAL CON VIDEO DE JULIACA EN BUCLE ================= */}
+      {/* ================= SECCIÓN 1: HERO EDITORIAL LIMPIO (FONDO BLANCO #FFFFFF) ================= */}
       <section
         id="inicio"
-        className="relative min-h-[94vh] pt-24 pb-16 flex flex-col justify-center overflow-hidden border-b border-cyan-500/20"
+        className="relative pt-28 sm:pt-32 pb-20 bg-white border-b border-slate-200/70"
       >
-        {/* VIDEO DE FONDO EN BUCLE (JULIACA) */}
-        <div className="absolute inset-0 z-0 bg-slate-950">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            poster="/copai-media/video-poster.jpg"
-            className={`w-full h-full object-cover transition-all duration-700 ${
-              clearVideoMode
-                ? 'scale-100 opacity-85 brightness-95 contrast-110'
-                : 'scale-105 opacity-45 brightness-75 contrast-125'
-            }`}
-          >
-            <source src="/copai-media/video-fondo.mp4" type="video/mp4" />
-          </video>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Cabecera Centrada Estilo Apple / Tesla */}
+          <div className="max-w-4xl mx-auto text-center space-y-6">
+            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 text-xs font-semibold tracking-wide">
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+              <span>INGENIERÍA EN VIVO • JULIACA, PUNO, PERÚ</span>
+            </div>
 
-          {/* Capas de Contraste Oscuro Futurista (Se atenúan si el usuario activa Modo Video HUD) */}
-          <div
-            className={`absolute inset-0 transition-opacity duration-700 ${
-              clearVideoMode
-                ? 'bg-gradient-to-t from-[#020617] via-[#020617]/40 to-[#020617]/60'
-                : 'bg-gradient-to-r from-[#020617]/95 via-[#020617]/80 to-[#020617]/70'
-            }`}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-[#020617]/80" />
-
-          {/* Retícula HUD Satelital sobre el video */}
-          <div
-            className="absolute inset-0 opacity-20 pointer-events-none"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at center, transparent 30%, #020617 100%), linear-gradient(to right, rgba(6,182,212,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(6,182,212,0.12) 1px, transparent 1px)',
-              backgroundSize: '100% 100%, 64px 64px, 64px 64px'
-            }}
-          />
-        </div>
-
-        {/* CONTENIDO DEL HERO */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-4 sm:pt-8">
-          {/* Barra superior de telemetría del video en vivo */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-900/85 backdrop-blur-xl border border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[11px] font-bold tracking-widest uppercase text-cyan-300">
-                NODO OPERATIVO EN VIVO: JULIACA • PUNO • PERÚ
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-950 leading-[1.06]">
+              Tecnología diseñada para{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">
+                el mundo real.
               </span>
-            </div>
+            </h1>
 
-            <button
-              type="button"
-              onClick={() => setClearVideoMode(!clearVideoMode)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-cyan-400/60 backdrop-blur-xl transition-all cursor-pointer"
-              title="Alternar contraste del video de fondo grabado en Juliaca"
-            >
-              <Play size={13} className="text-cyan-400" />
-              <span>
-                {clearVideoMode ? 'Volver a Contraste Oscuro' : 'Ver Video de Fondo Más Claro'}
-              </span>
-            </button>
-          </div>
+            <p className="text-base sm:text-xl text-slate-600 leading-relaxed max-w-3xl mx-auto font-normal">
+              En <strong className="text-slate-950 font-semibold">Industrias CopAI</strong> desarrollamos soluciones de alta ingeniería: telemetría satelital GPS y seguridad de flotas, visión computacional antirrobo para comercios, robótica autónoma y plataformas digitales a medida.
+            </p>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
-            {/* COLUMNA IZQUIERDA (7 cols): IDENTIDAD DE MARCA Y MENSAJE CORPORATIVO */}
-            <div className="lg:col-span-7 text-left space-y-6">
-              {/* Emblema C + Nombre Corporativo destacado */}
-              <div className="inline-flex items-center gap-3.5 p-2 pr-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 backdrop-blur-xl shadow-lg">
-                <div className="w-12 h-12 rounded-xl bg-slate-950 border border-cyan-500/30 flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(6,182,212,0.25)]">
-                  <img
-                    src="/copai-media/copai-c-symbol.png"
-                    alt="Símbolo C CopAI"
-                    className="w-full h-full object-contain animate-copai-float"
-                  />
-                </div>
-                <div>
-                  <div className="text-[10px] font-extrabold tracking-widest text-cyan-400 uppercase">
-                    CASA MATRIZ DE TECNOLOGÍA AVANZADA
-                  </div>
-                  <div className="text-base sm:text-lg font-black tracking-wide text-white">
-                    INDUSTRIAS <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">COPAI</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Título Principal Futurista */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">
-                Ingeniería sin Límites para la{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400">
-                  Industria del Futuro
-                </span>
-              </h1>
-
-              {/* Descripción Integral */}
-              <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl font-normal">
-                En <strong className="text-white font-bold">Industrias CopAI</strong> diseñamos y desplegamos tecnología de alto impacto: desde{' '}
-                <span className="text-cyan-300 font-semibold">rastreo satelital GPS y seguridad de flotas</span>,{' '}
-                <span className="text-fuchsia-300 font-semibold">visión computacional antirrobo para tiendas</span> y{' '}
-                <span className="text-violet-300 font-semibold">robots asistentes autónomos para mercados</span>, hasta{' '}
-                <span className="text-sky-300 font-semibold">sistemas turísticos inteligentes</span> y software corporativo a medida.
-              </p>
-
-              {/* Botones Principales de Acción */}
-              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
-                <button
-                  onClick={onOpenLoginModal}
-                  className="px-7 py-4 rounded-2xl font-bold text-sm text-white bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.4)] hover:shadow-[0_0_45px_rgba(6,182,212,0.65)] border border-cyan-300/40 transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
-                >
-                  <Cpu size={18} />
-                  <span>Acceso a la Plataforma</span>
-                  <ArrowRight size={18} />
-                </button>
-
-                <a
-                  href="#divisiones"
-                  className="px-7 py-4 rounded-2xl font-bold text-sm text-slate-100 bg-slate-900/85 hover:bg-slate-800/90 border border-slate-700 hover:border-cyan-400/50 backdrop-blur-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <Sparkles size={17} className="text-cyan-400" />
-                  <span>Explorar las 4 Divisiones</span>
-                  <ChevronRight size={17} />
-                </a>
-              </div>
-
-              {/* 4 Indicadores Clave Glassmorphic */}
-              <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-2xl bg-slate-900/75 backdrop-blur-xl border border-slate-800 hover:border-cyan-500/40 transition-colors">
-                  <div className="text-2xl font-black text-white">99.98%</div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mt-0.5">
-                    Uptime Satelital
-                  </div>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-900/75 backdrop-blur-xl border border-slate-800 hover:border-cyan-500/40 transition-colors">
-                  <div className="text-2xl font-black text-white">&lt; 100ms</div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-blue-400 mt-0.5">
-                    Telemetría &amp; IA
-                  </div>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-900/75 backdrop-blur-xl border border-slate-800 hover:border-cyan-500/40 transition-colors">
-                  <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-400">
-                    4 Divisiones
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">
-                    GPS • IA • Robot • Turismo
-                  </div>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-900/75 backdrop-blur-xl border border-slate-800 hover:border-cyan-500/40 transition-colors">
-                  <div className="text-2xl font-black text-emerald-400">Multi-Tenant</div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">
-                    Subdominios &amp; Apps
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* COLUMNA DERECHA (5 cols): CONSOLA INTERACTIVA DE LAS 4 DIVISIONES */}
-            <div className="lg:col-span-5">
-              <div className="relative rounded-3xl bg-slate-950/85 backdrop-blur-2xl border border-cyan-500/30 shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden">
-                {/* Barra superior tipo terminal HUD */}
-                <div className="px-5 py-3.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400/80" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/80" />
-                    <span className="ml-2 text-[11px] font-mono font-bold text-cyan-400 tracking-wider">
-                      {heroDivision.codigoHud}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                    VISOR INTERACTIVO
-                  </span>
-                </div>
-
-                {/* Selector rápido de las 4 divisiones dentro del Hero */}
-                <div className="grid grid-cols-4 gap-1 p-2 bg-slate-900/60 border-b border-slate-800/80">
-                  {DIVISIONES_PRINCIPALES.map((div, idx) => {
-                    const TabIcon = div.icono;
-                    const active = idx === activeHeroIdx;
-                    return (
-                      <button
-                        key={div.id}
-                        type="button"
-                        onClick={() => setActiveHeroIdx(idx)}
-                        className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                          active
-                            ? 'bg-gradient-to-b from-blue-600/30 to-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent'
-                        }`}
-                      >
-                        <TabIcon size={15} className={active ? 'text-cyan-300 mb-1' : 'text-slate-400 mb-1'} />
-                        <span className="truncate w-full text-center">
-                          {div.id === 'gps'
-                            ? 'GPS Flota'
-                            : div.id === 'camara'
-                            ? 'Cámara IA'
-                            : div.id === 'robot'
-                            ? 'Robot 3D'
-                            : 'Turismo'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Imagen activa con escáner HUD */}
-                <div className="relative h-56 sm:h-64 overflow-hidden bg-slate-900 group">
-                  <img
-                    src={heroDivision.imagen}
-                    alt={heroDivision.titulo}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
-
-                  {/* Línea de escaneo láser animada */}
-                  <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cyan-400/25 to-transparent pointer-events-none animate-copai-scan" />
-
-                  {/* Botón para abrir en pantalla completa */}
-                  <button
-                    type="button"
-                    onClick={() => setInspectedDivision(heroDivision)}
-                    className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer"
-                  >
-                    <Maximize2 size={13} />
-                    <span>Ampliar HUD</span>
-                  </button>
-
-                  {/* Etiqueta sobre la imagen */}
-                  <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-2">
-                    <div>
-                      <span className="inline-block text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 mb-1.5">
-                        DIVISIÓN {heroDivision.numero} • {heroDivision.estado}
-                      </span>
-                      <h3 className="text-lg font-black text-white leading-snug">
-                        {heroDivision.titulo}
-                      </h3>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Resumen y métricas de la división seleccionada */}
-                <div className="p-5 space-y-4">
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-3">
-                    {heroDivision.resumen}
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    {heroDivision.metricas.map((m, i) => (
-                      <div
-                        key={i}
-                        className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center"
-                      >
-                        <div className="text-xs sm:text-sm font-black text-cyan-300 truncate">
-                          {m.valor}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-semibold truncate mt-0.5">
-                          {m.label}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <a
-                      href={`#div-${heroDivision.id}`}
-                      className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
-                    >
-                      <span>Ver arquitectura y detalles</span>
-                      <ChevronRight size={14} />
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setActiveHeroIdx((prev) => (prev + 1) % DIVISIONES_PRINCIPALES.length)
-                      }
-                      className="text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
-                    >
-                      Siguiente módulo ➔
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= SECCIÓN 1: LAS 4 DIVISIONES PRINCIPALES DE INDUSTRIAS COPAI ================= */}
-      <section id="divisiones" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        {/* Encabezado de Sección */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-4">
-            <Sparkles size={14} />
-            <span>4 DIVISIONES TECNOLÓGICAS PRINCIPALES</span>
-          </div>
-          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-            Nuestros Pilares de{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-              Innovación Real
-            </span>
-          </h2>
-          <p className="mt-4 text-sm sm:text-base text-slate-400 leading-relaxed">
-            Selecciona una división o despliega las especificaciones técnicas de cada área para conocer cómo transformamos el transporte, la seguridad en tiendas, los mercados y el turismo.
-          </p>
-        </div>
-
-        {/* Barra de Filtros Interactiva */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-12">
-          <button
-            type="button"
-            onClick={() => setSelectedFilter('all')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              selectedFilter === 'all'
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.35)]'
-                : 'bg-slate-900/90 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            Todas las Divisiones (4)
-          </button>
-          {DIVISIONES_PRINCIPALES.map((div) => {
-            const BtnIcon = div.icono;
-            const isSelected = selectedFilter === div.id;
-            return (
+            {/* Botones Principales */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5">
               <button
-                key={div.id}
+                onClick={onOpenLoginModal}
+                className="w-full sm:w-auto px-8 py-4 rounded-full font-semibold text-sm text-white bg-slate-950 hover:bg-blue-600 shadow-lg shadow-slate-950/10 transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
+              >
+                <span>Acceso a la Plataforma</span>
+                <ArrowRight size={17} />
+              </button>
+
+              <a
+                href="#divisiones"
+                className="w-full sm:w-auto px-8 py-4 rounded-full font-semibold text-sm text-slate-800 bg-slate-100 hover:bg-slate-200/80 transition-all flex items-center justify-center gap-2"
+              >
+                <span>Explorar las 4 Divisiones</span>
+                <ChevronRight size={17} />
+              </a>
+
+              <a
+                href="https://wa.me/51974342536?text=Hola%20Industrias%20CopAI,%20deseo%20informaci%C3%B3n%20sobre%20sus%20sistemas."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-6 py-4 rounded-full font-semibold text-sm text-slate-700 hover:text-slate-950 border border-slate-200 hover:border-slate-300 bg-white transition-all flex items-center justify-center gap-2"
+              >
+                <Phone size={15} className="text-sky-600" />
+                <span>+51 974 342 536</span>
+              </a>
+            </div>
+          </div>
+
+          {/* ESCAPARATE CINEMATOGRÁFICO PANORÁMICO (VIDEO DE JULIACA + 4 DIVISIONES) */}
+          <div className="mt-12 sm:mt-16">
+            {/* Pestañas limpias estilo Apple para alternar entre Video en Vivo y las 4 Divisiones */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+              <button
                 type="button"
-                onClick={() => setSelectedFilter(div.id)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.35)]'
-                    : 'bg-slate-900/90 text-slate-400 hover:text-white border border-slate-800 hover:border-cyan-500/40'
+                onClick={() => setActiveShowcase('video')}
+                className={`px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                  activeShowcase === 'video'
+                    ? 'bg-slate-950 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
                 }`}
               >
-                <BtnIcon size={14} />
-                <span>{div.titulo.split('&')[0].trim()}</span>
+                <Play size={13} className={activeShowcase === 'video' ? 'text-sky-400' : 'text-slate-500'} />
+                <span>Operación en Vivo (Video)</span>
               </button>
-            );
-          })}
-        </div>
 
-        {/* Grid de las 4 Tarjetas Futuristas con Fotografías Reales y Desplegables */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {filteredDivisiones.map((div) => {
-            const CardIcon = div.icono;
-            const isExpanded = !!expandedCards[div.id];
+              {DIVISIONES_PRINCIPALES.map((div, idx) => {
+                const TabIcon = div.icono;
+                const isSelected = activeShowcase === idx;
+                return (
+                  <button
+                    key={div.id}
+                    type="button"
+                    onClick={() => setActiveShowcase(idx)}
+                    className={`px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-950 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
+                    }`}
+                  >
+                    <TabIcon size={13} className={isSelected ? 'text-sky-400' : 'text-slate-500'} />
+                    <span>
+                      {div.id === 'gps'
+                        ? '01. Telemetría GPS'
+                        : div.id === 'camara'
+                        ? '02. Visión IA'
+                        : div.id === 'robot'
+                        ? '03. Robótica 3D'
+                        : '04. Turismo Digital'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-            return (
-              <div
-                key={div.id}
-                id={`div-${div.id}`}
-                className="group rounded-3xl bg-slate-900/75 backdrop-blur-2xl border border-slate-800 hover:border-cyan-500/50 transition-all duration-300 shadow-[0_15px_50px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col"
-              >
-                {/* Cabecera Visual con la Imagen Real y HUD */}
-                <div className="relative h-64 sm:h-72 overflow-hidden bg-slate-950">
-                  <img
-                    src={div.imagen}
-                    alt={div.titulo}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  {/* Gradiente oscuro para legibilidad perfecta */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0B1120] via-[#0B1120]/35 to-transparent" />
+            {/* Marco Panorámico Redondeado con el Video Real o la División Seleccionada */}
+            <div className="relative rounded-3xl overflow-hidden bg-slate-950 border border-slate-200 shadow-[0_25px_70px_rgba(15,23,42,0.12)]">
+              {activeShowcase === 'video' ? (
+                <div className="relative h-[380px] sm:h-[480px] lg:h-[540px] w-full overflow-hidden">
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    poster="/copai-media/video-poster.jpg"
+                    className="w-full h-full object-cover"
+                  >
+                    <source src="/copai-media/video-fondo.mp4" type="video/mp4" />
+                  </video>
 
-                  {/* Escáner sutil en hover */}
-                  <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-cyan-400/20 to-transparent opacity-0 group-hover:opacity-100 pointer-events-none animate-copai-scan transition-opacity" />
+                  {/* Sombra inferior sutil solo para apoyar el texto informativo */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
 
-                  {/* Badges superiores sobre la foto */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-950/85 border border-cyan-500/40 backdrop-blur-md">
-                      <span className="text-xs font-black text-cyan-400">#{div.numero}</span>
-                      <span className="text-[10px] font-mono font-bold text-slate-300 tracking-wider">
-                        {div.codigoHud}
+                  <div className="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="max-w-2xl space-y-2">
+                      <span className="inline-block text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-white/15 text-white backdrop-blur-md border border-white/20">
+                        Monitoreo &amp; Despliegue Real
                       </span>
+                      <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                        Control absoluto de flotas, comercios y operaciones.
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                        Infraestructura conectada 24/7 con servidores de baja latencia, aplicaciones móviles nativas y portales independientes para cada empresa cliente.
+                      </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setInspectedDivision(div)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-950/85 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer"
-                    >
-                      <Maximize2 size={13} />
-                      <span>Ver Imagen Completa</span>
-                    </button>
-                  </div>
-
-                  {/* Título superpuesto en la base de la imagen */}
-                  <div className="absolute bottom-4 left-6 right-6">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-500/20 border border-blue-400/30 text-cyan-300 text-[10px] font-bold uppercase tracking-widest mb-2">
-                      <CardIcon size={12} />
-                      <span>{div.estado}</span>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={onOpenLoginModal}
+                        className="px-6 py-3 rounded-full bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs sm:text-sm shadow-lg transition-all cursor-pointer flex items-center gap-2"
+                      >
+                        <span>Ingresar al Sistema</span>
+                        <ArrowRight size={15} />
+                      </button>
                     </div>
-                    <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight">
-                      {div.titulo}
-                    </h3>
-                    <p className="text-xs sm:text-sm font-semibold text-cyan-300/90 mt-1">
-                      {div.subtitulo}
-                    </p>
                   </div>
                 </div>
-
-                {/* Cuerpo de la Tarjeta */}
-                <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between space-y-6">
-                  <div className="space-y-5">
-                    <p className="text-sm text-slate-300 leading-relaxed">
-                      {div.resumen}
-                    </p>
-
-                    {/* 3 Mini-Métricas de la División */}
-                    <div className="grid grid-cols-3 gap-3">
-                      {div.metricas.map((m, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/90"
-                        >
-                          <div className="text-xs sm:text-sm font-black text-white">{m.valor}</div>
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-400/80 mt-0.5">
-                            {m.label}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Puntos Clave */}
-                    <ul className="space-y-2.5 text-xs sm:text-sm text-slate-300">
-                      {div.puntosClave.map((pt, idx) => (
-                        <li key={idx} className="flex items-start gap-2.5">
-                          <div className="mt-1 p-0.5 rounded-full bg-cyan-500/20 text-cyan-400 flex-shrink-0">
-                            <Check size={13} />
-                          </div>
-                          <span>{pt}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* DESPLEGABLE INTERACTIVO DE ESPECIFICACIONES TÉCNICAS */}
-                  <div className="pt-4 border-t border-slate-800/90">
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-12 bg-white">
+                  <div className="lg:col-span-7 relative h-[300px] sm:h-[420px] lg:h-[480px] overflow-hidden bg-slate-100">
+                    <img
+                      src={activeDivisionObj.imagen}
+                      alt={activeDivisionObj.titulo}
+                      className="w-full h-full object-cover"
+                    />
                     <button
                       type="button"
-                      onClick={() => toggleCardAccordion(div.id)}
-                      className="w-full py-3 px-4 rounded-2xl bg-slate-950/90 hover:bg-slate-950 border border-slate-800 hover:border-cyan-500/40 flex items-center justify-between text-xs sm:text-sm font-bold text-cyan-300 transition-all cursor-pointer"
+                      onClick={() => setInspectedDivision(activeDivisionObj)}
+                      className="absolute top-4 right-4 px-3.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-900 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all cursor-pointer"
                     >
-                      <span className="flex items-center gap-2">
-                        <Terminal size={15} className="text-cyan-400" />
-                        <span>
-                          {isExpanded
-                            ? 'Ocultar Especificaciones & Arquitectura'
-                            : 'Desplegar Especificaciones & Seguridad Técnica'}
-                        </span>
-                      </span>
-                      <ChevronDown
-                        size={17}
-                        className={`transition-transform duration-300 ${
-                          isExpanded ? 'rotate-180 text-cyan-400' : 'text-slate-400'
-                        }`}
-                      />
+                      <Maximize2 size={13} />
+                      <span>Ampliar imagen</span>
                     </button>
+                  </div>
 
-                    {isExpanded && (
-                      <div className="mt-4 space-y-3 animate-in fade-in duration-200">
-                        {div.especificacionesDesplegables.map((spec, sIdx) => (
+                  <div className="lg:col-span-5 p-8 sm:p-10 flex flex-col justify-between bg-white text-slate-900">
+                    <div className="space-y-4">
+                      <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-sky-600">
+                        {activeDivisionObj.codigoHud}
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight leading-tight">
+                        {activeDivisionObj.titulo}
+                      </h3>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        {activeDivisionObj.resumen}
+                      </p>
+
+                      <div className="grid grid-cols-3 gap-2.5 pt-2">
+                        {activeDivisionObj.metricas.map((m, i) => (
                           <div
-                            key={sIdx}
-                            className="p-4 rounded-2xl bg-slate-950/70 border border-cyan-500/20"
+                            key={i}
+                            className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-center"
                           >
-                            <div className="text-xs font-extrabold text-cyan-300 uppercase tracking-wider mb-1">
-                              {spec.titulo}
+                            <div className="text-xs sm:text-sm font-black text-slate-950 truncate">
+                              {m.valor}
                             </div>
-                            <div className="text-xs text-slate-300 leading-relaxed">
-                              {spec.detalle}
+                            <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                              {m.label}
                             </div>
                           </div>
                         ))}
-
-                        <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-                          <button
-                            type="button"
-                            onClick={onOpenLoginModal}
-                            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm"
-                          >
-                            <span>Acceder al Sistema</span>
-                            <ArrowRight size={14} />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setInspectedDivision(div)}
-                            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Maximize2 size={13} />
-                            <span>Inspeccionar Imagen</span>
-                          </button>
-                        </div>
                       </div>
-                    )}
+                    </div>
+
+                    <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between">
+                      <a
+                        href={`#div-${activeDivisionObj.id}`}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <span>Ver especificaciones completas</span>
+                        <ChevronRight size={14} />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={onOpenLoginModal}
+                        className="px-5 py-2.5 rounded-full bg-slate-950 hover:bg-blue-600 text-white text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Acceder
+                      </button>
+                    </div>
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* 4 Indicadores Clave Minimalistas en Blanco */}
+            <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/70">
+                <div className="text-2xl sm:text-3xl font-black text-slate-950">99.98%</div>
+                <div className="text-xs font-semibold text-slate-500 mt-1">
+                  Disponibilidad y Uptime Satelital
+                </div>
               </div>
-            );
-          })}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/70">
+                <div className="text-2xl sm:text-3xl font-black text-slate-950">&lt; 100ms</div>
+                <div className="text-xs font-semibold text-slate-500 mt-1">
+                  Transmisión de Telemetría e IA
+                </div>
+              </div>
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/70">
+                <div className="text-2xl sm:text-3xl font-black text-blue-600">4 Divisiones</div>
+                <div className="text-xs font-semibold text-slate-500 mt-1">
+                  GPS • Visión IA • Robótica • Turismo
+                </div>
+              </div>
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/70">
+                <div className="text-2xl sm:text-3xl font-black text-slate-950">Multi-Tenant</div>
+                <div className="text-xs font-semibold text-slate-500 mt-1">
+                  Portales Web y Apps iOS / Android
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ================= SECCIÓN 2: ECOSISTEMA TECNOLÓGICO 360° ("HACEMOS DE TODO EN TECNOLOGÍA") ================= */}
+      {/* ================= SECCIÓN 2: LAS 4 DIVISIONES PRINCIPALES (FONDO GRIS PERLA #F5F5F7 ESTILO APPLE) ================= */}
+      <section id="divisiones" className="py-24 bg-[#F5F5F7] border-b border-slate-200/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Encabezado de Sección */}
+          <div className="max-w-3xl mx-auto text-center mb-14">
+            <span className="text-xs font-bold uppercase tracking-widest text-blue-600">
+              DIVISIONES TECNOLÓGICAS
+            </span>
+            <h2 className="mt-2 text-3xl sm:text-5xl font-black text-slate-950 tracking-tight">
+              Cuatro pilares de innovación real.
+            </h2>
+            <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed">
+              Soluciones diseñadas, programadas y desplegadas por nuestro equipo de ingeniería para resolver desafíos reales en transporte, seguridad comercial, mercados y turismo.
+            </p>
+          </div>
+
+          {/* Barra de Filtros Limpia */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-12">
+            <button
+              type="button"
+              onClick={() => setSelectedFilter('all')}
+              className={`px-5 py-2.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                selectedFilter === 'all'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'bg-white text-slate-600 hover:text-slate-950 border border-slate-200/90'
+              }`}
+            >
+              Todas las Divisiones (4)
+            </button>
+            {DIVISIONES_PRINCIPALES.map((div) => {
+              const BtnIcon = div.icono;
+              const isSelected = selectedFilter === div.id;
+              return (
+                <button
+                  key={div.id}
+                  type="button"
+                  onClick={() => setSelectedFilter(div.id)}
+                  className={`px-5 py-2.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-slate-950 text-white shadow-sm'
+                      : 'bg-white text-slate-600 hover:text-slate-950 border border-slate-200/90'
+                  }`}
+                >
+                  <BtnIcon size={14} className={isSelected ? 'text-sky-400' : 'text-slate-500'} />
+                  <span>{div.titulo.split('&')[0].trim()}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Grid de 4 Tarjetas Blancas Limpias (Estilo Apple Bento) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {filteredDivisiones.map((div) => {
+              const CardIcon = div.icono;
+              const isExpanded = !!expandedCards[div.id];
+
+              return (
+                <div
+                  key={div.id}
+                  id={`div-${div.id}`}
+                  className="group rounded-3xl bg-white border border-slate-200/80 hover:border-slate-300 transition-all duration-300 shadow-[0_8px_30px_rgba(15,23,42,0.04)] hover:shadow-[0_20px_50px_rgba(15,23,42,0.08)] overflow-hidden flex flex-col"
+                >
+                  {/* Fotografía Real Limpia sin Filtros Oscuros Excesivos */}
+                  <div className="relative h-64 sm:h-72 overflow-hidden bg-slate-100">
+                    <img
+                      src={div.imagen}
+                      alt={div.titulo}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+
+                    {/* Etiquetas Superiores */}
+                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/95 text-slate-900 text-[11px] font-bold shadow-sm backdrop-blur-md">
+                        <CardIcon size={12} className="text-blue-600" />
+                        <span>
+                          {div.numero} • {div.estado}
+                        </span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setInspectedDivision(div)}
+                        className="px-3 py-1.5 rounded-full bg-white/95 hover:bg-white text-slate-900 text-xs font-semibold flex items-center gap-1.5 shadow-sm backdrop-blur-md transition-all cursor-pointer"
+                      >
+                        <Maximize2 size={12} />
+                        <span>Ampliar</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Cuerpo de la Tarjeta en Blanco Puro */}
+                  <div className="p-7 sm:p-9 flex-1 flex flex-col justify-between space-y-6">
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">
+                          {div.subtitulo}
+                        </p>
+                        <h3 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight leading-snug">
+                          {div.titulo}
+                        </h3>
+                      </div>
+
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        {div.resumen}
+                      </p>
+
+                      {/* 3 Mini-Métricas Sobrias */}
+                      <div className="grid grid-cols-3 gap-3">
+                        {div.metricas.map((m, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-2xl bg-[#F5F5F7] border border-slate-200/60"
+                          >
+                            <div className="text-xs sm:text-sm font-black text-slate-950">
+                              {m.valor}
+                            </div>
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-0.5">
+                              {m.label}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Puntos Clave */}
+                      <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
+                        {div.puntosClave.map((pt, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5">
+                            <div className="mt-1 p-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">
+                              <Check size={13} />
+                            </div>
+                            <span>{pt}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Desplegable Limpio de Especificaciones */}
+                    <div className="pt-5 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => toggleCardAccordion(div.id)}
+                        className="w-full py-3 px-4 rounded-2xl bg-[#F5F5F7] hover:bg-slate-200/70 flex items-center justify-between text-xs sm:text-sm font-semibold text-slate-800 transition-all cursor-pointer"
+                      >
+                        <span>
+                          {isExpanded
+                            ? 'Ocultar especificaciones técnicas'
+                            : 'Ver especificaciones técnicas y arquitectura'}
+                        </span>
+                        <ChevronDown
+                          size={17}
+                          className={`transition-transform duration-300 ${
+                            isExpanded ? 'rotate-180 text-blue-600' : 'text-slate-500'
+                          }`}
+                        />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="mt-4 space-y-3 animate-in fade-in duration-200">
+                          {div.especificacionesDesplegables.map((spec, sIdx) => (
+                            <div
+                              key={sIdx}
+                              className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70"
+                            >
+                              <div className="text-xs font-bold text-slate-900 mb-1">
+                                {spec.titulo}
+                              </div>
+                              <div className="text-xs text-slate-600 leading-relaxed">
+                                {spec.detalle}
+                              </div>
+                            </div>
+                          ))}
+
+                          <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                            <button
+                              type="button"
+                              onClick={onOpenLoginModal}
+                              className="px-5 py-2.5 rounded-full bg-slate-950 hover:bg-blue-600 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors"
+                            >
+                              <span>Acceder al Sistema</span>
+                              <ArrowRight size={14} />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setInspectedDivision(div)}
+                              className="px-4 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Maximize2 size={13} />
+                              <span>Ver foto completa</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= SECCIÓN 3: ECOSISTEMA 360° (SECCIÓN OSCURA DE CONTRASTE #0B0F17 ESTILO APPLE PRO / TESLA) ================= */}
       <section
         id="ecosistema"
-        className="relative z-10 py-20 border-y border-slate-800/80 bg-slate-950/60 backdrop-blur-xl"
+        className="py-24 bg-[#0B0F17] text-white"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-14 gap-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase tracking-widest mb-3">
-                <Cpu size={14} />
-                <span>INGENIERÍA MULTIDISCIPLINARIA 360°</span>
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                Industrias CopAI Desarrolla{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
-                  Todo a Nivel Tecnológico
-                </span>
+              <span className="text-xs font-bold uppercase tracking-widest text-sky-400">
+                ECOSISTEMA DE INGENIERÍA 360°
+              </span>
+              <h2 className="mt-2 text-3xl sm:text-5xl font-black text-white tracking-tight">
+                Desarrollo integral bajo un mismo estándar.
               </h2>
             </div>
             <p className="text-sm text-slate-400 max-w-md leading-relaxed">
-              Unimos desarrollo de software cloud, inteligencia artificial, electrónica, robótica 3D y telecomunicaciones satelitales bajo una misma marca de ingeniería.
+              Integramos arquitectura de software en la nube, inteligencia artificial, diseño electrónico, robótica 3D y telecomunicaciones satelitales.
             </p>
           </div>
 
@@ -978,30 +883,30 @@ export default function CopaiMasterPortal({
               return (
                 <div
                   key={mod.id}
-                  className="p-7 rounded-3xl bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1 shadow-lg"
+                  className="p-8 rounded-3xl bg-[#131926] border border-white/10 hover:border-sky-400/40 transition-all duration-300 flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600/20 to-cyan-500/20 border border-cyan-500/30 text-cyan-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <ModIcon size={24} />
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 text-sky-400 flex items-center justify-center">
+                        <ModIcon size={22} />
                       </div>
-                      <span className="text-[10px] font-extrabold tracking-widest uppercase px-2.5 py-1 rounded-full bg-slate-950 text-slate-400 border border-slate-800">
+                      <span className="text-[10px] font-bold tracking-widest uppercase px-3 py-1 rounded-full bg-white/5 text-slate-300">
                         {mod.etiqueta}
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-extrabold text-white mb-2.5 group-hover:text-cyan-300 transition-colors">
+                    <h3 className="text-lg font-bold text-white mb-2.5">
                       {mod.titulo}
                     </h3>
-                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-5">
+                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-6">
                       {mod.descripcion}
                     </p>
                   </div>
 
-                  <ul className="space-y-2 pt-4 border-t border-slate-800/80 text-xs text-slate-300">
+                  <ul className="space-y-2.5 pt-4 border-t border-white/10 text-xs text-slate-300">
                     {mod.items.map((item, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0" />
+                      <li key={i} className="flex items-center gap-2.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
                         <span>{item}</span>
                       </li>
                     ))}
@@ -1013,165 +918,252 @@ export default function CopaiMasterPortal({
         </div>
       </section>
 
-      {/* ================= SECCIÓN 3: DESPLEGABLES DE ARQUITECTURA Y SEGURIDAD ================= */}
-      <section id="arquitectura" className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-widest mb-3">
-            <ShieldCheck size={14} />
-            <span>ARQUITECTURA, SEGURIDAD &amp; RESPUESTAS</span>
+      {/* ================= SECCIÓN 4: PREGUNTAS FRECUENTES (TRANSICIÓN BLANCO CON MATIZ CELESTE SUAVE #F0F7FF -> #FFFFFF) ================= */}
+      <section
+        id="arquitectura"
+        className="py-24 bg-gradient-to-b from-[#F0F7FF] via-[#F8FBFF] to-white border-b border-slate-200/70"
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <span className="text-xs font-bold uppercase tracking-widest text-blue-600">
+              ARQUITECTURA &amp; RESPUESTAS
+            </span>
+            <h2 className="mt-2 text-3xl sm:text-4xl font-black text-slate-950 tracking-tight">
+              Conoce cómo opera nuestra tecnología.
+            </h2>
+            <p className="text-sm text-slate-600 mt-2">
+              Respuestas claras sobre nuestros sistemas de rastreo satelital, visión artificial, robótica y portales corporativos.
+            </p>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-white">
-            Conoce Cómo Opera Nuestra Tecnología
-          </h2>
-          <p className="text-sm text-slate-400 mt-2">
-            Haz clic en cada apartado desplegable para revisar los detalles técnicos y operativos de Industrias CopAI.
-          </p>
-        </div>
 
-        <div className="space-y-3.5">
-          {PREGUNTAS_ARQUITECTURA.map((faq, idx) => {
-            const isOpen = openFaqIdx === idx;
-            return (
-              <div
-                key={idx}
-                className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
-                  isOpen
-                    ? 'bg-slate-900/90 border-cyan-500/40 shadow-[0_10px_30px_rgba(6,182,212,0.12)]'
-                    : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenFaqIdx(isOpen ? -1 : idx)}
-                  className="w-full px-6 py-5 text-left flex items-center justify-between gap-4 cursor-pointer"
+          <div className="space-y-3.5">
+            {PREGUNTAS_ARQUITECTURA.map((faq, idx) => {
+              const isOpen = openFaqIdx === idx;
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-2xl bg-white border transition-all duration-200 overflow-hidden ${
+                    isOpen
+                      ? 'border-blue-300 shadow-[0_10px_30px_rgba(37,99,235,0.08)]'
+                      : 'border-slate-200/90 hover:border-slate-300'
+                  }`}
                 >
-                  <span className="text-sm sm:text-base font-bold text-white flex items-center gap-3">
-                    <span className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-black flex items-center justify-center flex-shrink-0">
-                      0{idx + 1}
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIdx(isOpen ? -1 : idx)}
+                    className="w-full px-6 py-5 text-left flex items-center justify-between gap-4 cursor-pointer"
+                  >
+                    <span className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-3.5">
+                      <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                        0{idx + 1}
+                      </span>
+                      <span>{faq.pregunta}</span>
                     </span>
-                    <span>{faq.pregunta}</span>
-                  </span>
-                  <ChevronDown
-                    size={18}
-                    className={`flex-shrink-0 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-cyan-400' : 'text-slate-400'
-                    }`}
-                  />
-                </button>
+                    <ChevronDown
+                      size={18}
+                      className={`flex-shrink-0 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-blue-600' : 'text-slate-400'
+                      }`}
+                    />
+                  </button>
 
-                {isOpen && (
-                  <div className="px-6 pb-6 pt-1 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/60">
-                    {faq.respuesta}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Banner CTA Final */}
-        <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/90 via-slate-900 to-cyan-950/80 border border-cyan-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.7)] flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex items-center gap-5">
-            <img
-              src="/copai-media/copai-c-symbol.png"
-              alt="CopAI C"
-              className="w-16 h-16 object-contain hidden sm:block animate-copai-float"
-            />
-            <div>
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-cyan-400">
-                PLATAFORMA CENTRAL &amp; PORTALES EMPRESARIALES
-              </span>
-              <h3 className="text-2xl sm:text-3xl font-black text-white mt-1">
-                ¿Listo para ingresar al Ecosistema CopAI?
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-                Accede a la central de monitoreo satelital, administra tus empresas y dispositivos o instala el aplicativo oficial en tu iPhone o Android.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-            {!isStandalone && (
-              <button
-                type="button"
-                onClick={onOpenInstallModal}
-                className="w-full sm:w-auto px-5 py-3.5 rounded-xl font-bold text-xs text-cyan-300 bg-slate-950/80 hover:bg-slate-900 border border-cyan-500/40 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Smartphone size={16} />
-                <span>Instalar App Móvil</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onOpenLoginModal}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Lock size={16} />
-              <span>Iniciar Sesión</span>
-              <ArrowRight size={16} />
-            </button>
+                  {isOpen && (
+                    <div className="px-6 pb-6 pt-2 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100">
+                      {faq.respuesta}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* ================= PIE DE PÁGINA CORPORATIVO COPAI ================= */}
-      <footer className="relative z-10 border-t border-slate-800/80 bg-[#01040D] py-12 px-4 sm:px-6 lg:px-8">
+      {/* ================= SECCIÓN 5: CONTACTO CORPORATIVO OFICIAL (FONDO BLANCO #FFFFFF) ================= */}
+      <section id="contacto-copai" className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="rounded-3xl bg-[#F5F5F7] border border-slate-200/80 p-8 sm:p-14">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+              <div className="lg:col-span-7 space-y-4">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-semibold text-blue-600">
+                  <span>Atención Directa &amp; Soporte Corporativo</span>
+                </div>
+                <h3 className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight">
+                  Conecta con el equipo de Industrias CopAI.
+                </h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
+                  ¿Deseas implementar rastreo satelital GPS en tu flota, cámaras de visión computacional en tu negocio o desarrollar un sistema a medida? Escríbenos o llámanos directamente.
+                </p>
+
+                {/* Tarjetas de Contacto Directo (Correos Reales y WhatsApp +51 974 342 536) */}
+                <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <a
+                    href="https://wa.me/51974342536?text=Hola%20Industrias%20CopAI,%20deseo%20informaci%C3%B3n%20sobre%20sus%20servicios."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 rounded-2xl bg-white border border-slate-200/90 hover:border-blue-400 transition-all flex items-start gap-3.5 shadow-2xs group"
+                  >
+                    <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                      <MessageCircle size={20} />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        WhatsApp &amp; Celular (Perú)
+                      </div>
+                      <div className="text-sm sm:text-base font-black text-slate-900 mt-0.5">
+                        +51 974 342 536
+                      </div>
+                      <div className="text-xs text-emerald-600 font-semibold mt-0.5">
+                        Atención inmediata ➔
+                      </div>
+                    </div>
+                  </a>
+
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200/90 flex items-start gap-3.5 shadow-2xs">
+                    <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600">
+                      <Mail size={20} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Correos Oficiales
+                      </div>
+                      <a
+                        href="mailto:industriascopai@gmail.com"
+                        className="block text-xs sm:text-sm font-bold text-slate-900 hover:text-blue-600 truncate mt-0.5"
+                      >
+                        industriascopai@gmail.com
+                      </a>
+                      <a
+                        href="mailto:cristhianllanque65@gmail.com"
+                        className="block text-xs text-slate-600 hover:text-blue-600 truncate mt-0.5"
+                      >
+                        cristhianllanque65@gmail.com
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna Derecha: Acceso Directo a Plataforma y App */}
+              <div className="lg:col-span-5 bg-white rounded-3xl p-7 sm:p-8 border border-slate-200/90 shadow-sm space-y-5">
+                <div className="flex items-center gap-3.5">
+                  <img
+                    src="/copai-symbol.png"
+                    alt="CopAI"
+                    className="w-12 h-12 rounded-2xl object-contain border border-slate-100 p-1"
+                  />
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Plataforma Central
+                    </div>
+                    <div className="text-lg font-black text-slate-950">
+                      Monitoreo &amp; Gestión 24/7
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  Si ya eres cliente, gerente u operador autorizado, ingresa a tu central de monitoreo o descarga el aplicativo móvil oficial en tu iPhone o Android.
+                </p>
+
+                <div className="space-y-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={onOpenLoginModal}
+                    className="w-full py-3.5 px-6 rounded-full font-semibold text-sm text-white bg-slate-950 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Lock size={15} />
+                    <span>Iniciar Sesión en la Plataforma</span>
+                    <ArrowRight size={15} />
+                  </button>
+
+                  {!isStandalone && (
+                    <button
+                      type="button"
+                      onClick={onOpenInstallModal}
+                      className="w-full py-3.5 px-6 rounded-full font-semibold text-xs text-slate-800 bg-slate-100 hover:bg-slate-200/80 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Smartphone size={15} className="text-blue-600" />
+                      <span>Descargar Aplicativo Móvil (iOS / Android)</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= PIE DE PÁGINA CORPORATIVO LIMPIO ================= */}
+      <footer className="border-t border-slate-200/80 bg-[#F5F5F7] py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <img
-              src="/copai-media/logo-copai-dark.png"
+              src="/logo-copai.png"
               alt="Industrias CopAI"
-              className="h-9 w-auto object-contain"
+              className="h-8 w-auto object-contain"
             />
-            <span className="text-xs text-slate-400 text-center sm:text-left">
-              © 2026 <strong className="text-slate-200">Industrias CopAI</strong> • Telemetría GPS, Visión IA, Robótica &amp; Sistemas Turísticos.
+            <span className="text-xs text-slate-500 text-center sm:text-left">
+              © 2026 <strong className="text-slate-800">Industrias CopAI</strong> • Telemetría GPS, Visión IA, Robótica &amp; Sistemas Turísticos.
             </span>
           </div>
 
-          <div className="text-xs text-slate-400 flex flex-wrap items-center justify-center gap-6">
+          <div className="text-xs text-slate-500 flex flex-wrap items-center justify-center gap-5">
             <span className="flex items-center gap-1.5">
-              <MapPin size={13} className="text-cyan-400" />
-              Juliaca • Puno • Arequipa • Lima, Perú
+              <MapPin size={13} className="text-blue-600" />
+              Juliaca • Puno, Perú
             </span>
+            <a
+              href="tel:+51974342536"
+              className="hover:text-slate-900 font-semibold"
+            >
+              +51 974 342 536
+            </a>
+            <a
+              href="mailto:industriascopai@gmail.com"
+              className="hover:text-slate-900 font-semibold"
+            >
+              industriascopai@gmail.com
+            </a>
             <button
               type="button"
               onClick={onOpenLoginModal}
-              className="text-cyan-400 hover:text-cyan-300 font-bold cursor-pointer"
+              className="text-blue-600 hover:text-blue-700 font-bold cursor-pointer"
             >
-              Acceso a la Central ➔
+              Acceso a Central ➔
             </button>
           </div>
         </div>
       </footer>
 
-      {/* ================= MODAL LIGHTBOX HUD PARA INSPECCIONAR IMAGEN Y DIVISIÓN ================= */}
+      {/* ================= MODAL LIGHTBOX LIMPIO PARA INSPECCIONAR IMAGEN ================= */}
       {inspectedDivision && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-in fade-in duration-200"
           onClick={() => setInspectedDivision(null)}
         >
           <div
-            className="relative max-w-4xl w-full rounded-3xl bg-slate-900 border border-cyan-500/40 shadow-[0_25px_80px_rgba(0,0,0,0.9)] overflow-hidden"
+            className="relative max-w-4xl w-full rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+            <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <span className="text-xs font-mono font-bold text-cyan-400">
+                <span className="text-xs font-bold text-blue-600">
                   {inspectedDivision.codigoHud}
                 </span>
-                <span className="text-xs text-slate-500">•</span>
-                <span className="text-sm font-bold text-white">{inspectedDivision.titulo}</span>
+                <span className="text-xs text-slate-300">•</span>
+                <span className="text-sm font-bold text-slate-900">{inspectedDivision.titulo}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setInspectedDivision(null)}
-                className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-950 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="relative bg-black max-h-[65vh] overflow-hidden flex items-center justify-center">
+            <div className="relative bg-slate-950 max-h-[65vh] overflow-hidden flex items-center justify-center">
               <img
                 src={inspectedDivision.imagen}
                 alt={inspectedDivision.titulo}
@@ -1179,8 +1171,8 @@ export default function CopaiMasterPortal({
               />
             </div>
 
-            <div className="p-6 bg-slate-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl">
+            <div className="p-6 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl">
                 {inspectedDivision.resumen}
               </p>
               <button
@@ -1189,7 +1181,7 @@ export default function CopaiMasterPortal({
                   setInspectedDivision(null);
                   onOpenLoginModal();
                 }}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-xs font-bold flex items-center gap-2 flex-shrink-0 cursor-pointer"
+                className="px-6 py-2.5 rounded-full bg-slate-950 hover:bg-blue-600 text-white text-xs font-semibold flex items-center gap-2 flex-shrink-0 cursor-pointer transition-colors"
               >
                 <span>Iniciar Sesión</span>
                 <ArrowRight size={14} />
@@ -1201,4 +1193,3 @@ export default function CopaiMasterPortal({
     </div>
   );
 }
-
