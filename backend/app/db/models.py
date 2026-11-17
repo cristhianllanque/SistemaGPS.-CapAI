@@ -20,6 +20,9 @@ class Empresa(Base):
     slogan = Column(String(500), nullable=True)
     banner_url = Column(String(255), nullable=True)
     servicios = Column(Text, nullable=True)
+    plan_servicio = Column(String(30), default="mensual") # 'mensual', 'trimestral', 'semestral', 'anual', 'ilimitado'
+    fecha_vencimiento = Column(Date, nullable=True)
+    corte_automatico = Column(Boolean, default=True)
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

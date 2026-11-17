@@ -142,9 +142,28 @@ export default function MobileLoginView({
           </div>
 
           {error && (
-            <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-medium animate-in fade-in duration-200 leading-snug">
-              {error}
-            </div>
+            (error.startsWith('SERVICIO_SUSPENDIDO:') || error.startsWith('SERVICIO_VENCIDO:')) ? (
+              <div className="p-3 rounded-2xl bg-amber-500/15 border border-amber-400/40 text-amber-100 text-xs space-y-2 animate-in fade-in duration-200 leading-snug">
+                <div className="font-extrabold text-amber-300">
+                  ⚠️ Servicio pendiente de renovación
+                </div>
+                <p className="text-[11px] text-amber-100/90">
+                  {error.replace(/^SERVICIO_(SUSPENDIDO|VENCIDO):\s*/, '')}
+                </p>
+                <a
+                  href="https://wa.me/51974342536?text=Hola%20Industrias%20CopAI,%20deseo%20renovar%20mi%20suscripci%C3%B3n%20del%20sistema%20GPS."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center w-full py-2 px-3 rounded-xl bg-emerald-600 text-white font-bold text-[11px] no-underline"
+                >
+                  Renovar por WhatsApp (+51 974 342 536)
+                </a>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-medium animate-in fade-in duration-200 leading-snug">
+                {error}
+              </div>
+            )
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">

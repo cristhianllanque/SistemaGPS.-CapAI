@@ -1,10 +1,11 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
 from app.api.deps import get_db, get_current_user
+from app.api.empresas import calcular_info_suscripcion
 from app.core import security
 from app.db import models, schemas
 from app.core.config import settings
@@ -16,9 +17,29 @@ router = APIRouter()
 def login_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     user = db.query(models.Usuario).filter(models.Usuario.email == form_data.username).first()
     if not user or not security.verify_password(form_data.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        raise HTTPException(status_code=400, detail="Credenciales incorrectas. Verifica tu correo y contraseña.")
     elif not user.activo:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(
+            status_code=403,
+            detail="SERVICIO_SUSPENDIDO: Tu usuario se encuentra desactivado temporalmente. Comunícate con tu administrador o soporte de Industrias CopAI (+51 974 342 536)."
+        )
+
+    if user.rol != "superadmin" and user.empresa:
+        if not user.empresa.activo:
+            raise HTTPException(
+                status_code=403,
+                detail="SERVICIO_SUSPENDIDO: El servicio de monitoreo GPS de tu cuenta se encuentra en pausa por renovación. Comunícate con soporte de Industrias CopAI (+51 974 342 536) para reactivarlo de inmediato."
+            )
+        plan = (getattr(user.empresa, "plan_servicio", None) or "mensual").lower().strip()
+        corte_auto = getattr(user.empresa, "corte_automatico", True)
+        fecha_venc = getattr(user.empresa, "fecha_vencimiento", None)
+        if corte_auto and plan != "ilimitado" and fecha_venc is not None:
+            hoy = datetime.now(timezone(timedelta(hours=-5))).date()
+            if hoy > fecha_venc:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"SERVICIO_VENCIDO: Tu periodo de suscripción GPS venció el {fecha_venc.strftime('%d/%m/%Y')}. Comunícate con Industrias CopAI (+51 974 342 536) para renovar tu plan y reactivar el acceso al instante."
+                )
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
@@ -26,18 +47,26 @@ def login_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordR
     )
     
     user_out = schemas.UsuarioOut.model_validate(user)
-    empresa_data = user.empresa
-    if not empresa_data:
+    if not user.empresa:
         empresa_data = schemas.Empresa(
             id=0,
             nombre="Copai Telematics (Central)",
             slug="copai-central",
             logo_url=None,
             color_primario="#4F46E5",
-            activo=True
+            activo=True,
+            plan_servicio="ilimitado",
+            estado_suscripcion="ilimitado"
         )
         user_out.empresa_nombre = "Copai Central"
     else:
+        sub_info = calcular_info_suscripcion(user.empresa)
+        empresa_data = schemas.Empresa.model_validate(user.empresa)
+        empresa_data.plan_servicio = sub_info["plan_servicio"]
+        empresa_data.fecha_vencimiento = sub_info["fecha_vencimiento"]
+        empresa_data.corte_automatico = sub_info["corte_automatico"]
+        empresa_data.dias_restantes = sub_info["dias_restantes"]
+        empresa_data.estado_suscripcion = sub_info["estado_suscripcion"]
         user_out.empresa_nombre = user.empresa.nombre
 
     return {
@@ -53,18 +82,26 @@ def get_current_user_profile(
     current_user: models.Usuario = Depends(get_current_user)
 ):
     user_out = schemas.UsuarioOut.model_validate(current_user)
-    empresa_data = current_user.empresa
-    if not empresa_data:
+    if not current_user.empresa:
         empresa_data = schemas.Empresa(
             id=0,
             nombre="Copai Telematics (Central)",
             slug="copai-central",
             logo_url=None,
             color_primario="#4F46E5",
-            activo=True
+            activo=True,
+            plan_servicio="ilimitado",
+            estado_suscripcion="ilimitado"
         )
         user_out.empresa_nombre = "Copai Central"
     else:
+        sub_info = calcular_info_suscripcion(current_user.empresa)
+        empresa_data = schemas.Empresa.model_validate(current_user.empresa)
+        empresa_data.plan_servicio = sub_info["plan_servicio"]
+        empresa_data.fecha_vencimiento = sub_info["fecha_vencimiento"]
+        empresa_data.corte_automatico = sub_info["corte_automatico"]
+        empresa_data.dias_restantes = sub_info["dias_restantes"]
+        empresa_data.estado_suscripcion = sub_info["estado_suscripcion"]
         user_out.empresa_nombre = current_user.empresa.nombre
 
     return {

@@ -36,6 +36,9 @@ class EmpresaBase(BaseModel):
     color_secundario: Optional[str] = "#FFFFFF"
     color_terciario: Optional[str] = None
     limite_velocidad: Optional[int] = 90
+    plan_servicio: Optional[str] = "mensual"
+    fecha_vencimiento: Optional[date] = None
+    corte_automatico: Optional[bool] = True
 
 class EmpresaCreate(BaseModel):
     nombre: str
@@ -51,6 +54,9 @@ class EmpresaCreate(BaseModel):
     color_secundario: Optional[str] = "#FFFFFF"
     color_terciario: Optional[str] = None
     limite_velocidad: Optional[int] = 90
+    plan_servicio: Optional[str] = "mensual"
+    fecha_vencimiento: Optional[date] = None
+    corte_automatico: Optional[bool] = True
     # Optional initial Gerente user creation
     gerente_nombre: Optional[str] = None
     gerente_email: Optional[EmailStr] = None
@@ -64,6 +70,9 @@ class ClienteParticularCreate(BaseModel):
     email: EmailStr
     password: str
     limite_velocidad: Optional[int] = 90
+    plan_servicio: Optional[str] = "mensual"
+    fecha_vencimiento: Optional[date] = None
+    corte_automatico: Optional[bool] = True
     # Datos del Vehículo
     placa: str
     marca: Optional[str] = None
@@ -89,7 +98,16 @@ class EmpresaUpdate(BaseModel):
     color_secundario: Optional[str] = None
     color_terciario: Optional[str] = None
     limite_velocidad: Optional[int] = None
+    plan_servicio: Optional[str] = None
+    fecha_vencimiento: Optional[date] = None
+    corte_automatico: Optional[bool] = None
     activo: Optional[bool] = None
+
+class SuscripcionAccionRequest(BaseModel):
+    accion: str = "renovar" # 'renovar' | 'suspender' | 'reactivar' | 'configurar'
+    plan_servicio: Optional[str] = "mensual" # 'mensual' | 'trimestral' | 'semestral' | 'anual' | 'ilimitado'
+    fecha_vencimiento: Optional[date] = None
+    corte_automatico: Optional[bool] = True
 
 class EmpresaPublicPortal(BaseModel):
     id: int
@@ -115,6 +133,8 @@ class LimiteVelocidadUpdate(BaseModel):
 class Empresa(EmpresaBase):
     id: int
     activo: bool
+    dias_restantes: Optional[int] = None
+    estado_suscripcion: Optional[str] = "al_dia"
     class Config:
         from_attributes = True
 
@@ -125,6 +145,8 @@ class EmpresaOut(EmpresaBase):
     total_vehiculos: Optional[int] = 0
     total_dispositivos: Optional[int] = 0
     total_usuarios: Optional[int] = 0
+    dias_restantes: Optional[int] = None
+    estado_suscripcion: Optional[str] = "al_dia"
     class Config:
         from_attributes = True
 

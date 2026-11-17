@@ -8,6 +8,12 @@ import {
 
 import { API_BASE_URL as API, getAssetUrl } from '../config';
 import { emitLiveSync, useLiveSync } from '../utils/liveSync';
+import {
+  SuscripcionCardBar,
+  SuscripcionSelectorForm,
+  SuscripcionModal,
+  calcularFechaPorPlan
+} from '../components/SuscripcionControl';
 
 const COLOR_PALETTE_PRESETS = [
   { name: 'Huayna Verde & Blanco', primario: '#16A34A', secundario: '#FFFFFF', terciario: '#CCF5DC' },
@@ -30,6 +36,7 @@ export default function CompaniesPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showGerenteModal, setShowGerenteModal] = useState(false);
   const [selectedEmpresa, setSelectedEmpresa] = useState(null);
+  const [suscripcionModalEmp, setSuscripcionModalEmp] = useState(null);
 
   // Helper para generar slug en tiempo real
   const generateSlug = (text) => {
@@ -64,6 +71,9 @@ export default function CompaniesPage() {
     color_secundario: '#FFFFFF',
     color_terciario: '#14532D',
     limite_velocidad: 90,
+    plan_servicio: 'mensual',
+    fecha_vencimiento: calcularFechaPorPlan('mensual'),
+    corte_automatico: true,
     gerente_nombre: '',
     gerente_email: '',
     gerente_password: ''
@@ -82,6 +92,9 @@ export default function CompaniesPage() {
     color_secundario: '#FFFFFF',
     color_terciario: '#14532D',
     limite_velocidad: 90,
+    plan_servicio: 'mensual',
+    fecha_vencimiento: '',
+    corte_automatico: true,
     activo: true
   });
 
@@ -186,6 +199,9 @@ export default function CompaniesPage() {
       color_secundario: emp.color_secundario || '#FFFFFF',
       color_terciario: emp.color_terciario || '#14532D',
       limite_velocidad: emp.limite_velocidad || 90,
+      plan_servicio: emp.plan_servicio || 'mensual',
+      fecha_vencimiento: emp.fecha_vencimiento ? String(emp.fecha_vencimiento).split('T')[0] : '',
+      corte_automatico: emp.corte_automatico !== false,
       activo: emp.activo
     });
     setErrorMsg('');
@@ -309,6 +325,7 @@ export default function CompaniesPage() {
       setErrorMsg('');
       const payload = {
         ...createForm,
+        fecha_vencimiento: createForm.plan_servicio === 'ilimitado' || !createForm.fecha_vencimiento ? null : createForm.fecha_vencimiento,
         gerente_email: createForm.gerente_email?.trim() || null,
         gerente_nombre: createForm.gerente_nombre?.trim() || null,
         gerente_password: createForm.gerente_password || null
@@ -331,6 +348,9 @@ export default function CompaniesPage() {
         color_secundario: '#FFFFFF',
         color_terciario: '#14532D',
         limite_velocidad: 90,
+        plan_servicio: 'mensual',
+        fecha_vencimiento: calcularFechaPorPlan('mensual'),
+        corte_automatico: true,
         gerente_nombre: '',
         gerente_email: '',
         gerente_password: ''
@@ -350,7 +370,11 @@ export default function CompaniesPage() {
     try {
       setSaving(true);
       setErrorMsg('');
-      const res = await axios.put(`${API}/api/empresas/${selectedEmpresa.id}`, editForm, { headers });
+      const editPayload = {
+        ...editForm,
+        fecha_vencimiento: editForm.plan_servicio === 'ilimitado' || !editForm.fecha_vencimiento ? null : editForm.fecha_vencimiento
+      };
+      const res = await axios.put(`${API}/api/empresas/${selectedEmpresa.id}`, editPayload, { headers });
       emitLiveSync({
         type: 'empresa_updated',
         empresa_id: res.data.id,
@@ -639,6 +663,12 @@ export default function CompaniesPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Suscripción y Tiempo de Servicio */}
+                  <SuscripcionCardBar
+                    entidad={emp}
+                    onOpenModal={(item) => setSuscripcionModalEmp(item)}
+                  />
 
                   {/* Bottom: Quick Actions */}
                   <div className="mt-auto pt-2 flex gap-2">
@@ -1190,6 +1220,16 @@ export default function CompaniesPage() {
                     </div>
                   </div>
 
+                  {/* Plan de Suscripción Inicial */}
+                  <div className="pt-2">
+                    <SuscripcionSelectorForm
+                      planServicio={createForm.plan_servicio}
+                      fechaVencimiento={createForm.fecha_vencimiento}
+                      corteAutomatico={createForm.corte_automatico}
+                      onChange={(subData) => setCreateForm((prev) => ({ ...prev, ...subData }))}
+                    />
+                  </div>
+
                 </div>
 
               </div>
@@ -1648,8 +1688,14 @@ export default function CompaniesPage() {
                     </div>
                   </div>
 
-                  {/* Estado Activa / Inactiva */}
-                  <div className="pt-2 border-t border-slate-100">
+                  {/* Plan de Suscripción y Estado Activa / Inactiva */}
+                  <div className="pt-2 border-t border-slate-100 space-y-3">
+                    <SuscripcionSelectorForm
+                      planServicio={editForm.plan_servicio}
+                      fechaVencimiento={editForm.fecha_vencimiento}
+                      corteAutomatico={editForm.corte_automatico}
+                      onChange={(subData) => setEditForm((prev) => ({ ...prev, ...subData }))}
+                    />
                     <label className="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors">
                       <input
                         type="checkbox"
@@ -1832,6 +1878,17 @@ export default function CompaniesPage() {
           </div>
         </div>
       )}
+
+      {/* ================= MODAL DE RENOVACIÓN & TIEMPO DE SUSCRIPCIÓN ================= */}
+      <SuscripcionModal
+        show={Boolean(suscripcionModalEmp)}
+        entidad={suscripcionModalEmp}
+        onClose={() => setSuscripcionModalEmp(null)}
+        onUpdated={(resData) => {
+          showToast(resData?.message || 'Suscripción actualizada correctamente.');
+          fetchEmpresas(true);
+        }}
+      />
 
     </div>
   );

@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import unicodedata
+from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -13,6 +14,68 @@ from app.services.email_service import send_welcome_email
 from app.websockets.manager import manager
 
 router = APIRouter()
+
+DIAS_POR_PLAN = {
+    "mensual": 30,
+    "trimestral": 90,
+    "semestral": 180,
+    "anual": 365,
+    "ilimitado": None,
+}
+
+def hoy_peru() -> date:
+    return datetime.now(timezone(timedelta(hours=-5))).date()
+
+def calcular_fecha_vencimiento_inicial(plan_servicio: Optional[str], fecha_explicita: Optional[date] = None) -> Optional[date]:
+    if fecha_explicita is not None:
+        return fecha_explicita
+    plan = (plan_servicio or "mensual").lower().strip()
+    if plan == "ilimitado":
+        return None
+    dias = DIAS_POR_PLAN.get(plan, 30)
+    return hoy_peru() + timedelta(days=dias)
+
+def calcular_info_suscripcion(emp: models.Empresa) -> dict:
+    plan = (getattr(emp, "plan_servicio", None) or "mensual").lower().strip()
+    fecha_venc = getattr(emp, "fecha_vencimiento", None)
+    corte_auto = getattr(emp, "corte_automatico", True)
+    if corte_auto is None:
+        corte_auto = True
+
+    if not emp.activo:
+        dias_rest = (fecha_venc - hoy_peru()).days if fecha_venc else None
+        return {
+            "plan_servicio": plan,
+            "fecha_vencimiento": fecha_venc,
+            "corte_automatico": corte_auto,
+            "dias_restantes": dias_rest,
+            "estado_suscripcion": "suspendido",
+        }
+
+    if plan == "ilimitado" or fecha_venc is None:
+        return {
+            "plan_servicio": plan,
+            "fecha_vencimiento": fecha_venc,
+            "corte_automatico": corte_auto,
+            "dias_restantes": None,
+            "estado_suscripcion": "ilimitado",
+        }
+
+    dias_rest = (fecha_venc - hoy_peru()).days
+    if dias_rest < 0:
+        estado = "vencido"
+    elif dias_rest <= 5:
+        estado = "por_vencer"
+    else:
+        estado = "al_dia"
+
+    return {
+        "plan_servicio": plan,
+        "fecha_vencimiento": fecha_venc,
+        "corte_automatico": corte_auto,
+        "dias_restantes": dias_rest,
+        "estado_suscripcion": estado,
+    }
 
 def slugify(text: str) -> str:
     """Converts a company name to a URL-safe unique slug."""
@@ -102,10 +165,16 @@ def list_empresas(
         total_disp = db.query(models.Dispositivo).filter(models.Dispositivo.empresa_id == emp.id, models.Dispositivo.activo == True).count()
         total_usr = db.query(models.Usuario).filter(models.Usuario.empresa_id == emp.id, models.Usuario.activo == True).count()
         
+        sub_info = calcular_info_suscripcion(emp)
         emp_dict = schemas.EmpresaOut.model_validate(emp)
         emp_dict.total_vehiculos = total_veh
         emp_dict.total_dispositivos = total_disp
         emp_dict.total_usuarios = total_usr
+        emp_dict.plan_servicio = sub_info["plan_servicio"]
+        emp_dict.fecha_vencimiento = sub_info["fecha_vencimiento"]
+        emp_dict.corte_automatico = sub_info["corte_automatico"]
+        emp_dict.dias_restantes = sub_info["dias_restantes"]
+        emp_dict.estado_suscripcion = sub_info["estado_suscripcion"]
         result.append(emp_dict)
         
     return result
@@ -117,8 +186,7 @@ def get_empresa_public_portal(
 ):
     """Obtiene los datos públicos de marca y presentación para la landing white-label del subdominio"""
     emp = db.query(models.Empresa).filter(
-        models.Empresa.slug == slug.lower().strip(),
-        models.Empresa.activo == True
+        models.Empresa.slug == slug.lower().strip()
     ).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
@@ -162,10 +230,16 @@ def get_empresa(
     total_disp = db.query(models.Dispositivo).filter(models.Dispositivo.empresa_id == emp.id, models.Dispositivo.activo == True).count()
     total_usr = db.query(models.Usuario).filter(models.Usuario.empresa_id == emp.id, models.Usuario.activo == True).count()
     
+    sub_info = calcular_info_suscripcion(emp)
     emp_dict = schemas.EmpresaOut.model_validate(emp)
     emp_dict.total_vehiculos = total_veh
     emp_dict.total_dispositivos = total_disp
     emp_dict.total_usuarios = total_usr
+    emp_dict.plan_servicio = sub_info["plan_servicio"]
+    emp_dict.fecha_vencimiento = sub_info["fecha_vencimiento"]
+    emp_dict.corte_automatico = sub_info["corte_automatico"]
+    emp_dict.dias_restantes = sub_info["dias_restantes"]
+    emp_dict.estado_suscripcion = sub_info["estado_suscripcion"]
     return emp_dict
 
 import uuid
@@ -262,6 +336,9 @@ def create_empresa(
         slug = f"{base_slug}-{counter}"
         counter += 1
 
+    plan_inicial = (payload.plan_servicio or "mensual").lower().strip()
+    fecha_venc_inicial = calcular_fecha_vencimiento_inicial(plan_inicial, payload.fecha_vencimiento)
+
     nueva_empresa = models.Empresa(
         nombre=payload.nombre,
         slug=slug,
@@ -275,6 +352,9 @@ def create_empresa(
         color_secundario=payload.color_secundario or "#FFFFFF",
         color_terciario=payload.color_terciario,
         limite_velocidad=payload.limite_velocidad or 90,
+        plan_servicio=plan_inicial,
+        fecha_vencimiento=fecha_venc_inicial,
+        corte_automatico=True if payload.corte_automatico is None else payload.corte_automatico,
         activo=True
     )
     db.add(nueva_empresa)
@@ -309,10 +389,16 @@ def create_empresa(
             empresa_slug=nueva_empresa.slug
         )
 
+    sub_info = calcular_info_suscripcion(nueva_empresa)
     emp_dict = schemas.EmpresaOut.model_validate(nueva_empresa)
     emp_dict.total_vehiculos = 0
     emp_dict.total_dispositivos = 0
     emp_dict.total_usuarios = 1 if gerente_email_clean else 0
+    emp_dict.plan_servicio = sub_info["plan_servicio"]
+    emp_dict.fecha_vencimiento = sub_info["fecha_vencimiento"]
+    emp_dict.corte_automatico = sub_info["corte_automatico"]
+    emp_dict.dias_restantes = sub_info["dias_restantes"]
+    emp_dict.estado_suscripcion = sub_info["estado_suscripcion"]
 
     manager.notify_sync(nueva_empresa.id, {
         "type": "empresa_updated",
@@ -375,8 +461,17 @@ def update_empresa(
         emp.documento = payload.documento
     if payload.telefono is not None:
         emp.telefono = payload.telefono
-    if payload.activo is not None and current_user.rol == 'superadmin':
-        emp.activo = payload.activo
+    if current_user.rol == 'superadmin':
+        if payload.plan_servicio is not None:
+            emp.plan_servicio = payload.plan_servicio.lower().strip()
+            if emp.plan_servicio == "ilimitado":
+                emp.fecha_vencimiento = None
+        if payload.fecha_vencimiento is not None:
+            emp.fecha_vencimiento = payload.fecha_vencimiento
+        if payload.corte_automatico is not None:
+            emp.corte_automatico = payload.corte_automatico
+        if payload.activo is not None:
+            emp.activo = payload.activo
 
     db.commit()
     db.refresh(emp)
@@ -388,10 +483,16 @@ def update_empresa(
     total_disp = db.query(models.Dispositivo).filter(models.Dispositivo.empresa_id == emp.id, models.Dispositivo.activo == True).count()
     total_usr = db.query(models.Usuario).filter(models.Usuario.empresa_id == emp.id, models.Usuario.activo == True).count()
 
+    sub_info = calcular_info_suscripcion(emp)
     emp_dict = schemas.EmpresaOut.model_validate(emp)
     emp_dict.total_vehiculos = total_veh
     emp_dict.total_dispositivos = total_disp
     emp_dict.total_usuarios = total_usr
+    emp_dict.plan_servicio = sub_info["plan_servicio"]
+    emp_dict.fecha_vencimiento = sub_info["fecha_vencimiento"]
+    emp_dict.corte_automatico = sub_info["corte_automatico"]
+    emp_dict.dias_restantes = sub_info["dias_restantes"]
+    emp_dict.estado_suscripcion = sub_info["estado_suscripcion"]
 
     manager.notify_sync(emp.id, {
         "type": "empresa_updated",
@@ -412,6 +513,82 @@ def update_empresa(
         }
     })
     return emp_dict
+
+@router.post("/{empresa_id}/suscripcion")
+def gestionar_suscripcion_empresa(
+    empresa_id: int,
+    payload: schemas.SuscripcionAccionRequest,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
+):
+    """
+    Exclusivo para Superadmin: permite renovar el tiempo de servicio (+1M, +3M, +6M, +1A, Ilimitado),
+    fijar fecha exacta de vencimiento o suspender/reactivar el servicio de una Empresa o Cliente Particular
+    en un solo clic sin borrar datos ni desvincular equipos GPS.
+    """
+    emp = db.query(models.Empresa).filter(models.Empresa.id == empresa_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Cuenta o empresa no encontrada")
+
+    accion = (payload.accion or "renovar").lower().strip()
+    plan = (payload.plan_servicio or emp.plan_servicio or "mensual").lower().strip()
+    hoy = hoy_peru()
+
+    if accion == "suspender":
+        emp.activo = False
+        mensaje = f"Servicio de '{emp.nombre}' puesto en pausa/suspendido."
+    elif accion == "reactivar":
+        emp.activo = True
+        if emp.fecha_vencimiento and emp.fecha_vencimiento < hoy and emp.corte_automatico:
+            dias = DIAS_POR_PLAN.get(plan, 30) or 30
+            emp.fecha_vencimiento = hoy + timedelta(days=dias)
+        mensaje = f"Servicio de '{emp.nombre}' reactivado inmediatamente."
+    elif accion == "configurar":
+        emp.plan_servicio = plan
+        if plan == "ilimitado":
+            emp.fecha_vencimiento = None
+        elif payload.fecha_vencimiento is not None:
+            emp.fecha_vencimiento = payload.fecha_vencimiento
+        if payload.corte_automatico is not None:
+            emp.corte_automatico = payload.corte_automatico
+        emp.activo = True
+        mensaje = f"Suscripción de '{emp.nombre}' actualizada."
+    else:
+        # accion == "renovar"
+        emp.plan_servicio = plan
+        if payload.corte_automatico is not None:
+            emp.corte_automatico = payload.corte_automatico
+        if plan == "ilimitado":
+            emp.fecha_vencimiento = None
+            emp.activo = True
+            mensaje = f"Plan de '{emp.nombre}' configurado como Permanente / Ilimitado."
+        elif payload.fecha_vencimiento is not None:
+            emp.fecha_vencimiento = payload.fecha_vencimiento
+            emp.activo = True
+            mensaje = f"Suscripción de '{emp.nombre}' renovada hasta el {emp.fecha_vencimiento.strftime('%d/%m/%Y')}."
+        else:
+            dias = DIAS_POR_PLAN.get(plan, 30) or 30
+            base = emp.fecha_vencimiento if (emp.fecha_vencimiento and emp.fecha_vencimiento > hoy) else hoy
+            emp.fecha_vencimiento = base + timedelta(days=dias)
+            emp.activo = True
+            etiquetas = {"mensual": "1 Mes (+30 días)", "trimestral": "3 Meses (+90 días)", "semestral": "6 Meses (+180 días)", "anual": "1 Año (+365 días)"}
+            mensaje = f"Suscripción de '{emp.nombre}' renovada por {etiquetas.get(plan, f'+{dias} días')} (Vence: {emp.fecha_vencimiento.strftime('%d/%m/%Y')})."
+
+    db.commit()
+    db.refresh(emp)
+
+    sub_info = calcular_info_suscripcion(emp)
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "empresas"})
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
+
+    return {
+        "status": "ok",
+        "id": emp.id,
+        "nombre": emp.nombre,
+        "activo": emp.activo,
+        **sub_info,
+        "message": mensaje
+    }
 
 @router.put("/{empresa_id}/limite-velocidad")
 def set_limite_velocidad(

@@ -1,4 +1,5 @@
 from typing import Generator
+from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
@@ -39,6 +40,25 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         user = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
     if user is None or not user.activo:
         raise credentials_exception
+
+    # Verificar que la empresa/cuenta del usuario no esté suspendida ni vencida con corte automático
+    if user.rol != "superadmin" and user.empresa:
+        if not user.empresa.activo:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="SERVICIO_SUSPENDIDO: El servicio GPS de tu cuenta se encuentra en pausa por renovación."
+            )
+        plan = (getattr(user.empresa, "plan_servicio", None) or "mensual").lower().strip()
+        corte_auto = getattr(user.empresa, "corte_automatico", True)
+        fecha_venc = getattr(user.empresa, "fecha_vencimiento", None)
+        if corte_auto and plan != "ilimitado" and fecha_venc is not None:
+            hoy = datetime.now(timezone(timedelta(hours=-5))).date()
+            if hoy > fecha_venc:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="SERVICIO_VENCIDO: Tu suscripción GPS ha vencido. Comunícate con soporte para renovarla."
+                )
+
     return user
 
 def require_role(allowed_roles: list[str]):

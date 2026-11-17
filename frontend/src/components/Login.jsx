@@ -911,12 +911,33 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Error de credenciales */}
+            {/* Error de credenciales o Aviso de Renovación de Suscripción */}
             {error && (
-              <div className="mb-5 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-2xl flex items-center gap-2.5 text-xs">
-                <ShieldAlert size={18} className="text-red-600 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
+              (error.startsWith('SERVICIO_SUSPENDIDO:') || error.startsWith('SERVICIO_VENCIDO:')) ? (
+                <div className="mb-5 p-4 bg-amber-50 border border-amber-300 text-amber-950 rounded-2xl space-y-2.5 text-xs">
+                  <div className="font-extrabold text-amber-900 flex items-center gap-2 text-sm">
+                    <ShieldAlert size={18} className="text-amber-600 flex-shrink-0" />
+                    <span>Servicio pendiente de renovación</span>
+                  </div>
+                  <p className="leading-relaxed text-amber-900/90">
+                    {error.replace(/^SERVICIO_(SUSPENDIDO|VENCIDO):\s*/, '')}
+                  </p>
+                  <a
+                    href="https://wa.me/51974342536?text=Hola%20Industrias%20CopAI,%20deseo%20renovar%20mi%20suscripci%C3%B3n%20del%20sistema%20GPS."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors"
+                  >
+                    <Phone size={13} />
+                    <span>Contactar Soporte por WhatsApp (+51 974 342 536)</span>
+                  </a>
+                </div>
+              ) : (
+                <div className="mb-5 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-2xl flex items-center gap-2.5 text-xs">
+                  <ShieldAlert size={18} className="text-red-600 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )
             )}
 
             {/* Formulario */}

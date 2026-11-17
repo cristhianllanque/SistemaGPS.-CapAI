@@ -6,6 +6,7 @@ import re
 import unicodedata
 
 from app.api.deps import get_db, get_current_user, require_role
+from app.api.empresas import calcular_fecha_vencimiento_inicial, calcular_info_suscripcion
 from app.db import models, schemas
 from app.core.security import get_password_hash
 from app.services.email_service import send_welcome_email
@@ -34,7 +35,7 @@ def list_clientes_particulares(
     if inactivos and current_user.rol != 'superadmin':
         raise HTTPException(status_code=403, detail="Solo el Superadmin puede ver clientes dados de baja.")
 
-    query = db.query(models.Empresa).filter(models.Empresa.tipo == 'particular', models.Empresa.activo == (not inactivos))
+    query = db.query(models.Empresa).filter(models.Empresa.tipo == 'particular')
     
     if current_user.rol != 'superadmin':
         # Un cliente particular solo puede ver su propia cuenta
@@ -46,11 +47,18 @@ def list_clientes_particulares(
     for p in particulares:
         vq = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == p.id)
         uq = db.query(models.Usuario).filter(models.Usuario.empresa_id == p.id)
-        if not inactivos:
-            vq = vq.filter(models.Vehiculo.activo == True)
-            uq = uq.filter(models.Usuario.activo == True)
         vehiculo = vq.order_by(models.Vehiculo.id.desc()).first()
         usuario = uq.first()
+
+        # Determinar si es una baja definitiva (con GPS liberado y correo prefijado 'baja')
+        es_baja_definitiva = bool(
+            not p.activo and (
+                (usuario and (usuario.email or '').startswith('baja')) or
+                (vehiculo and not vehiculo.activo)
+            )
+        )
+        if inactivos != es_baja_definitiva:
+            continue
         
         dispositivo_info = None
         if vehiculo and vehiculo.dispositivo:
@@ -61,6 +69,8 @@ def list_clientes_particulares(
                 "numero_sim": vehiculo.dispositivo.numero_sim,
                 "operador_sim": vehiculo.dispositivo.operador_sim
             }
+
+        sub_info = calcular_info_suscripcion(p)
 
         resultado.append({
             "id": p.id,
@@ -73,6 +83,7 @@ def list_clientes_particulares(
             "color_primario": p.color_primario or "#0D9488",
             "activo": p.activo,
             "created_at": p.created_at,
+            **sub_info,
             "vehiculo": {
                 "id": vehiculo.id if vehiculo else None,
                 "placa": _limpiar_placa_baja(vehiculo.placa) if vehiculo else "Sin asignar",
@@ -143,6 +154,8 @@ def create_cliente_particular(
     # 4. Crear Cuenta Particular (en tabla empresas con tipo='particular')
     base_slug = f"part-{slugify(placa_clean)}"
     slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+    plan_inicial = (payload.plan_servicio or "mensual").lower().strip()
+    fecha_venc_inicial = calcular_fecha_vencimiento_inicial(plan_inicial, payload.fecha_vencimiento)
     
     empresa_part = models.Empresa(
         nombre=payload.nombre.strip(),
@@ -152,6 +165,9 @@ def create_cliente_particular(
         telefono=payload.telefono.strip() if payload.telefono else None,
         color_primario="#0D9488", # Color distintivo esmeralda/teal para particulares
         limite_velocidad=payload.limite_velocidad or 90,
+        plan_servicio=plan_inicial,
+        fecha_vencimiento=fecha_venc_inicial,
+        corte_automatico=True if payload.corte_automatico is None else payload.corte_automatico,
         activo=True
     )
     db.add(empresa_part)

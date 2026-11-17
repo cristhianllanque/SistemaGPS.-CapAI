@@ -8,6 +8,12 @@ import {
 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { useLiveSync } from '../utils/liveSync';
+import {
+  SuscripcionCardBar,
+  SuscripcionSelectorForm,
+  SuscripcionModal,
+  calcularFechaPorPlan
+} from '../components/SuscripcionControl';
 
 const TIPOS_VEHICULO = [
   { value: 'sedan', label: 'Auto Sedán / Particular' },
@@ -23,6 +29,9 @@ const emptyForm = {
   email: '',
   password: '',
   limite_velocidad: 90,
+  plan_servicio: 'mensual',
+  fecha_vencimiento: calcularFechaPorPlan('mensual'),
+  corte_automatico: true,
   placa: '',
   marca: '',
   modelo: '',
@@ -47,6 +56,8 @@ export default function ParticularesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [successData, setSuccessData] = useState(null);
+  const [suscripcionModalCliente, setSuscripcionModalCliente] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
 
   // Verificación de correo para Cliente Particular
   const [emailCheck, setEmailCheck] = useState(null);
@@ -149,6 +160,9 @@ export default function ParticularesPage() {
         email: form.email.trim().toLowerCase(),
         password: form.password,
         limite_velocidad: parseInt(form.limite_velocidad) || 90,
+        plan_servicio: form.plan_servicio || 'mensual',
+        fecha_vencimiento: form.plan_servicio === 'ilimitado' || !form.fecha_vencimiento ? null : form.fecha_vencimiento,
+        corte_automatico: form.corte_automatico !== false,
         placa: form.placa.trim().toUpperCase(),
         marca: form.marca.trim() || null,
         modelo: form.modelo.trim() || null,
@@ -416,6 +430,16 @@ export default function ParticularesPage() {
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                   <span className="truncate">{c.email || 'Sin correo asignado'}</span>
                 </div>
+
+                {/* Marcador de Suscripción y Botón Renovar / Tiempo */}
+                {!verBajas && (
+                  <div className="pt-1">
+                    <SuscripcionCardBar
+                      entidad={c}
+                      onOpenModal={(item) => setSuscripcionModalCliente(item)}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Card Footer / Actions */}
@@ -745,6 +769,16 @@ export default function ParticularesPage() {
                   </div>
                 </div>
 
+                {/* Section 4: Plan y Tiempo de Suscripción */}
+                <div className="pt-3 border-t border-slate-100">
+                  <SuscripcionSelectorForm
+                    planServicio={form.plan_servicio}
+                    fechaVencimiento={form.fecha_vencimiento}
+                    corteAutomatico={form.corte_automatico}
+                    onChange={(subData) => setForm((prev) => ({ ...prev, ...subData }))}
+                  />
+                </div>
+
                 {/* Buttons */}
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                   <button
@@ -767,6 +801,25 @@ export default function ParticularesPage() {
           </div>
         </div>
       )}
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in">
+          <Check className="w-5 h-5 bg-white/20 p-0.5 rounded-full" />
+          <span className="font-medium text-sm">{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Modal de Renovación y Tiempo de Suscripción */}
+      <SuscripcionModal
+        show={Boolean(suscripcionModalCliente)}
+        entidad={suscripcionModalCliente}
+        onClose={() => setSuscripcionModalCliente(null)}
+        onUpdated={(resData) => {
+          setToastMsg(resData?.message || 'Suscripción del cliente actualizada.');
+          setTimeout(() => setToastMsg(''), 4000);
+          fetchData(true);
+        }}
+      />
     </div>
   );
 }

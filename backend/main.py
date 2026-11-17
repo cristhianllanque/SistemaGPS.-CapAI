@@ -9,6 +9,7 @@ from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboa
 from app.websockets.manager import manager
 from app.core.config import settings
 from app.db.database import engine, Base
+from sqlalchemy import inspect, text
 from app.services.tcp_listener import start_tcp_server
 
 # Ensure upload directories exist
@@ -17,6 +18,25 @@ os.makedirs("uploads/banners", exist_ok=True)
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
+
+def ensure_subscription_columns():
+    """Agrega de forma segura e idempotente las columnas de suscripción en la tabla empresas si no existen."""
+    try:
+        inspector = inspect(engine)
+        if "empresas" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("empresas")}
+        with engine.begin() as conn:
+            if "plan_servicio" not in cols:
+                conn.execute(text("ALTER TABLE empresas ADD COLUMN plan_servicio VARCHAR(30) DEFAULT 'mensual'"))
+            if "fecha_vencimiento" not in cols:
+                conn.execute(text("ALTER TABLE empresas ADD COLUMN fecha_vencimiento DATE NULL"))
+            if "corte_automatico" not in cols:
+                conn.execute(text("ALTER TABLE empresas ADD COLUMN corte_automatico BOOLEAN DEFAULT TRUE"))
+    except Exception as exc:
+        print(f"[DB MIGRATION WARN] ensure_subscription_columns: {exc}", flush=True)
+
+ensure_subscription_columns()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
