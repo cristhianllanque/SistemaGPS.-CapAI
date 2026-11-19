@@ -439,11 +439,13 @@ export default function CompaniesPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Toast Notification */}
+      {/* Barra Flotante Superior de Confirmación (100% visible en móvil y escritorio) */}
       {successToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom">
-          <Check size={20} className="bg-white/20 p-0.5 rounded-full" />
-          <span className="font-medium text-sm">{successToast}</span>
+        <div className="fixed top-16 md:top-5 left-1/2 -translate-x-1/2 z-[10000] bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-emerald-400/50 flex items-center gap-2.5 max-w-[92vw] animate-in fade-in duration-200 pointer-events-none">
+          <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <Check size={14} className="text-white" />
+          </div>
+          <span className="font-bold text-xs sm:text-sm truncate">{successToast}</span>
         </div>
       )}
 

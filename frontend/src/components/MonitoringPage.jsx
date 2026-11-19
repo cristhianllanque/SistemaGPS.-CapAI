@@ -841,11 +841,13 @@ export default function MonitoringPage() {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-slate-100 relative">
-      {/* Toast Notification */}
+      {/* Barra Flotante Superior de Confirmación (100% visible en iPhone, Android y PC, nunca tapada abajo) */}
       {speedToast && (
-        <div className="fixed bottom-6 right-6 z-[9999] bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom">
-          <Check size={20} className="bg-white/20 p-0.5 rounded-full" />
-          <span className="font-medium text-sm">{speedToast}</span>
+        <div className="fixed top-16 md:top-5 left-1/2 -translate-x-1/2 z-[10000] bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-emerald-400/50 flex items-center gap-2.5 max-w-[92vw] animate-in fade-in duration-200 pointer-events-none">
+          <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <Check size={14} className="text-white" />
+          </div>
+          <span className="font-bold text-xs sm:text-sm truncate">{speedToast}</span>
         </div>
       )}
 
@@ -985,41 +987,41 @@ export default function MonitoringPage() {
         </div>
       </div>
 
-      {/* Modal: Ajustar Límite de Velocidad */}
+      {/* Modal Compacto y Armónico: Ajustar Límite de Velocidad */}
       {showSpeedModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 border border-slate-100">
-            <div className="bg-slate-900 text-white p-5 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg">
-                  <Gauge size={22} />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[345px] sm:max-w-md overflow-hidden animate-in zoom-in-95 border border-slate-200/80">
+            <div className="bg-slate-900 text-white px-4 py-3.5 flex justify-between items-center">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl shrink-0">
+                  <Gauge size={18} />
                 </div>
-                <div>
-                  <h3 className="font-bold text-base">Límite de Velocidad Máxima</h3>
-                  <p className="text-xs text-slate-400">
-                    Configuración para{' '}
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm sm:text-base leading-tight truncate">Límite de Velocidad Máxima</h3>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">
                     {isSuperAdmin
                       ? (speedTargetEmpresaId === 'ALL'
-                          ? 'todas las empresas y unidades'
+                          ? 'Todas las empresas y unidades'
                           : (allEmpresasMap[Number(speedTargetEmpresaId)]?.nombre || effectiveEmpresaNombre))
                       : effectiveEmpresaNombre}
                   </p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowSpeedModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center shrink-0 cursor-pointer"
               >
-                <X size={20} />
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveSpeedLimit} className="p-6 space-y-5">
+            <form onSubmit={handleSaveSpeedLimit} className="p-4 sm:p-5 space-y-3.5">
               {isSuperAdmin && Object.keys(allEmpresasMap).length > 0 && (
-                <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
-                    <Building2 size={14} className="text-amber-600" />
-                    <span>Empresa o Cliente Particular a configurar:</span>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 mb-1.5">
+                    <Building2 size={13} className="text-amber-600" />
+                    <span>Flota o Cliente a configurar:</span>
                   </label>
                   <select
                     value={speedTargetEmpresaId}
@@ -1030,22 +1032,23 @@ export default function MonitoringPage() {
                         setTempSpeed(allEmpresasMap[Number(val)].limite_velocidad);
                       }
                     }}
-                    className="w-full px-3 py-2 text-xs sm:text-sm font-semibold bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     {Object.values(allEmpresasMap).map((empItem) => (
                       <option key={empItem.id} value={String(empItem.id)}>
-                        {empItem.tipo === 'particular' ? `🚗 Particular: ${empItem.nombre}` : `🏢 ${empItem.nombre}`} (Actual: {empItem.limite_velocidad || 90} km/h)
+                        {empItem.tipo === 'particular' ? `🚗 Particular: ${empItem.nombre}` : `🏢 ${empItem.nombre}`} ({empItem.limite_velocidad || 90} km/h)
                       </option>
                     ))}
-                    <option value="ALL">🌐 Todas las empresas y unidades del sistema</option>
+                    <option value="ALL">🌐 Todas las empresas y unidades</option>
                   </select>
                 </div>
               )}
 
-              <div>
+              {/* Compartimento 1: Control Deslizante de Velocidad */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70">
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-semibold text-slate-700">Velocidad Límite Permitida:</label>
-                  <span className="text-base font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 font-mono">
+                  <label className="text-xs font-bold text-slate-700">Velocidad Límite:</label>
+                  <span className="text-sm sm:text-base font-black text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200 font-mono">
                     {tempSpeed} km/h
                   </span>
                 </div>
@@ -1059,17 +1062,17 @@ export default function MonitoringPage() {
                   onChange={(e) => setTempSpeed(parseInt(e.target.value, 10))}
                   className="w-full accent-amber-500 cursor-pointer h-2 bg-slate-200 rounded-lg"
                 />
-                <div className="flex justify-between text-[11px] text-slate-400 font-medium mt-1">
+                <div className="flex justify-between text-[10px] text-slate-400 font-semibold mt-1">
                   <span>20 km/h</span>
                   <span>90 km/h</span>
                   <span>160 km/h</span>
                 </div>
               </div>
 
-              {/* Quick Presets */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Valores rápidos recomendados:</label>
-                <div className="grid grid-cols-3 gap-2">
+              {/* Compartimento 2: Valores Rápidos Recomendados */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70">
+                <label className="block text-[11px] font-bold text-slate-600 mb-2">Valores rápidos:</label>
+                <div className="grid grid-cols-3 gap-1.5">
                   {[
                     { speed: 40, label: 'Urbana (40)' },
                     { speed: 60, label: 'Avenida (60)' },
@@ -1082,7 +1085,11 @@ export default function MonitoringPage() {
                       key={item.speed}
                       type="button"
                       onClick={() => setTempSpeed(item.speed)}
-                      className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all ${tempSpeed === item.speed ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'}`}
+                      className={`py-2 px-1.5 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                        tempSpeed === item.speed
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
                     >
                       {item.label}
                     </button>
@@ -1090,22 +1097,18 @@ export default function MonitoringPage() {
                 </div>
               </div>
 
-              <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200/60 leading-relaxed">
-                🔔 <strong>Notificación inmediata:</strong> Cuando cualquier unidad de la flota supere los <strong>{tempSpeed} km/h</strong>, el sistema generará una alerta de exceso de velocidad en tiempo real para gerentes, administradores y operadores.
-              </p>
-
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowSpeedModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingSpeed}
-                  className="px-5 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2 active:scale-95"
+                  className="px-4 py-2 text-xs sm:text-sm font-extrabold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                 >
                   {savingSpeed ? 'Guardando...' : 'Aplicar Límite'}
                 </button>
