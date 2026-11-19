@@ -65,8 +65,17 @@ export default function MonitoringPage() {
     if (typeof window === 'undefined') return false;
     return isNativeApp || window.innerWidth < 768;
   });
+  // Estado persistente: respeta si el usuario dejó su GPS personal activado (azul) o desactivado (plomo) al cambiar de menú
+  const [isUserGpsActive, setIsUserGpsActive] = useState(() => {
+    try {
+      return localStorage.getItem('copai_user_gps_enabled') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [userLocation, setUserLocation] = useState(() => {
     try {
+      if (localStorage.getItem('copai_user_gps_enabled') !== 'true') return null;
       const raw = sessionStorage.getItem('copai_last_user_gps');
       if (!raw) return null;
       const parsed = JSON.parse(raw);
@@ -180,25 +189,49 @@ export default function MonitoringPage() {
     }
   }, [saveUserGpsToCache]);
 
-  // Pre-calentar silenciosamente el GPS en móvil si el permiso ya fue otorgado previamente
+  const stopUserLocationWatching = useCallback(() => {
+    if (geoWatchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(geoWatchIdRef.current);
+      geoWatchIdRef.current = null;
+    }
+    setIsLocatingUser(false);
+    setUserLocation(null);
+  }, []);
+
+  // Si el usuario dejó su GPS personal activo, retomarlo automáticamente al volver al Mapa desde otro menú
   useEffect(() => {
     if (!isMobileApp || typeof navigator === 'undefined' || !navigator.geolocation) return;
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions
-        .query({ name: 'geolocation' })
-        .then((res) => {
-          if (res.state === 'granted') {
-            ensureUserLocationWatching(false);
-          }
-        })
-        .catch(() => {});
+    if (isUserGpsActive) {
+      ensureUserLocationWatching(false);
     }
-  }, [isMobileApp, ensureUserLocationWatching]);
+  }, [isMobileApp, isUserGpsActive, ensureUserLocationWatching]);
 
+  const handleStopRoute = useCallback(() => {
+    routeReqIdRef.current += 1;
+    inFlightRouteRef.current = null;
+    lastRoutedCoordsRef.current = null;
+    setRouteTargetVehicleId(null);
+    setRoutePoints([]);
+    setRouteSummary(null);
+    setRouteLoading(false);
+  }, []);
+
+  // Botón Toggle (Activar Azul / Desactivar Plomo): lo que el usuario presiona se respeta siempre
   const handleLocateMe = () => {
-    if (userLocation) {
-      setCenterUserTrigger((prev) => prev + 1);
+    if (isUserGpsActive) {
+      setIsUserGpsActive(false);
+      try {
+        localStorage.setItem('copai_user_gps_enabled', 'false');
+      } catch {}
+      stopUserLocationWatching();
+      handleStopRoute();
+      return;
     }
+
+    setIsUserGpsActive(true);
+    try {
+      localStorage.setItem('copai_user_gps_enabled', 'true');
+    } catch {}
     ensureUserLocationWatching(true);
   };
 
@@ -210,20 +243,14 @@ export default function MonitoringPage() {
       setRoutePoints([]);
       setRouteSummary(null);
     }
+    setIsUserGpsActive(true);
+    try {
+      localStorage.setItem('copai_user_gps_enabled', 'true');
+    } catch {}
     setSelectedVehicleId(vehiculoId);
     setRouteTargetVehicleId(vehiculoId);
     ensureUserLocationWatching(false);
     setFitRouteTrigger((prev) => prev + 1);
-  };
-
-  const handleStopRoute = () => {
-    routeReqIdRef.current += 1;
-    inFlightRouteRef.current = null;
-    lastRoutedCoordsRef.current = null;
-    setRouteTargetVehicleId(null);
-    setRoutePoints([]);
-    setRouteSummary(null);
-    setRouteLoading(false);
   };
 
   const WS_URL = token 
@@ -245,6 +272,10 @@ export default function MonitoringPage() {
       if (!isNaN(parsedId)) {
         setSelectedVehicleId(parsedId);
         if (urlRuta === '1' || urlRuta === 'true') {
+          setIsUserGpsActive(true);
+          try {
+            localStorage.setItem('copai_user_gps_enabled', 'true');
+          } catch {}
           setRouteTargetVehicleId(parsedId);
           ensureUserLocationWatching(false);
           setFitRouteTrigger((prev) => prev + 1);
@@ -940,18 +971,18 @@ export default function MonitoringPage() {
           </button>
         )}
 
-        {/* Botón flotante exclusivo Móvil: Ver Mi Ubicación en el Mapa */}
+        {/* Botón flotante exclusivo Móvil: Activar (Azul) / Desactivar (Plomo) Mi Ubicación GPS en el Mapa */}
         <button
           type="button"
           onClick={handleLocateMe}
           className={`md:hidden absolute bottom-3 right-3 z-[500] w-10 h-10 rounded-full shadow-2xl flex items-center justify-center border transition-all active:scale-95 cursor-pointer ${
-            userLocation
+            isUserGpsActive
               ? 'bg-blue-600 text-white border-blue-400 shadow-blue-600/40'
-              : 'bg-white/95 text-slate-700 border-slate-200'
+              : 'bg-slate-800/90 text-slate-300 border-white/15 hover:text-white'
           }`}
-          title="Mostrar mi ubicación actual en el mapa"
+          title={isUserGpsActive ? 'Desactivar mi ubicación GPS del mapa' : 'Activar mi ubicación actual en el mapa'}
         >
-          <LocateFixed size={18} className={isLocatingUser ? 'animate-spin text-blue-500' : ''} />
+          <LocateFixed size={18} className={isLocatingUser && isUserGpsActive ? 'animate-spin text-white' : ''} />
         </button>
 
         {/* Live Map */}
@@ -963,7 +994,7 @@ export default function MonitoringPage() {
           onSelectVehicle={(id) => setSelectedVehicleId(id)}
           onClearFocus={handleClearFocus}
           isMobileApp={isMobileApp}
-          userLocation={userLocation}
+          userLocation={isUserGpsActive ? userLocation : null}
           routeTargetVehicleId={routeTargetVehicleId}
           routePoints={routePoints}
           routeSummary={routeSummary}
