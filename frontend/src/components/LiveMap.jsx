@@ -6,26 +6,57 @@ import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateF
 import { parseServerUTC, formatPeruTime } from '../utils/peruTime';
 import { useVehicleAddresses } from '../utils/reverseGeocode';
 
-// Create custom icons based on status (con contra-rotación automática cuando el mapa gira)
+// Ícono vectorial limpio de carrito/vehículo (mismo estilo de Mis Vehículos)
+const CAR_SVG_ICON = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:block; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));">
+    <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/>
+    <circle cx="7" cy="17" r="2"/>
+    <path d="M9 17h6"/>
+    <circle cx="17" cy="17" r="2"/>
+  </svg>
+`;
+
+// Create custom vehicle icons based on status (con contra-rotación automática cuando el mapa gira)
 const createIcon = (color, isPanic = false, isSpeed = false) => {
-  const size = isPanic ? 28 : (isSpeed ? 26 : 22);
+  const size = isPanic ? 34 : (isSpeed ? 32 : 30);
   return L.divIcon({
     className: 'custom-icon',
     html: `
       <div style="
-        background-color: ${color}; 
-        width: ${size}px; 
-        height: ${size}px; 
-        border-radius: 50%; 
-        border: 3px solid white; 
-        box-shadow: 0 0 ${isPanic ? '15px #dc2626' : (isSpeed ? '12px #d97706' : '6px rgba(0,0,0,0.4)')};
+        position: relative;
+        width: ${size}px;
+        height: ${size}px;
         display: flex;
         align-items: center;
         justify-content: center;
         transform: rotate(var(--map-counter-rotate, 0deg));
-        ${isPanic ? 'animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;' : (isSpeed ? 'animation: pulse 1.2s infinite;' : '')}
       ">
-        ${isPanic ? '<div style="width: 10px; height: 10px; background: white; border-radius: 50%;"></div>' : (isSpeed ? '<div style="font-size: 11px; color: white; font-weight: 900; line-height: 1;">⚡</div>' : '')}
+        ${isPanic ? `
+          <div style="
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            opacity: 0.55;
+            animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          "></div>
+        ` : ''}
+        <div style="
+          position: relative;
+          background-color: ${color}; 
+          width: ${size}px; 
+          height: ${size}px; 
+          border-radius: 50%; 
+          border: 2.5px solid #ffffff; 
+          box-shadow: 0 2px ${isPanic ? '14px #dc2626' : (isSpeed ? '12px #d97706' : '7px rgba(15,23,42,0.45)')};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          ${isSpeed ? 'animation: pulse 1.2s infinite;' : ''}
+        ">
+          ${CAR_SVG_ICON}
+          ${isSpeed ? '<span style="position:absolute; top:-5px; right:-5px; width:13px; height:13px; border-radius:50%; background:#d97706; border:1.5px solid #fff; font-size:8px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; line-height:1;">⚡</span>' : ''}
+        </div>
       </div>
     `,
     iconSize: [size, size],
@@ -384,47 +415,47 @@ export default function LiveMap({
         )}
       </div>
 
-      {/* SELECTOR FLOTANTE DE CAPAS DE MAPA: Día | Oscuro | Satélite (Casitas) */}
-      <div className="absolute bottom-14 md:bottom-5 left-2.5 md:left-4 z-[900] pointer-events-auto">
-        <div className="bg-slate-900/90 backdrop-blur-md p-1 rounded-xl shadow-2xl border border-white/15 flex items-center gap-1">
+      {/* SELECTOR FLOTANTE VERTICAL DE CAPAS DE MAPA: Solo Íconos (Sol / Luna / Satélite) al costado derecho */}
+      <div className="absolute bottom-16 md:bottom-6 right-3 md:right-4 z-[900] pointer-events-auto">
+        <div className="w-10 bg-slate-900/90 backdrop-blur-md p-1 rounded-2xl shadow-2xl border border-white/15 flex flex-col items-center gap-1">
           <button
             type="button"
             onClick={() => handleSelectMapStyle('day')}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               mapStyle === 'day'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-300 hover:text-white'
+                ? 'bg-white text-amber-500 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
             }`}
             title="Mapa Modo Día (Calles Claras)"
+            aria-label="Mapa Modo Día"
           >
-            <Sun size={12} className={mapStyle === 'day' ? 'text-amber-500' : ''} />
-            <span>Día</span>
+            <Sun size={15} />
           </button>
           <button
             type="button"
             onClick={() => handleSelectMapStyle('dark')}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               mapStyle === 'dark'
                 ? 'bg-sky-500 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white'
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
             }`}
             title="Mapa Modo Oscuro (Nocturno)"
+            aria-label="Mapa Modo Oscuro"
           >
-            <Moon size={12} />
-            <span>Oscuro</span>
+            <Moon size={15} />
           </button>
           <button
             type="button"
             onClick={() => handleSelectMapStyle('satellite')}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               mapStyle === 'satellite'
                 ? 'bg-emerald-500 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white'
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
             }`}
             title="Mapa Satélite Real (Casitas y Calles)"
+            aria-label="Mapa Satélite"
           >
-            <Layers size={12} />
-            <span>Satélite</span>
+            <Layers size={15} />
           </button>
         </div>
       </div>

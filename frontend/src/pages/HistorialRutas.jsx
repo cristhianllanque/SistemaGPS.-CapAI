@@ -14,15 +14,20 @@ import { getPeruPresetRange, peruInputToUTCISO, formatPeruTime, formatPeruDate }
 const movingVehicleIcon = L.divIcon({
   className: 'custom-moving-icon',
   html: `
-    <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
-      <div style="position: absolute; width: 28px; height: 28px; border-radius: 50%; background: rgba(59, 130, 246, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-      <div style="position: relative; width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 9px; font-weight: bold;">
-        🚗
+    <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+      <div style="position: absolute; width: 32px; height: 32px; border-radius: 50%; background: rgba(37, 99, 235, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+      <div style="position: relative; width: 30px; height: 30px; border-radius: 50%; background: #2563eb; border: 2.5px solid white; box-shadow: 0 2px 7px rgba(15,23,42,0.45); display: flex; align-items: center; justify-content: center;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
+          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/>
+          <circle cx="7" cy="17" r="2"/>
+          <path d="M9 17h6"/>
+          <circle cx="17" cy="17" r="2"/>
+        </svg>
       </div>
     </div>
   `,
-  iconSize: [28, 28],
-  iconAnchor: [14, 14]
+  iconSize: [32, 32],
+  iconAnchor: [16, 16]
 });
 
 const startIcon = L.divIcon({
@@ -393,44 +398,47 @@ export default function HistorialRutas() {
 
       {/* Main Content Area */}
       <div className="flex-1 relative flex flex-col overflow-hidden">
-        {/* Selector Flotante de Capas (Día | Oscuro | Satélite con Casitas) */}
-        <div className="absolute top-3 left-14 md:top-4 md:left-14 z-[900] pointer-events-auto">
-          <div className="bg-slate-900/90 backdrop-blur-md p-1 rounded-xl shadow-xl border border-white/15 flex items-center gap-1">
+        {/* Selector Flotante Vertical de Capas (Solo Íconos al costado derecho: Sol / Luna / Satélite) */}
+        <div className="absolute top-14 right-3 md:top-16 md:right-4 z-[900] pointer-events-auto">
+          <div className="w-10 bg-slate-900/90 backdrop-blur-md p-1 rounded-2xl shadow-2xl border border-white/15 flex flex-col items-center gap-1">
             <button
               type="button"
               onClick={() => handleSelectMapStyle('day')}
-              className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 mapStyle === 'day'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-300 hover:text-white'
+                  ? 'bg-white text-amber-500 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-white/10'
               }`}
+              title="Mapa Modo Día (Calles Claras)"
+              aria-label="Mapa Modo Día"
             >
-              <Sun size={11} className={mapStyle === 'day' ? 'text-amber-500' : ''} />
-              <span>Día</span>
+              <Sun size={15} />
             </button>
             <button
               type="button"
               onClick={() => handleSelectMapStyle('dark')}
-              className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 mapStyle === 'dark'
                   ? 'bg-sky-500 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white'
+                  : 'text-slate-300 hover:text-white hover:bg-white/10'
               }`}
+              title="Mapa Modo Oscuro (Nocturno)"
+              aria-label="Mapa Modo Oscuro"
             >
-              <Moon size={11} />
-              <span>Oscuro</span>
+              <Moon size={15} />
             </button>
             <button
               type="button"
               onClick={() => handleSelectMapStyle('satellite')}
-              className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 mapStyle === 'satellite'
                   ? 'bg-emerald-500 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white'
+                  : 'text-slate-300 hover:text-white hover:bg-white/10'
               }`}
+              title="Mapa Satélite Real (Casitas y Calles)"
+              aria-label="Mapa Satélite"
             >
-              <Layers size={11} />
-              <span>Satélite</span>
+              <Layers size={15} />
             </button>
           </div>
         </div>
