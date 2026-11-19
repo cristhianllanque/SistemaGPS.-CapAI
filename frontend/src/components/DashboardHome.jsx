@@ -137,8 +137,11 @@ export default function DashboardHome() {
             {misVehiculos.map((vItem) => {
               const u = vItem?.ultima_lectura || null;
               const readingDate = parseServerUTC(u?.timestamp);
-              const isIgnitionOn = Boolean(u?.ignicion);
-              const isMoving = Boolean(u && u.velocidad > 0);
+              const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
+              const isOnline = Boolean(u && u.online === true && diffMinutes < 15);
+              const isIgnitionOn = Boolean(isOnline && u?.ignicion);
+              const liveSpeed = isOnline && u ? (u.velocidad || 0) : 0;
+              const isMoving = Boolean(isOnline && liveSpeed > 0);
 
               return (
                 <div key={vItem.id} className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-4">
@@ -180,7 +183,7 @@ export default function DashboardHome() {
                     <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                       <Gauge size={16} className="mx-auto text-indigo-600 mb-1" />
                       <p className="text-[10px] font-bold uppercase text-slate-400">Velocidad</p>
-                      <p className="text-base font-black text-slate-800 mt-0.5">{u?.velocidad || 0} km/h</p>
+                      <p className="text-base font-black text-slate-800 mt-0.5">{liveSpeed} km/h</p>
                     </div>
                     <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                       {isIgnitionOn ? (

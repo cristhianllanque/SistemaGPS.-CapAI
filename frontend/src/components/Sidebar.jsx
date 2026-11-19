@@ -109,14 +109,15 @@ export default function Sidebar({
           const u = v.ultima_lectura;
           const readingDate = parseServerUTC(u?.timestamp);
           const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
-          const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
-          const isIgnitionOn = Boolean(u && u.ignicion);
+          const isOnline = Boolean(u && (u.online === true && diffMinutes < 15));
+          const isIgnitionOn = Boolean(isOnline && u && u.ignicion);
+          const liveSpeed = isOnline && u ? (u.velocidad || 0) : 0;
 
           const isSabotage = u && Boolean(u.sabotaje) && (u.bateria_ext === null || u.bateria_ext === undefined || u.bateria_ext < 7.0);
-          const isPanic = u && Boolean(u.boton_panico);
+          const isPanic = isOnline && u && Boolean(u.boton_panico);
           const vehSpeedLimit = v.empresa_limite_velocidad || limiteVelocidad || 90;
-          const isSpeeding = u && u.velocidad > vehSpeedLimit;
-          const isMoving = u && u.velocidad > 0;
+          const isSpeeding = isOnline && liveSpeed > vehSpeedLimit;
+          const isMoving = isOnline && liveSpeed > 0;
           const isSelected = selectedVehicleId === v.id;
 
           let statusColor = 'bg-slate-50 border-slate-200';
@@ -196,7 +197,7 @@ export default function Sidebar({
                 <div className={`p-2 rounded flex flex-col items-center shadow-sm ${isSpeeding ? 'bg-amber-100/70 border border-amber-300' : 'bg-white'}`}>
                   <span className="text-[11px] text-slate-400 mb-0.5">Velocidad</span>
                   <span className={`font-bold ${isSpeeding ? 'text-amber-800 text-sm' : 'text-slate-700'}`}>
-                    {u ? u.velocidad || 0 : 0} km/h
+                    {liveSpeed} km/h
                   </span>
                   {isSpeeding && (
                     <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded mt-0.5">

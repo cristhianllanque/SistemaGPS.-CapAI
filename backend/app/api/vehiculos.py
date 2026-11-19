@@ -83,9 +83,9 @@ def list_vehiculos(
                 diff_seconds = abs((now_utc - ultima.timestamp).total_seconds())
                 is_online = diff_seconds <= 900  # Online if reported within 15 minutes
             lect_out.online = is_online
-            # Preserve true hardware sensor data: never overwrite real ignition
-            lect_out.ignicion = bool(ultima.ignicion)
-            lect_out.velocidad = ultima.velocidad or 0
+            # Si el GPS lleva más de 15 min sin reportar (apagado/desconectado), en tiempo real su velocidad es 0 y motor OFF
+            lect_out.ignicion = bool(ultima.ignicion) if is_online else False
+            lect_out.velocidad = (ultima.velocidad or 0) if is_online else 0
             lect_out.bateria_ext = ultima.bateria_ext
             lect_out.bateria_int = ultima.bateria_int
             lect_out.bateria_porcentaje = ultima.bateria_porcentaje
@@ -143,8 +143,8 @@ def get_vehiculo(
             diff_seconds = abs((datetime.utcnow() - ultima.timestamp).total_seconds())
             is_online = diff_seconds <= 900
         lect_out.online = is_online
-        lect_out.ignicion = bool(ultima.ignicion)
-        lect_out.velocidad = ultima.velocidad or 0
+        lect_out.ignicion = bool(ultima.ignicion) if is_online else False
+        lect_out.velocidad = (ultima.velocidad or 0) if is_online else 0
         lect_out.bateria_ext = ultima.bateria_ext
         lect_out.bateria_int = ultima.bateria_int
         lect_out.bateria_porcentaje = ultima.bateria_porcentaje

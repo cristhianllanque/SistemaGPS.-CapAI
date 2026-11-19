@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateFixed, Sun, Moon, Layers, RotateCw, Plus, Minus, MapPin } from 'lucide-react';
-import { parseServerUTC, formatPeruTime } from '../utils/peruTime';
+import { parseServerUTC, formatPeruTime, formatPeruDateTime } from '../utils/peruTime';
 import { useVehicleAddresses } from '../utils/reverseGeocode';
 
 // Ícono vectorial limpio de carrito/vehículo (mismo estilo de Mis Vehículos)
@@ -704,20 +704,21 @@ export default function LiveMap({
           const u = v.ultima_lectura;
           const readingDate = parseServerUTC(u?.timestamp);
           const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
-          const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
-          const isIgnitionOn = Boolean(u && u.ignicion);
+          const isOnline = Boolean(u && (u.online === true && diffMinutes < 15));
+          const isIgnitionOn = Boolean(isOnline && u && u.ignicion);
+          const liveSpeed = isOnline && u ? (u.velocidad || 0) : 0;
 
           const isSabotage = u && Boolean(u.sabotaje) && (u.bateria_ext === null || u.bateria_ext === undefined || u.bateria_ext < 7.0);
           const isThisEmergency = isOnline && (emergencyVehicleId === v.id || Boolean(u.boton_panico));
           const vehSpeedLimit = v.empresa_limite_velocidad || limiteVelocidad || 90;
-          const isSpeeding = isOnline && (u.velocidad > vehSpeedLimit);
+          const isSpeeding = isOnline && (liveSpeed > vehSpeedLimit);
           const isThisRouted = routeTargetVehicleId === v.id;
           
           let icon = icons.stopped_off; // Default is gray (offline / apagado)
           if (isThisEmergency) icon = icons.panic;
           else if (isSabotage) icon = icons.panic;
           else if (isSpeeding) icon = icons.speeding;
-          else if (isOnline && u.velocidad > 0) icon = icons.moving;
+          else if (isOnline && liveSpeed > 0) icon = icons.moving;
           else if (isIgnitionOn) icon = icons.stopped_on; // Yellow with motor ON!
 
           return (
@@ -762,13 +763,13 @@ export default function LiveMap({
                   </div>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
                     <span className="font-semibold text-slate-600">Estado:</span>
-                    <span className={isSabotage ? "text-rose-600 font-bold" : (isSpeeding ? "text-amber-600 font-bold" : (u.velocidad > 0 ? "text-green-600 font-bold" : (isIgnitionOn ? "text-emerald-600 font-bold" : "text-slate-500 font-medium")))}>
-                      {isSabotage ? '¡Sabotaje de Batería!' : (isSpeeding ? 'Exceso de velocidad' : (u.velocidad > 0 ? 'En movimiento' : (isIgnitionOn ? 'Motor encendido' : 'Detenido')))}
+                    <span className={isSabotage ? "text-rose-600 font-bold" : (isSpeeding ? "text-amber-600 font-bold" : (!isOnline ? "text-slate-500 font-medium" : (liveSpeed > 0 ? "text-green-600 font-bold" : (isIgnitionOn ? "text-emerald-600 font-bold" : "text-slate-500 font-medium"))))}>
+                      {isSabotage ? '¡Sabotaje de Batería!' : (isSpeeding ? 'Exceso de velocidad' : (!isOnline ? 'Apagado / Sin señal' : (liveSpeed > 0 ? 'En movimiento' : (isIgnitionOn ? 'Motor encendido' : 'Detenido'))))}
                     </span>
                     <span className="font-semibold text-slate-600">Velocidad:</span>
                     <div className="flex items-center gap-1">
                       <span className={`font-bold ${isSpeeding ? 'text-amber-700' : 'text-slate-700'}`}>
-                        {u ? `${u.velocidad || 0} km/h` : '0 km/h'}
+                        {`${liveSpeed} km/h`}
                       </span>
                       {isSpeeding && (
                         <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1 rounded border border-amber-300">
@@ -793,7 +794,11 @@ export default function LiveMap({
                       </>
                     )}
                     <span className="font-semibold text-slate-600">Último reporte:</span>
-                    <span className="text-slate-600">{readingDate ? formatPeruTime(readingDate, true) : '—'}</span>
+                    <span className="text-slate-600">
+                      {readingDate
+                        ? (diffMinutes > 720 ? formatPeruDateTime(readingDate, false) : formatPeruTime(readingDate, true))
+                        : '—'}
+                    </span>
                   </div>
 
                   {/* BOTONES EN POPUP: LLEGAR HASTA EL VEHÍCULO Y COMPARTIR UBICACIÓN */}

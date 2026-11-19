@@ -219,7 +219,10 @@ export default function VehiclesPage() {
     let off = 0;
     searchedVehiculos.forEach((v) => {
       const u = v.ultima_lectura;
-      const isIgnition = Boolean(u && (u.ignicion || (u.velocidad && u.velocidad > 0)));
+      const readingDate = parseServerUTC(u?.timestamp);
+      const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
+      const isOnline = Boolean(u && u.online === true && diffMinutes < 15);
+      const isIgnition = Boolean(isOnline && (u.ignicion || (u.velocidad && u.velocidad > 0)));
       if (isIgnition) on += 1;
       else off += 1;
     });
@@ -230,7 +233,10 @@ export default function VehiclesPage() {
     if (motorFilter === 'all') return searchedVehiculos;
     return searchedVehiculos.filter((v) => {
       const u = v.ultima_lectura;
-      const isIgnition = Boolean(u && (u.ignicion || (u.velocidad && u.velocidad > 0)));
+      const readingDate = parseServerUTC(u?.timestamp);
+      const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
+      const isOnline = Boolean(u && u.online === true && diffMinutes < 15);
+      const isIgnition = Boolean(isOnline && (u.ignicion || (u.velocidad && u.velocidad > 0)));
       return motorFilter === 'on' ? isIgnition : !isIgnition;
     });
   }, [searchedVehiculos, motorFilter]);
@@ -503,14 +509,14 @@ export default function VehiclesPage() {
                       const u = v.ultima_lectura;
                       const readingDate = parseServerUTC(u?.timestamp);
                       const diffMinutes = readingDate ? Math.abs(Date.now() - readingDate.getTime()) / (60 * 1000) : 9999;
-                      const isOnline = Boolean(u && (u.online === true || (u.online !== false && diffMinutes < 15)));
-                      const isIgnitionOn = Boolean(u && u.ignicion);
-                      const speed = u ? (u.velocidad || 0) : 0;
-                      const isMoving = speed > 0;
+                      const isOnline = Boolean(u && u.online === true && diffMinutes < 15);
+                      const isIgnitionOn = Boolean(isOnline && u && u.ignicion);
+                      const speed = isOnline && u ? (u.velocidad || 0) : 0;
+                      const isMoving = isOnline && speed > 0;
                       const vehSpeedLimit = v.empresa_limite_velocidad || 90;
                       const isSpeeding = isOnline && speed > vehSpeedLimit;
                       const isSabotage = u && Boolean(u.sabotaje) && (u.bateria_ext === null || u.bateria_ext === undefined || u.bateria_ext < 7.0);
-                      const isPanic = u && Boolean(u.boton_panico);
+                      const isPanic = isOnline && u && Boolean(u.boton_panico);
 
                       const vehicleTitle = [v.marca, v.modelo].filter(Boolean).join(' ').toUpperCase() || (v.tipo ? v.tipo.toUpperCase() : 'UNIDAD');
                       const streetAddress = u && u.latitud != null
