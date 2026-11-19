@@ -19,17 +19,36 @@ def verify_imei_in_db(imei: str):
         dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.imei == imei, models.Dispositivo.activo == True).first()
         if not dispositivo:
             return None
+
+        dispositivo.ultima_conexion = datetime.utcnow()
+        db.commit()
             
         vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id).first()
         if not vehiculo:
-            return None
+            return {
+                'dispositivo_id': dispositivo.id,
+                'empresa_id': dispositivo.empresa_id or 1,
+                'vehiculo_id': None,
+                'placa': 'EN PRUEBA (SIN VEHÍCULO)',
+                'conductor': 'Banco de pruebas'
+            }
             
         return {
+            'dispositivo_id': dispositivo.id,
             'empresa_id': dispositivo.empresa_id,
             'vehiculo_id': vehiculo.id,
             'placa': vehiculo.placa,
             'conductor': vehiculo.conductor.nombre if vehiculo.conductor else "Sin conductor asignado"
         }
+
+def touch_device_heartbeat(dispositivo_id: int):
+    if not dispositivo_id:
+        return
+    with SessionLocal() as db:
+        disp = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
+        if disp:
+            disp.ultima_conexion = datetime.utcnow()
+            db.commit()
 
 def save_records_to_db(vehiculo_id: int, records: list[dict]):
     inserted_lecturas = []
@@ -45,6 +64,8 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             limite_velocidad = vehiculo.empresa.limite_velocidad
 
         now_utc = datetime.utcnow()
+        if vehiculo and vehiculo.dispositivo:
+            vehiculo.dispositivo.ultima_conexion = now_utc
         for r in records:
             # Normalize timestamp to naive UTC for MySQL compatibility
             ts = r['timestamp']
@@ -278,10 +299,12 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         writer.write(b'\x01')
         await writer.drain()
         
+        dispositivo_id = device_info.get('dispositivo_id')
         vehiculo_id = device_info['vehiculo_id']
         empresa_id = device_info['empresa_id']
         placa = device_info.get('placa', 'Desconocido')
         conductor = device_info.get('conductor', 'Sin conductor asignado')
+        manager.notify_sync(empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": dispositivo_id})
         
         # 2. Receive AVL Data Loop with Streaming Buffer & Framing
         buffer = bytearray()
@@ -324,6 +347,15 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     
                     if records:
                         print(f"[TCP] Recibidos {len(records)} registros AVL válidos del IMEI {imei}", flush=True)
+                        if vehiculo_id is None:
+                            # Equipo en banco de pruebas (aún sin vehículo vinculado): actualizar latido y confirmar ACK
+                            await run_in_thread(touch_device_heartbeat, dispositivo_id)
+                            manager.notify_sync(empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": dispositivo_id})
+                            ack = struct.pack('>I', len(records))
+                            writer.write(ack)
+                            await writer.drain()
+                            continue
+
                         lecturas_dicts, panic_alert_id, speed_alert_info, sabotage_alert_info, limite_velocidad = await run_in_thread(save_records_to_db, vehiculo_id, records)
                         
                         latest_record = lecturas_dicts[-1]

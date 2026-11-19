@@ -347,7 +347,8 @@ export default function Layout() {
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
           {(empresa?.tipo === 'particular'
             ? [
-                { to: '/monitoreo', icon: Map, label: 'Mi Vehículo (En Vivo)' },
+                { to: '/monitoreo', icon: Map, label: 'Mapa en Vivo' },
+                { to: '/vehiculos', icon: Car, label: 'Mis Vehículos' },
                 { to: '/historial-rutas', icon: Route, label: 'Historial de Rutas' },
                 { to: '/alertas', icon: AlertTriangle, label: 'Mis Alertas' },
               ]

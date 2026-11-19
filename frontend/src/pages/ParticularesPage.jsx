@@ -59,6 +59,20 @@ export default function ParticularesPage() {
   const [suscripcionModalCliente, setSuscripcionModalCliente] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
+  // Modal para agregar 2do, 3er, 5to vehículo a un mismo Cliente Particular
+  const [addVehClient, setAddVehClient] = useState(null);
+  const [addVehForm, setAddVehForm] = useState({
+    placa: '',
+    marca: '',
+    modelo: '',
+    color: '',
+    tipo_vehiculo: 'camioneta',
+    dispositivo_id: '',
+    imei: ''
+  });
+  const [savingAddVeh, setSavingAddVeh] = useState(false);
+  const [addVehError, setAddVehError] = useState('');
+
   // Verificación de correo para Cliente Particular
   const [emailCheck, setEmailCheck] = useState(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
@@ -212,12 +226,40 @@ export default function ParticularesPage() {
     }
   };
 
+  const handleAddVehiculoSubmit = async (e) => {
+    e.preventDefault();
+    if (!addVehClient) return;
+    setSavingAddVeh(true);
+    setAddVehError('');
+    try {
+      const payload = {
+        placa: addVehForm.placa.trim().toUpperCase(),
+        marca: addVehForm.marca.trim() || null,
+        modelo: addVehForm.modelo.trim() || null,
+        color: addVehForm.color.trim() || null,
+        tipo_vehiculo: addVehForm.tipo_vehiculo || 'camioneta',
+        dispositivo_id: addVehForm.dispositivo_id ? parseInt(addVehForm.dispositivo_id, 10) : null,
+        imei: addVehForm.imei.trim() || null
+      };
+      const res = await axios.post(`${API_BASE_URL}/api/particulares/${addVehClient.id}/vehiculos`, payload, { headers });
+      setToastMsg(res.data?.message || `Vehículo ${payload.placa} agregado a ${addVehClient.nombre}.`);
+      setTimeout(() => setToastMsg(''), 4000);
+      setAddVehClient(null);
+      fetchData(true);
+    } catch (err) {
+      setAddVehError(err.response?.data?.detail || 'Error al agregar vehículo adicional');
+    } finally {
+      setSavingAddVeh(false);
+    }
+  };
+
   const filteredClientes = clientes.filter(c => {
     const q = searchTerm.toLowerCase();
     const matchNombre = c.nombre?.toLowerCase().includes(q);
-    const matchPlaca = c.vehiculo?.placa?.toLowerCase().includes(q);
     const matchDni = c.documento?.toLowerCase().includes(q);
-    const matchImei = c.dispositivo?.imei?.toLowerCase().includes(q);
+    const vehs = c.vehiculos?.length ? c.vehiculos : (c.vehiculo ? [c.vehiculo] : []);
+    const matchPlaca = vehs.some(v => v?.placa?.toLowerCase().includes(q));
+    const matchImei = vehs.some(v => v?.dispositivo?.imei?.toLowerCase().includes(q)) || c.dispositivo?.imei?.toLowerCase().includes(q);
     return matchNombre || matchPlaca || matchDni || matchImei;
   });
 
@@ -377,53 +419,88 @@ export default function ParticularesPage() {
 
               {/* Card Body */}
               <div className="p-5 flex-1 space-y-4">
-                {/* Vehicle details box */}
-                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <Car className="w-3.5 h-3.5 text-teal-600" /> Vehículo
-                    </span>
-                    {c.vehiculo?.placa && (
-                      <span className="px-2.5 py-0.5 bg-slate-900 text-white font-mono font-bold text-xs rounded border border-slate-700 tracking-wider shadow-xs">
-                        {c.vehiculo.placa}
-                      </span>
-                    )}
-                  </div>
+                {/* Vehicles list box (Soporta 1, 2, 3, 5 o más vehículos del mismo cliente) */}
+                {(() => {
+                  const listaVehs = c.vehiculos?.length
+                    ? c.vehiculos
+                    : (c.vehiculo ? [{ ...c.vehiculo, dispositivo: c.dispositivo }] : []);
+                  return (
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <Car className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Vehículos ({listaVehs.length})</span>
+                        </span>
+                        {!verBajas && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddVehClient(c);
+                              setAddVehForm({
+                                placa: '',
+                                marca: '',
+                                modelo: '',
+                                color: '',
+                                tipo_vehiculo: 'camioneta',
+                                dispositivo_id: '',
+                                imei: ''
+                              });
+                              setAddVehError('');
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                            title="Agregar otro vehículo a la cuenta de este cliente"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>+ Vehículo</span>
+                          </button>
+                        )}
+                      </div>
 
-                  <p className="text-sm font-bold text-slate-800">
-                    {c.vehiculo?.marca || 'Vehículo'} {c.vehiculo?.modelo || ''}
-                    {c.vehiculo?.color && <span className="text-xs font-normal text-slate-500 ml-1">({c.vehiculo.color})</span>}
-                  </p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
+                        {listaVehs.map((vItem, idx) => {
+                          const disp = vItem.dispositivo || (idx === 0 ? c.dispositivo : null);
+                          return (
+                            <div
+                              key={vItem.id || idx}
+                              className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 bg-slate-900 text-white font-mono font-bold text-xs rounded">
+                                    {vItem.placa || 'S/P'}
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-800 truncate">
+                                    {[vItem.marca, vItem.modelo].filter(Boolean).join(' ') || 'Vehículo'}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 font-mono">
+                                  <Radio className="w-3 h-3 text-indigo-600 shrink-0" />
+                                  <span className="truncate">
+                                    {disp ? `IMEI: ${disp.imei}` : 'Sin GPS asignado'}
+                                  </span>
+                                </div>
+                              </div>
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                  disp ? 'bg-emerald-500' : 'bg-amber-400'
+                                }`}
+                                title={disp ? 'GPS Vinculado' : 'Sin GPS'}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
 
-                  <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200/60">
-                    <span>Tipo: <strong className="text-slate-700 capitalize">{c.vehiculo?.tipo || 'Sedán'}</strong></span>
-                    <span className="flex items-center gap-1">
-                      <Gauge className="w-3 h-3 text-amber-500" />
-                      Límite: <strong className="text-slate-700">{c.limite_velocidad} km/h</strong>
-                    </span>
-                  </div>
-                </div>
-
-                {/* GPS Device details box */}
-                <div className="p-3 bg-indigo-50/40 rounded-xl border border-indigo-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Radio className="w-4 h-4 text-indigo-600" />
-                    <div>
-                      <p className="text-xs font-semibold text-slate-700">
-                        {c.dispositivo ? `GPS: ${c.dispositivo.modelo || 'FMC130'}` : 'Sin GPS vinculado'}
-                      </p>
-                      <p className="text-[11px] font-mono text-slate-500">
-                        {c.dispositivo ? `IMEI: ${c.dispositivo.imei}` : 'Pendiente de asignación'}
-                      </p>
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-1.5 border-t border-slate-200/60">
+                        <span>Unidades en la misma app</span>
+                        <span className="flex items-center gap-1">
+                          <Gauge className="w-3 h-3 text-amber-500" />
+                          Límite: <strong className="text-slate-700">{c.limite_velocidad} km/h</strong>
+                        </span>
+                      </div>
                     </div>
-                  </div>
-
-                  {c.dispositivo ? (
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" title="GPS Asignado"></span>
-                  ) : (
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" title="Sin GPS"></span>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Account credentials info */}
                 <div className="text-xs text-slate-500 flex items-center gap-2">
@@ -806,6 +883,136 @@ export default function ParticularesPage() {
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in">
           <Check className="w-5 h-5 bg-white/20 p-0.5 rounded-full" />
           <span className="font-medium text-sm">{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Modal para Agregar Vehículo Adicional a un mismo Cliente Particular */}
+      {addVehClient && (
+        <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Agregar Vehículo a {addVehClient.nombre}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  El cliente verá esta unidad junto a sus demás vehículos en la misma cuenta.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddVehClient(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddVehiculoSubmit} className="space-y-4 mt-4">
+              {addVehError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+                  {addVehError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Placa Vehicular *</label>
+                  <input
+                    type="text"
+                    required
+                    value={addVehForm.placa}
+                    onChange={(e) => setAddVehForm({ ...addVehForm, placa: e.target.value })}
+                    placeholder="V5B-123"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs uppercase font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tipo de Vehículo</label>
+                  <select
+                    value={addVehForm.tipo_vehiculo}
+                    onChange={(e) => setAddVehForm({ ...addVehForm, tipo_vehiculo: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  >
+                    {TIPOS_VEHICULO.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Marca</label>
+                  <input
+                    type="text"
+                    value={addVehForm.marca}
+                    onChange={(e) => setAddVehForm({ ...addVehForm, marca: e.target.value })}
+                    placeholder="Toyota, Hilux, Kia..."
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Modelo / Color</label>
+                  <input
+                    type="text"
+                    value={addVehForm.modelo}
+                    onChange={(e) => setAddVehForm({ ...addVehForm, modelo: e.target.value })}
+                    placeholder="Hilux 4x4 Blanca"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Asignar Dispositivo GPS Teltonika
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Seleccionar de Almacén</label>
+                    <select
+                      value={addVehForm.dispositivo_id}
+                      onChange={(e) => setAddVehForm({ ...addVehForm, dispositivo_id: e.target.value, imei: '' })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    >
+                      <option value="">-- Seleccionar --</option>
+                      {dispositivosDisp.map(d => (
+                        <option key={d.id} value={d.id}>
+                          IMEI: {d.imei} ({d.modelo})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">O Escribir IMEI Nuevo</label>
+                    <input
+                      type="text"
+                      maxLength="15"
+                      value={addVehForm.imei}
+                      onChange={(e) => setAddVehForm({ ...addVehForm, imei: e.target.value.replace(/\D/g, ''), dispositivo_id: '' })}
+                      placeholder="865124071781266"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAddVehClient(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-semibold rounded-xl hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingAddVeh}
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                >
+                  {savingAddVeh ? 'Guardando...' : 'Agregar Vehículo'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

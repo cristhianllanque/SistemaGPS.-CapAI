@@ -8,7 +8,9 @@ from jose import jwt, JWTError
 from app.api import auth, vehiculos, alertas, dispositivos, conductores, dashboard, reportes, usuarios, empresas, particulares, pwa
 from app.websockets.manager import manager
 from app.core.config import settings
-from app.db.database import engine, Base
+from app.db.database import engine, Base, SessionLocal
+from app.db import models
+from datetime import datetime, timedelta
 from sqlalchemy import inspect, text
 from app.services.tcp_listener import start_tcp_server
 
@@ -20,34 +22,63 @@ os.makedirs("uploads/banners", exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 def ensure_subscription_columns():
-    """Agrega de forma segura e idempotente las columnas de suscripción en la tabla empresas si no existen."""
+    """Agrega de forma segura e idempotente las columnas de suscripción y diagnóstico si no existen."""
     try:
         inspector = inspect(engine)
-        if "empresas" not in inspector.get_table_names():
-            return
-        cols = {c["name"] for c in inspector.get_columns("empresas")}
+        tables = set(inspector.get_table_names())
         with engine.begin() as conn:
-            if "plan_servicio" not in cols:
-                conn.execute(text("ALTER TABLE empresas ADD COLUMN plan_servicio VARCHAR(30) DEFAULT 'mensual'"))
-            if "fecha_vencimiento" not in cols:
-                conn.execute(text("ALTER TABLE empresas ADD COLUMN fecha_vencimiento DATE NULL"))
-            if "corte_automatico" not in cols:
-                conn.execute(text("ALTER TABLE empresas ADD COLUMN corte_automatico BOOLEAN DEFAULT TRUE"))
+            if "empresas" in tables:
+                cols = {c["name"] for c in inspector.get_columns("empresas")}
+                if "plan_servicio" not in cols:
+                    conn.execute(text("ALTER TABLE empresas ADD COLUMN plan_servicio VARCHAR(30) DEFAULT 'mensual'"))
+                if "fecha_vencimiento" not in cols:
+                    conn.execute(text("ALTER TABLE empresas ADD COLUMN fecha_vencimiento DATE NULL"))
+                if "corte_automatico" not in cols:
+                    conn.execute(text("ALTER TABLE empresas ADD COLUMN corte_automatico BOOLEAN DEFAULT TRUE"))
+            if "dispositivos" in tables:
+                dcols = {c["name"] for c in inspector.get_columns("dispositivos")}
+                if "ultima_conexion" not in dcols:
+                    conn.execute(text("ALTER TABLE dispositivos ADD COLUMN ultima_conexion DATETIME NULL"))
     except Exception as exc:
         print(f"[DB MIGRATION WARN] ensure_subscription_columns: {exc}", flush=True)
 
 ensure_subscription_columns()
+
+def purge_old_gps_readings(retention_days: int = 180):
+    """Limpia lecturas crudas de GPS con más de 180 días (6 meses) para mantener la base de datos ligera y veloz."""
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=retention_days)
+        with SessionLocal() as db:
+            deleted = db.query(models.LecturaGPS).filter(models.LecturaGPS.timestamp < cutoff).delete(synchronize_session=False)
+            db.commit()
+            if deleted:
+                print(f"[DB MAINTENANCE] Limpieza automática completada: {deleted} lecturas GPS antiguas (> {retention_days} días) depuradas.", flush=True)
+    except Exception as exc:
+        print(f"[DB MAINTENANCE WARN] Error en limpieza automática de lecturas: {exc}", flush=True)
+
+async def maintenance_cleanup_loop():
+    """Ejecuta la limpieza de lecturas antiguas (> 180 días) una vez cada 24 horas en segundo plano."""
+    await asyncio.sleep(30)
+    while True:
+        await asyncio.to_thread(purge_old_gps_readings, 180)
+        await asyncio.sleep(86400)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     manager.set_loop(asyncio.get_running_loop())
     # Start the Teltonika TCP Server in the background
     tcp_task = asyncio.create_task(start_tcp_server(host='0.0.0.0', port=5000))
+    cleanup_task = asyncio.create_task(maintenance_cleanup_loop())
     yield
-    # Cancel the task on shutdown
+    # Cancel tasks on shutdown
     tcp_task.cancel()
+    cleanup_task.cancel()
     try:
         await tcp_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await cleanup_task
     except asyncio.CancelledError:
         pass
 

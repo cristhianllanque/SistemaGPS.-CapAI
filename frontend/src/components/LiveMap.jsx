@@ -765,10 +765,10 @@ export default function LiveMap({
                     <span className="text-slate-600">{readingDate ? formatPeruTime(readingDate, true) : '—'}</span>
                   </div>
 
-                  {/* BOTÓN EXCLUSIVO MÓVIL: LLEGAR HASTA EL VEHÍCULO */}
-                  {isMobileApp && onStartRouteToVehicle && (
-                    <div className="mt-2.5 pt-2 border-t border-slate-200">
-                      {isThisRouted ? (
+                  {/* BOTONES EN POPUP: LLEGAR HASTA EL VEHÍCULO Y COMPARTIR UBICACIÓN */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-200 space-y-1.5">
+                    {isMobileApp && onStartRouteToVehicle && (
+                      isThisRouted ? (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -793,9 +793,35 @@ export default function LiveMap({
                           <Compass size={13} />
                           <span>Llegar hasta el vehículo</span>
                         </button>
-                      )}
-                    </div>
-                  )}
+                      )
+                    )}
+
+                    {u && u.latitud != null && u.longitud != null && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const addr = addresses[v.id] || 'Ubicación satelital';
+                          const mapsUrl = `https://www.google.com/maps?q=${u.latitud},${u.longitud}`;
+                          const estadoTxt = u.velocidad > 0
+                            ? `En movimiento (${u.velocidad} km/h)`
+                            : isIgnitionOn
+                            ? 'Motor encendido (Detenido)'
+                            : 'Apagado / Estacionado';
+                          const msg = [
+                            `📍 *Ubicación en Vivo - ${v.placa}*`,
+                            `🛣️ Dirección: ${addr}`,
+                            `🚗 Estado: ${estadoTxt}`,
+                            `🗺️ Ver en Google Maps: ${mapsUrl}`
+                          ].join('\n');
+                          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+                        }}
+                        className="w-full py-1.5 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <span>📤 Compartir ubicación (WhatsApp)</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>

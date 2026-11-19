@@ -3,19 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Radio, Truck, Users, AlertTriangle, Link2, ShieldCheck, Building2,
-  Map, Route, Car, Power, PowerOff, Gauge, Battery, Clock, UserCheck
+  Map, Route, Car, Power, PowerOff, Gauge, Battery, Clock, UserCheck,
+  Calendar, Zap, MessageCircle
 } from 'lucide-react';
 import { API_BASE_URL as API } from '../config';
 import { parseServerUTC, formatPeruDate, formatPeruTime } from '../utils/peruTime';
 import { useLiveSync } from '../utils/liveSync';
+import {
+  SuscripcionModal,
+  formatearFechaLatam,
+  obtenerEtiquetaPlan
+} from './SuscripcionControl';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [empresas, setEmpresas] = useState([]);
+  const [particulares, setParticulares] = useState([]);
   const [misVehiculos, setMisVehiculos] = useState([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState('');
   const [loading, setLoading] = useState(true);
+  const [suscripcionModalItem, setSuscripcionModalItem] = useState(null);
 
   const token = localStorage.getItem('token');
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
@@ -30,9 +38,9 @@ export default function DashboardHome() {
 
   const fetchEmpresasList = React.useCallback(() => {
     if (isSuperAdmin) {
-      axios.get(`${API}/api/empresas/`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(res => setEmpresas(res.data)).catch(console.error);
+      const headers = { Authorization: `Bearer ${token}` };
+      axios.get(`${API}/api/empresas/`, { headers }).then(res => setEmpresas(res.data)).catch(console.error);
+      axios.get(`${API}/api/particulares/`, { headers }).then(res => setParticulares(res.data)).catch(console.error);
     }
   }, [isSuperAdmin, token]);
 
@@ -90,17 +98,11 @@ export default function DashboardHome() {
   }
 
   // ============================================================================
-  // VISTA EXCLUSIVA: CLIENTE PARTICULAR (DUEÑO DE VEHÍCULO PROPIO)
+  // VISTA EXCLUSIVA: CLIENTE PARTICULAR (SOPORTA 1, 2, 3, 5 O MÁS VEHÍCULOS)
   // ============================================================================
   if (isParticular) {
-    const mainVeh = misVehiculos[0] || null;
-    const u = mainVeh?.ultima_lectura || null;
-    const readingDate = parseServerUTC(u?.timestamp);
-    const isIgnitionOn = Boolean(u?.ignicion);
-    const isMoving = Boolean(u && u.velocidad > 0);
-
     return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
         {/* Tarjeta de Bienvenida del Propietario */}
         <div
           className="rounded-3xl p-5 text-white shadow-xl relative overflow-hidden"
@@ -112,98 +114,113 @@ export default function DashboardHome() {
             <div>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-2">
                 <ShieldCheck size={12} />
-                <span>Protección Satelital Personal</span>
+                <span>Protección Satelital Personal ({misVehiculos.length} {misVehiculos.length === 1 ? 'vehículo' : 'vehículos'})</span>
               </span>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight">
                 Hola, {usuario?.nombre || empresa?.nombre}
               </h1>
               <p className="text-xs text-slate-300 mt-0.5">{usuario?.email}</p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0">
-              <Car size={24} className="text-white" />
-            </div>
+            <button
+              onClick={() => navigate('/vehiculos')}
+              className="px-3.5 py-2 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-xs font-bold text-white flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+            >
+              <Car size={16} />
+              <span>Ver Lista en Vivo</span>
+            </button>
           </div>
         </div>
 
-        {/* Estado en Tiempo Real del Vehículo Particular */}
-        {mainVeh ? (
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Mi Vehículo Vinculado
-                </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <h2 className="text-xl font-black text-slate-900 font-mono">{mainVeh.placa}</h2>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                      isMoving
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : isIgnitionOn
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {isMoving ? 'En Movimiento' : isIgnitionOn ? 'Motor Encendido' : 'Estacionado'}
-                  </span>
+        {/* Estado en Tiempo Real de todos los Vehículos del Cliente Particular */}
+        {misVehiculos.length > 0 ? (
+          <div className={`grid grid-cols-1 ${misVehiculos.length > 1 ? 'md:grid-cols-2' : ''} gap-4`}>
+            {misVehiculos.map((vItem) => {
+              const u = vItem?.ultima_lectura || null;
+              const readingDate = parseServerUTC(u?.timestamp);
+              const isIgnitionOn = Boolean(u?.ignicion);
+              const isMoving = Boolean(u && u.velocidad > 0);
+
+              return (
+                <div key={vItem.id} className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Vehículo Vinculado
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <h2 className="text-xl font-black text-slate-900 font-mono">{vItem.placa}</h2>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                            isMoving
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : isIgnitionOn
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {isMoving ? 'En Movimiento' : isIgnitionOn ? 'Motor Encendido' : 'Estacionado'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {[vItem.marca, vItem.modelo, vItem.color].filter(Boolean).join(' • ') || 'Unidad con GPS Teltonika Activo'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/monitoreo?vehiculo=${vItem.id}`)}
+                      className="px-4 py-2.5 rounded-xl text-white text-xs font-extrabold shadow-md active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <Map size={15} />
+                      <span>Ver en Mapa</span>
+                    </button>
+                  </div>
+
+                  {/* Telemetría Rápida */}
+                  <div className="grid grid-cols-3 gap-2.5 text-center">
+                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
+                      <Gauge size={16} className="mx-auto text-indigo-600 mb-1" />
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Velocidad</p>
+                      <p className="text-base font-black text-slate-800 mt-0.5">{u?.velocidad || 0} km/h</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
+                      {isIgnitionOn ? (
+                        <Power size={16} className="mx-auto text-emerald-600 mb-1" />
+                      ) : (
+                        <PowerOff size={16} className="mx-auto text-slate-400 mb-1" />
+                      )}
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Motor</p>
+                      <p className={`text-base font-black mt-0.5 ${isIgnitionOn ? 'text-emerald-700' : 'text-slate-600'}`}>
+                        {isIgnitionOn ? 'ENCENDIDO' : 'APAGADO'}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
+                      <Battery size={16} className="mx-auto text-sky-600 mb-1" />
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Batería Auto</p>
+                      <p className="text-base font-black text-slate-800 mt-0.5">
+                        {u?.bateria_ext !== undefined && u?.bateria_ext !== null ? `${u.bateria_ext} V` : '12.6 V'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {readingDate && (
+                    <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 px-3.5 py-2 rounded-xl">
+                      <span className="flex items-center gap-1.5">
+                        <Clock size={13} className="text-slate-400" />
+                        <span>Último reporte GPS:</span>
+                      </span>
+                      <span className="font-bold text-slate-700">
+                        {formatPeruDate(readingDate)} • {formatPeruTime(readingDate, true)}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {[mainVeh.marca, mainVeh.modelo, mainVeh.color].filter(Boolean).join(' • ') || 'Unidad con GPS Teltonika Activo'}
-                </p>
-              </div>
-              <button
-                onClick={() => navigate(`/monitoreo?vehiculo=${mainVeh.id}`)}
-                className="px-4 py-2.5 rounded-xl text-white text-xs font-extrabold shadow-md active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
-                style={{ backgroundColor: primaryColor }}
-              >
-                <Map size={15} />
-                <span>Ver en Mapa</span>
-              </button>
-            </div>
-
-            {/* Telemetría Rápida */}
-            <div className="grid grid-cols-3 gap-2.5 text-center">
-              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-                <Gauge size={16} className="mx-auto text-indigo-600 mb-1" />
-                <p className="text-[10px] font-bold uppercase text-slate-400">Velocidad</p>
-                <p className="text-base font-black text-slate-800 mt-0.5">{u?.velocidad || 0} km/h</p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-                {isIgnitionOn ? (
-                  <Power size={16} className="mx-auto text-emerald-600 mb-1" />
-                ) : (
-                  <PowerOff size={16} className="mx-auto text-slate-400 mb-1" />
-                )}
-                <p className="text-[10px] font-bold uppercase text-slate-400">Motor</p>
-                <p className={`text-base font-black mt-0.5 ${isIgnitionOn ? 'text-emerald-700' : 'text-slate-600'}`}>
-                  {isIgnitionOn ? 'ENCENDIDO' : 'APAGADO'}
-                </p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-                <Battery size={16} className="mx-auto text-sky-600 mb-1" />
-                <p className="text-[10px] font-bold uppercase text-slate-400">Batería Auto</p>
-                <p className="text-base font-black text-slate-800 mt-0.5">
-                  {u?.bateria_ext !== undefined && u?.bateria_ext !== null ? `${u.bateria_ext} V` : '12.6 V'}
-                </p>
-              </div>
-            </div>
-
-            {readingDate && (
-              <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 px-3.5 py-2 rounded-xl">
-                <span className="flex items-center gap-1.5">
-                  <Clock size={13} className="text-slate-400" />
-                  <span>Último reporte GPS (Hora Perú):</span>
-                </span>
-                <span className="font-bold text-slate-700">
-                  {formatPeruDate(readingDate)} • {formatPeruTime(readingDate, true)}
-                </span>
-              </div>
-            )}
+              );
+            })}
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-slate-200 p-6 text-center space-y-2">
             <Car size={32} className="mx-auto text-slate-400" />
-            <h3 className="text-sm font-bold text-slate-800">Tu vehículo está en proceso de activación</h3>
+            <h3 className="text-sm font-bold text-slate-800">Tus vehículos están en proceso de activación</h3>
             <p className="text-xs text-slate-500">
               En cuanto el equipo GPS reporte señal, verás aquí su ubicación y batería en vivo.
             </p>
@@ -374,6 +391,143 @@ export default function DashboardHome() {
         ))}
       </div>
 
+      {/* Superadmin: Panel de Suscripciones por Vencer / Renovaciones */}
+      {isSuperAdmin && !selectedEmpresa && (() => {
+        const todasCuentas = [
+          ...empresas.map(e => ({ ...e, _categoria: 'Empresa Flota' })),
+          ...particulares.map(p => ({ ...p, _categoria: 'Particular' }))
+        ];
+        const cuentasPrioritarias = todasCuentas.sort((a, b) => {
+          const peso = (item) => {
+            if (item.estado_suscripcion === 'vencido' || item.estado_suscripcion === 'suspendido' || item.activo === false) return 0;
+            if (item.estado_suscripcion === 'por_vencer') return 1;
+            if (item.estado_suscripcion === 'al_dia') return 2;
+            return 3;
+          };
+          return peso(a) - peso(b);
+        });
+
+        const abrirRecordatorioWhatsApp = (item) => {
+          const rawPhone = String(item.telefono || '').replace(/\D/g, '');
+          const phone = rawPhone.length === 9 ? `51${rawPhone}` : rawPhone;
+          const fechaTxt = item.fecha_vencimiento ? formatearFechaLatam(item.fecha_vencimiento) : 'próximamente';
+          const msg = `Hola ${item.nombre}, te saludamos de *Industrias CopAI*. Te recordamos que la suscripción de tu servicio de rastreo satelital GPS (${obtenerEtiquetaPlan(item.plan_servicio)}) vence el *${fechaTxt}*. Quedamos atentos para ayudarte con tu renovación.`;
+          const url = phone
+            ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+            : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+          window.open(url, '_blank', 'noopener,noreferrer');
+        };
+
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar size={20} className="text-indigo-600 flex-shrink-0" />
+                <div>
+                  <h2 className="text-base md:text-lg font-bold text-slate-800">
+                    Control de Suscripciones y Vencimientos
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Seguimiento de periodos contratados (1M, 3M, 6M, 1A), recordatorio por WhatsApp y renovación en 1 clic
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                  Por vencer: {todasCuentas.filter(c => c.estado_suscripcion === 'por_vencer').length}
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                  Vencidos/Pausa: {todasCuentas.filter(c => c.estado_suscripcion === 'vencido' || c.estado_suscripcion === 'suspendido' || c.activo === false).length}
+                </span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-500 text-xs">
+                    <th className="text-left py-2.5 font-semibold">Cliente</th>
+                    <th className="text-left py-2.5 font-semibold">Tipo</th>
+                    <th className="text-left py-2.5 font-semibold">Plan</th>
+                    <th className="text-left py-2.5 font-semibold">Estado / Días</th>
+                    <th className="text-right py-2.5 font-semibold">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {cuentasPrioritarias.map((cItem) => {
+                    const est = cItem.estado_suscripcion || (cItem.activo === false ? 'suspendido' : 'ilimitado');
+                    const dias = cItem.dias_restantes;
+                    let pillClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                    let pillLabel = dias != null ? `Activo (${dias} días)` : 'Activo • Ilimitado';
+                    if (est === 'suspendido' || cItem.activo === false) {
+                      pillClass = 'bg-rose-50 text-rose-700 border-rose-200';
+                      pillLabel = 'Suspendido';
+                    } else if (est === 'vencido') {
+                      pillClass = 'bg-rose-50 text-rose-700 border-rose-200';
+                      pillLabel = dias != null ? `Vencido hace ${Math.abs(dias)}d` : 'Vencido';
+                    } else if (est === 'por_vencer') {
+                      pillClass = 'bg-amber-50 text-amber-800 border-amber-300';
+                      pillLabel = dias === 0 ? '¡Vence Hoy!' : `Vence en ${dias}d`;
+                    }
+
+                    return (
+                      <tr key={`${cItem._categoria}-${cItem.id}`} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 font-semibold text-slate-800 text-xs md:text-sm">
+                          <div>{cItem.nombre}</div>
+                          {cItem.telefono && (
+                            <div className="text-[11px] text-slate-400 font-normal">Tel: {cItem.telefono}</div>
+                          )}
+                        </td>
+                        <td className="py-3 text-xs text-slate-600">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
+                            {cItem._categoria}
+                          </span>
+                        </td>
+                        <td className="py-3 text-xs text-slate-700 font-medium">
+                          <div>{obtenerEtiquetaPlan(cItem.plan_servicio)}</div>
+                          {cItem.fecha_vencimiento && cItem.plan_servicio !== 'ilimitado' && (
+                            <div className="text-[11px] text-slate-400">
+                              Vence: {formatearFechaLatam(cItem.fecha_vencimiento)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold border ${pillClass}`}>
+                            {pillLabel}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => abrirRecordatorioWhatsApp(cItem)}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Enviar recordatorio de renovación por WhatsApp"
+                            >
+                              <MessageCircle size={13} />
+                              <span className="hidden sm:inline">Recordar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSuscripcionModalItem(cItem)}
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-indigo-600 text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Renovar o cambiar tiempo de suscripción"
+                            >
+                              <Zap size={12} className="text-amber-400" />
+                              <span>Renovar</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Superadmin Directory of Companies */}
       {isSuperAdmin && !selectedEmpresa && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
@@ -467,6 +621,17 @@ export default function DashboardHome() {
           ))}
         </div>
       </div>
+
+      {/* Modal de Renovación desde el Dashboard */}
+      <SuscripcionModal
+        show={Boolean(suscripcionModalItem)}
+        entidad={suscripcionModalItem}
+        onClose={() => setSuscripcionModalItem(null)}
+        onUpdated={() => {
+          fetchEmpresasList();
+          fetchStats(true);
+        }}
+      />
     </div>
   );
 }

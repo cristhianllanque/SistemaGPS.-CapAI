@@ -36,7 +36,8 @@ export default function MobileBottomNav({
 
   if (isParticular) {
     navItems = [
-      { to: '/monitoreo', icon: Map, label: 'Mi Vehículo' },
+      { to: '/monitoreo', icon: Map, label: 'Mapa' },
+      { to: '/vehiculos', icon: Car, label: 'Mis Vehículos' },
       { to: '/historial-rutas', icon: Route, label: 'Recorridos' },
       { to: '/alertas', icon: AlertTriangle, label: 'Seguridad', badge: activeAlertCount },
       { to: '/perfil', icon: User, label: 'Mi Perfil' },

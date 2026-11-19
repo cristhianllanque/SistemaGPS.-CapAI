@@ -60,6 +60,7 @@ class Dispositivo(Base):
     fecha_compra = Column(Date)
     notas = Column(Text)
     estado = Column(Enum('disponible', 'instalado', 'mantenimiento', 'baja'), default='disponible')
+    ultima_conexion = Column(DateTime, nullable=True)
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

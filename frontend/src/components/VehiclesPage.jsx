@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
   Truck, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Building2,
   MapPin, User, BatteryCharging, Gauge, Compass, Map as MapIcon, Moon, Power,
-  Radio, RefreshCw, Car
+  Radio, RefreshCw, Car, Share2
 } from 'lucide-react';
 import { API_BASE_URL as API, WS_BASE_URL, getAssetUrl } from '../config';
 import { useLiveSync } from '../utils/liveSync';
@@ -102,9 +102,30 @@ export default function VehiclesPage() {
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
   const empresaLocal = JSON.parse(localStorage.getItem('empresa') || '{}');
   const isSuperAdmin = usuario.rol === 'superadmin';
-  const canEdit = isSuperAdmin || usuario.rol === 'admin';
+  const isParticular = empresaLocal?.tipo === 'particular';
+  const canEdit = isSuperAdmin || (usuario.rol === 'admin' && !isParticular);
   const headers = { Authorization: `Bearer ${token}` };
   const primaryColor = empresaLocal?.color_primario || '#16A34A';
+
+  const handleShareLocationWhatsApp = (v, streetAddr) => {
+    const u = v?.ultima_lectura;
+    if (!u || u.latitud == null || u.longitud == null) return;
+    const speed = u.velocidad || 0;
+    const estadoTxt = speed > 0
+      ? `En movimiento (${speed} km/h)`
+      : u.ignicion
+      ? 'Motor encendido (Detenido)'
+      : 'Apagado / Estacionado';
+    const mapsUrl = `https://www.google.com/maps?q=${u.latitud},${u.longitud}`;
+    const msg = [
+      `📍 *Ubicación en Vivo - ${v.placa}*`,
+      `🛣️ Dirección: ${streetAddr || 'Ubicación satelital'}`,
+      `🚗 Estado: ${estadoTxt}`,
+      `🕒 Reporte: ${u.timestamp ? formatHumanPeruDateTime(u.timestamp) : 'En vivo'}`,
+      `🗺️ Ver en Google Maps: ${mapsUrl}`
+    ].join('\n');
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+  };
 
   // Conexión WebSocket compartida para actualizar velocidad, motor, batería y posición en tiempo real
   const wsEmpresaId = empresaLocal?.id || 1;
@@ -305,8 +326,14 @@ export default function VehiclesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 flex items-center gap-2">
-            <Truck size={23} className="text-emerald-600" />
-            <span>{viewMode === 'activos' ? 'Mi Flota • Activos en Vivo' : 'Padrón de Vehículos'}</span>
+            {isParticular ? <Car size={23} className="text-teal-600" /> : <Truck size={23} className="text-emerald-600" />}
+            <span>
+              {isParticular
+                ? 'Mis Vehículos • Activos en Vivo'
+                : viewMode === 'activos'
+                ? 'Mi Flota • Activos en Vivo'
+                : 'Padrón de Vehículos'}
+            </span>
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
             {viewMode === 'activos'
@@ -318,33 +345,35 @@ export default function VehiclesPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Selector de Modo: Activos en Vivo | Padrón Técnico */}
-          <div className="bg-slate-200/80 p-1 rounded-xl flex items-center gap-1 border border-slate-300/60">
-            <button
-              type="button"
-              onClick={() => handleSwitchViewMode('activos')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'activos'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Radio size={13} className={viewMode === 'activos' ? 'text-emerald-600 animate-pulse' : ''} />
-              <span>Activos en Vivo</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSwitchViewMode('padron')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'padron'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Truck size={13} className={viewMode === 'padron' ? 'text-emerald-600' : ''} />
-              <span>Ficha / Padrón</span>
-            </button>
-          </div>
+          {/* Selector de Modo: Activos en Vivo | Padrón Técnico (Solo para empresas/superadmin) */}
+          {!isParticular && (
+            <div className="bg-slate-200/80 p-1 rounded-xl flex items-center gap-1 border border-slate-300/60">
+              <button
+                type="button"
+                onClick={() => handleSwitchViewMode('activos')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'activos'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Radio size={13} className={viewMode === 'activos' ? 'text-emerald-600 animate-pulse' : ''} />
+                <span>Activos en Vivo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSwitchViewMode('padron')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'padron'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Truck size={13} className={viewMode === 'padron' ? 'text-emerald-600' : ''} />
+                <span>Ficha / Padrón</span>
+              </button>
+            </div>
+          )}
 
           {isSuperAdmin && (
             <button
@@ -584,18 +613,20 @@ export default function VehiclesPage() {
                                 )}
                               </div>
 
-                              {/* Fila 4: Conductor Asignado */}
-                              <div className="flex items-center gap-1.5 text-xs text-slate-600 pt-0.5">
-                                <User size={14} className="text-slate-400 flex-shrink-0" />
-                                <span>
-                                  <strong className="font-semibold text-slate-700">Conductor:</strong>{' '}
-                                  {v.conductor?.nombre ? (
-                                    <span className="font-bold text-slate-800">{v.conductor.nombre}</span>
-                                  ) : (
-                                    <span className="text-slate-400">no asignado</span>
-                                  )}
-                                </span>
-                              </div>
+                              {/* Fila 4: Conductor Asignado (Solo en flotas empresariales) */}
+                              {!isParticular && (
+                                <div className="flex items-center gap-1.5 text-xs text-slate-600 pt-0.5">
+                                  <User size={14} className="text-slate-400 flex-shrink-0" />
+                                  <span>
+                                    <strong className="font-semibold text-slate-700">Conductor:</strong>{' '}
+                                    {v.conductor?.nombre ? (
+                                      <span className="font-bold text-slate-800">{v.conductor.nombre}</span>
+                                    ) : (
+                                      <span className="text-slate-400">no asignado</span>
+                                    )}
+                                  </span>
+                                </div>
+                              )}
 
                               {/* Fila 5: Fecha y Hora del Último Reporte + Botones de Acción Rápida */}
                               <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
@@ -603,7 +634,7 @@ export default function VehiclesPage() {
                                   {u?.timestamp ? formatHumanPeruDateTime(u.timestamp) : 'Sin lecturas registradas'}
                                 </span>
 
-                                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/monitoreo?vehiculo=${v.id}`)}
@@ -615,15 +646,27 @@ export default function VehiclesPage() {
                                   </button>
 
                                   {u && u.latitud != null && (
-                                    <button
-                                      type="button"
-                                      onClick={() => navigate(`/monitoreo?vehiculo=${v.id}&ruta=1`)}
-                                      className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                                      title="Trazar ruta por calles hasta este vehículo"
-                                    >
-                                      <Compass size={13} />
-                                      <span>Cómo llegar</span>
-                                    </button>
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => navigate(`/monitoreo?vehiculo=${v.id}&ruta=1`)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                        title="Trazar ruta por calles hasta este vehículo"
+                                      >
+                                        <Compass size={13} />
+                                        <span>Cómo llegar</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleShareLocationWhatsApp(v, streetAddress)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                        title="Compartir ubicación exacta y enlace de Google Maps por WhatsApp"
+                                      >
+                                        <Share2 size={13} />
+                                        <span>Compartir</span>
+                                      </button>
+                                    </>
                                   )}
 
                                   {canEdit && (

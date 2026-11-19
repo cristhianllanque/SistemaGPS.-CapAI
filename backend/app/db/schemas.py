@@ -84,6 +84,16 @@ class ClienteParticularCreate(BaseModel):
     dispositivo_id: Optional[int] = None
     imei: Optional[str] = None
 
+class ParticularVehiculoCreate(BaseModel):
+    placa: str
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    tipo_vehiculo: Optional[str] = "sedan"
+    anio: Optional[int] = None
+    dispositivo_id: Optional[int] = None
+    imei: Optional[str] = None
+
 class EmpresaUpdate(BaseModel):
     nombre: Optional[str] = None
     slug: Optional[str] = None
@@ -233,6 +243,7 @@ class DispositivoOut(BaseModel):
     fecha_compra: Optional[date] = None
     notas: Optional[str] = None
     estado: str
+    ultima_conexion: OptionalUTCDateTime = None
     activo: bool
     created_at: OptionalUTCDateTime = None
     # nombre del vehiculo asignado, si existe

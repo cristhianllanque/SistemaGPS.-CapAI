@@ -47,7 +47,8 @@ def list_clientes_particulares(
     for p in particulares:
         vq = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == p.id)
         uq = db.query(models.Usuario).filter(models.Usuario.empresa_id == p.id)
-        vehiculo = vq.order_by(models.Vehiculo.id.desc()).first()
+        todos_vehiculos = vq.order_by(models.Vehiculo.id.asc()).all()
+        vehiculo = todos_vehiculos[0] if todos_vehiculos else None
         usuario = uq.first()
 
         # Determinar si es una baja definitiva (con GPS liberado y correo prefijado 'baja')
@@ -70,6 +71,28 @@ def list_clientes_particulares(
                 "operador_sim": vehiculo.dispositivo.operador_sim
             }
 
+        vehiculos_lista = []
+        for v_item in todos_vehiculos:
+            if not inactivos and not v_item.activo:
+                continue
+            d_item = v_item.dispositivo
+            vehiculos_lista.append({
+                "id": v_item.id,
+                "placa": _limpiar_placa_baja(v_item.placa),
+                "marca": v_item.marca,
+                "modelo": v_item.modelo,
+                "color": v_item.color,
+                "tipo": v_item.tipo or "sedan",
+                "anio": v_item.anio,
+                "dispositivo": {
+                    "id": d_item.id,
+                    "imei": d_item.imei,
+                    "modelo": d_item.modelo,
+                    "numero_sim": d_item.numero_sim,
+                    "operador_sim": d_item.operador_sim
+                } if d_item else None
+            })
+
         sub_info = calcular_info_suscripcion(p)
 
         resultado.append({
@@ -84,6 +107,8 @@ def list_clientes_particulares(
             "activo": p.activo,
             "created_at": p.created_at,
             **sub_info,
+            "total_vehiculos": len(vehiculos_lista),
+            "vehiculos": vehiculos_lista,
             "vehiculo": {
                 "id": vehiculo.id if vehiculo else None,
                 "placa": _limpiar_placa_baja(vehiculo.placa) if vehiculo else "Sin asignar",
@@ -97,6 +122,90 @@ def list_clientes_particulares(
         })
 
     return resultado
+
+@router.post("/{particular_id}/vehiculos", status_code=201)
+def add_vehiculo_particular(
+    particular_id: int,
+    payload: schemas.ParticularVehiculoCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
+):
+    """Agrega un vehículo adicional (2do, 3er, 5to carro) a la cuenta de un mismo Cliente Particular."""
+    emp = db.query(models.Empresa).filter(
+        models.Empresa.id == particular_id,
+        models.Empresa.tipo == 'particular'
+    ).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Cliente particular no encontrado.")
+
+    placa_clean = payload.placa.strip().upper()
+    if db.query(models.Vehiculo).filter(models.Vehiculo.placa == placa_clean).first():
+        raise HTTPException(
+            status_code=400,
+            detail=f"La placa {placa_clean} ya se encuentra registrada en el sistema."
+        )
+
+    dispositivo = None
+    if payload.dispositivo_id:
+        dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.id == payload.dispositivo_id).first()
+        if not dispositivo:
+            raise HTTPException(status_code=404, detail="El dispositivo GPS seleccionado no existe.")
+        veh_ocupado = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id, models.Vehiculo.activo == True).first()
+        if veh_ocupado:
+            raise HTTPException(status_code=400, detail=f"El GPS ya está asignado al vehículo con placa {veh_ocupado.placa}.")
+    elif payload.imei:
+        imei_clean = payload.imei.strip()
+        dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.imei == imei_clean).first()
+        if dispositivo:
+            veh_ocupado = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id, models.Vehiculo.activo == True).first()
+            if veh_ocupado:
+                raise HTTPException(status_code=400, detail=f"El GPS con IMEI {imei_clean} ya está asignado a la placa {veh_ocupado.placa}.")
+        else:
+            dispositivo = models.Dispositivo(
+                imei=imei_clean,
+                numero_serie=f"SN-{imei_clean[-6:]}",
+                modelo="FMC130",
+                estado="disponible",
+                activo=True
+            )
+            db.add(dispositivo)
+            db.flush()
+
+    tipo_v = payload.tipo_vehiculo or 'sedan'
+    if tipo_v not in ['minivan', 'bus', 'camioneta', 'sedan', 'otro']:
+        tipo_v = 'sedan'
+
+    nuevo_veh = models.Vehiculo(
+        empresa_id=emp.id,
+        dispositivo_id=dispositivo.id if dispositivo else None,
+        conductor_id=None,
+        padron="S/N",
+        placa=placa_clean,
+        marca=payload.marca.strip() if payload.marca else None,
+        modelo=payload.modelo.strip() if payload.modelo else None,
+        color=payload.color.strip() if payload.color else None,
+        tipo=tipo_v,
+        anio=payload.anio,
+        estado="activo",
+        activo=True
+    )
+    db.add(nuevo_veh)
+
+    if dispositivo:
+        dispositivo.empresa_id = emp.id
+        dispositivo.estado = "instalado"
+
+    db.commit()
+    db.refresh(nuevo_veh)
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "vehiculos"})
+
+    return {
+        "status": "ok",
+        "vehiculo_id": nuevo_veh.id,
+        "placa": nuevo_veh.placa,
+        "message": f"Vehículo {nuevo_veh.placa} agregado a la cuenta de {emp.nombre}."
+    }
 
 @router.post("/", status_code=201)
 def create_cliente_particular(

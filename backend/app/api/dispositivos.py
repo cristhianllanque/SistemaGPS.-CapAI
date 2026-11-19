@@ -27,7 +27,9 @@ def list_dispositivos(
     if search:
         query = query.filter(
             (models.Dispositivo.imei.contains(search)) |
-            (models.Dispositivo.numero_serie.contains(search))
+            (models.Dispositivo.numero_serie.contains(search)) |
+            (models.Dispositivo.numero_sim.contains(search)) |
+            (models.Dispositivo.operador_sim.contains(search))
         )
     dispositivos = query.order_by(models.Dispositivo.created_at.desc()).all()
 
@@ -36,8 +38,16 @@ def list_dispositivos(
         data = schemas.DispositivoOut.model_validate(d)
         if d.vehiculo:
             data.vehiculo_placa = d.vehiculo.placa
+            if not data.ultima_conexion:
+                ultima_lect = db.query(models.LecturaGPS.timestamp).filter(
+                    models.LecturaGPS.vehiculo_id == d.vehiculo.id
+                ).order_by(models.LecturaGPS.timestamp.desc()).first()
+                if ultima_lect and ultima_lect[0]:
+                    data.ultima_conexion = ultima_lect[0]
         if d.empresa:
             data.empresa_nombre = d.empresa.nombre
+        elif d.vehiculo and d.vehiculo.empresa:
+            data.empresa_nombre = d.vehiculo.empresa.nombre
         result.append(data)
     return result
 

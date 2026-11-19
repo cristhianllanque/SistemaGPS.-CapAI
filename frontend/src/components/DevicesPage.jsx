@@ -65,9 +65,55 @@ export default function DevicesPage() {
 
   useEffect(() => { fetchData(); }, [filterEstado, searchTerm]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchData();
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [filterEstado, searchTerm]);
+
   useLiveSync(['dispositivos', 'vehiculos', 'empresas', 'particulares'], () => {
     fetchData();
   });
+
+  const renderSignalStatus = (ultimaConexion) => {
+    if (!ultimaConexion) {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-slate-400" />
+          <span>Esperando 1ra señal</span>
+        </span>
+      );
+    }
+    const lastMs = new Date(ultimaConexion).getTime();
+    const diffSec = Math.max(0, Math.floor((Date.now() - lastMs) / 1000));
+    if (diffSec <= 180) {
+      const label = diffSec < 60 ? `hace ${diffSec}s` : `hace ${Math.floor(diffSec / 60)}m`;
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Transmitiendo ({label})</span>
+        </span>
+      );
+    }
+    if (diffSec <= 86400) {
+      const mins = Math.floor(diffSec / 60);
+      const label = mins < 60 ? `hace ${mins} min` : `hace ${Math.floor(mins / 60)} h`;
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-amber-500" />
+          <span>Señal {label}</span>
+        </span>
+      );
+    }
+    const days = Math.floor(diffSec / 86400);
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
+        <span className="w-2 h-2 rounded-full bg-slate-400" />
+        <span>Inactivo ({days}d)</span>
+      </span>
+    );
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -187,8 +233,8 @@ export default function DevicesPage() {
                   <th className="text-left px-4 py-3 font-semibold text-slate-600">Empresa</th>
                 )}
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Modelo</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">SIM</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">Operador</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-600">SIM / Operador</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-600">Señal en Vivo</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Pánico</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Estado</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Vehículo</th>
@@ -216,8 +262,13 @@ export default function DevicesPage() {
                     </td>
                   )}
                   <td className="px-4 py-3 text-slate-700">{d.modelo}</td>
-                  <td className="px-4 py-3 text-slate-600">{d.numero_sim || '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{d.operador_sim || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">
+                    <div className="font-medium text-slate-800">{d.numero_sim || '—'}</div>
+                    {d.operador_sim && <div className="text-[11px] text-slate-400">{d.operador_sim}</div>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {renderSignalStatus(d.ultima_conexion)}
+                  </td>
                   <td className="px-4 py-3">
                     {d.tiene_boton_panico ? (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
