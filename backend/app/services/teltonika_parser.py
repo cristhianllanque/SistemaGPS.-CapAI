@@ -191,8 +191,8 @@ class TeltonikaCodec8Parser:
                     offset += var_len
                     
             # Soporte multimodelo Teltonika:
-            # - FMC130 / FMC150 / FMC650: Botón de pánico en DIN2 (AVL ID 2) o evento 252
-            # - FMC920 / FMB920 (5 pines): Ignición en cable Amarillo DIN1 (AVL ID 239/1) y Botón de Pánico SOS en cable Gris AIN1 (AVL ID 9 >= 8000 mV / 8V)
+            # - DIN2 (AVL ID 2) es la entrada digital dedicada de pánico en modelos de 12 pines (FMC130, FMC150, FMC650)
+            # - AIN1 (AVL ID 9 >= 8000 mV) se expone por separado para que tcp_listener lo active SOLO en modelos de 5 pines (FMC920 / FMB920)
             din2_panic = bool(io_dict[2]) if 2 in io_dict else (bool(io_dict[252]) if 252 in io_dict else (io_event_id in (2, 252)))
             ain1_val = io_dict.get(9)
             ain1_panic = isinstance(ain1_val, (int, float)) and ain1_val >= 8000
@@ -207,7 +207,8 @@ class TeltonikaCodec8Parser:
                 'satellites': satellites,
                 'speed': speed,
                 'ignicion': bool(io_dict[239]) if 239 in io_dict else (bool(io_dict[1]) if 1 in io_dict else (True if io_event_id in (1, 239) else False)),
-                'boton_panico': bool(din2_panic or ain1_panic),
+                'boton_panico': bool(din2_panic),
+                'boton_panico_ain1': bool(ain1_panic),
                 'bateria_ext': round(io_dict[66] / 1000.0, 2) if 66 in io_dict else None,
                 'bateria_int': round(io_dict[67] / 1000.0, 2) if 67 in io_dict else None,
                 'bateria_porcentaje': int(io_dict[113]) if 113 in io_dict else (calculate_liion_battery_percentage(io_dict[67]) if 67 in io_dict and io_dict[67] > 0 else None),

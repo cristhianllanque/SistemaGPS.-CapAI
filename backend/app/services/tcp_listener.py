@@ -65,10 +65,14 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
 
         now_utc = datetime.utcnow()
         has_panic_button_enabled = True
+        is_5pin_920_model = False
         if vehiculo and vehiculo.dispositivo:
             vehiculo.dispositivo.ultima_conexion = now_utc
             if vehiculo.dispositivo.tiene_boton_panico is False:
                 has_panic_button_enabled = False
+            modelo_str = (vehiculo.dispositivo.modelo or '').upper()
+            if '920' in modelo_str:
+                is_5pin_920_model = True
         for r in records:
             # Normalize timestamp to naive UTC for MySQL compatibility
             ts = r['timestamp']
@@ -84,7 +88,10 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             bateria_int_v = r.get('bateria_int')
             bateria_pct = r.get('bateria_porcentaje')
             io_dict = r.get('io_dict', {})
-            is_panic_triggered = bool(r['boton_panico']) and has_panic_button_enabled
+            # En modelos de 5 pines (FMC920/FMB920) el SOS entra por AIN1 (AVL ID 9 >= 8000mV);
+            # en modelos de 12 pines (FMC130/FMC150/FMC650) solo por DIN2 (AVL ID 2), dejando AIN1 libre para sensores.
+            raw_panic = bool(r.get('boton_panico')) or (is_5pin_920_model and bool(r.get('boton_panico_ain1')))
+            is_panic_triggered = raw_panic and has_panic_button_enabled
 
             lectura = models.LecturaGPS(
                 vehiculo_id=vehiculo_id,
