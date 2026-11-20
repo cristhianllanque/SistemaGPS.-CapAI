@@ -64,8 +64,11 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             limite_velocidad = vehiculo.empresa.limite_velocidad
 
         now_utc = datetime.utcnow()
+        has_panic_button_enabled = True
         if vehiculo and vehiculo.dispositivo:
             vehiculo.dispositivo.ultima_conexion = now_utc
+            if vehiculo.dispositivo.tiene_boton_panico is False:
+                has_panic_button_enabled = False
         for r in records:
             # Normalize timestamp to naive UTC for MySQL compatibility
             ts = r['timestamp']
@@ -81,6 +84,7 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             bateria_int_v = r.get('bateria_int')
             bateria_pct = r.get('bateria_porcentaje')
             io_dict = r.get('io_dict', {})
+            is_panic_triggered = bool(r['boton_panico']) and has_panic_button_enabled
 
             lectura = models.LecturaGPS(
                 vehiculo_id=vehiculo_id,
@@ -88,7 +92,7 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                 longitud=r['longitude'],
                 velocidad=r['speed'],
                 ignicion=r['ignicion'],
-                boton_panico=r['boton_panico'],
+                boton_panico=is_panic_triggered,
                 bateria_ext=bateria_ext_v,
                 bateria_int=bateria_int_v,
                 bateria_porcentaje=bateria_pct,
@@ -97,8 +101,8 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             db.add(lectura)
             inserted_lecturas.append(lectura)
             
-            # 1. Panic button check
-            if r['boton_panico']:
+            # 1. Panic button check (respeta si el dispositivo tiene habilitado botón de pánico)
+            if is_panic_triggered:
                 # Deduplication: check if there's already an active 'pendiente' panic alert for this vehicle
                 alerta_existente = db.query(models.AlertaPanico).filter(
                     models.AlertaPanico.vehiculo_id == vehiculo_id,

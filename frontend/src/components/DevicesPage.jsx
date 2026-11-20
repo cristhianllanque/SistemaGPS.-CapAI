@@ -188,7 +188,7 @@ export default function DevicesPage() {
             <Radio size={24} className="text-blue-600" />
             Dispositivos Teltonika
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Inventario de dispositivos GPS FMC130</p>
+          <p className="text-slate-500 text-sm mt-1">Inventario de dispositivos GPS (FMC130, FMC920, FMC150, FMC650)</p>
         </div>
         <button onClick={openCreate}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
@@ -358,13 +358,16 @@ export default function DevicesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Modelo</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Modelo Teltonika</label>
                   <select value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="FMC130">FMC130 (4G)</option>
-                    <option value="FMB130">FMB130 (2G)</option>
-                    <option value="FMC640">FMC640 (4G LTE)</option>
-                    <option value="FMB920">FMB920 (2G)</option>
+                    <option value="FMC130">FMC130 (4G Flotas · 12 Pines)</option>
+                    <option value="FMC920">FMC920 (4G Compacto · 5 Pines)</option>
+                    <option value="FMC150">FMC150 (4G CAN-Bus)</option>
+                    <option value="FMC650">FMC650 (4G Transporte Pesado)</option>
+                    <option value="FMC640">FMC640 (4G LTE Profesional)</option>
+                    <option value="FMB920">FMB920 (2G Compacto · 5 Pines)</option>
+                    <option value="FMB130">FMB130 (2G Flotas)</option>
                   </select>
                 </div>
                 <div>
