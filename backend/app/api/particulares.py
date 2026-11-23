@@ -207,6 +207,128 @@ def add_vehiculo_particular(
         "message": f"Vehículo {nuevo_veh.placa} agregado a la cuenta de {emp.nombre}."
     }
 
+
+@router.put("/{particular_id}/vehiculos/{vehiculo_id}")
+def update_vehiculo_particular(
+    particular_id: int,
+    vehiculo_id: int,
+    payload: schemas.ParticularVehiculoUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
+):
+    """Permite al Superadmin editar los datos de un vehículo particular y cambiar/corregir su GPS o IMEI."""
+    emp = db.query(models.Empresa).filter(
+        models.Empresa.id == particular_id,
+        models.Empresa.tipo == 'particular'
+    ).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Cliente particular no encontrado.")
+
+    veh = db.query(models.Vehiculo).filter(
+        models.Vehiculo.id == vehiculo_id,
+        models.Vehiculo.empresa_id == emp.id
+    ).first()
+    if not veh:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado en este cliente particular.")
+
+    # 1. Actualizar Placa si cambió
+    if payload.placa:
+        placa_clean = payload.placa.strip().upper()
+        if placa_clean != veh.placa:
+            conflict = db.query(models.Vehiculo).filter(
+                models.Vehiculo.placa == placa_clean,
+                models.Vehiculo.id != veh.id
+            ).first()
+            if conflict:
+                raise HTTPException(status_code=400, detail=f"La placa {placa_clean} ya está registrada en otra unidad.")
+            veh.placa = placa_clean
+
+    # 2. Actualizar Marca, Modelo, Color y Tipo
+    if payload.marca is not None:
+        veh.marca = payload.marca.strip() or None
+    if payload.modelo is not None:
+        veh.modelo = payload.modelo.strip() or None
+    if payload.color is not None:
+        veh.color = payload.color.strip() or None
+    if payload.tipo_vehiculo:
+        tipo_v = payload.tipo_vehiculo.strip().lower()
+        if tipo_v in ['minivan', 'bus', 'camioneta', 'sedan', 'otro']:
+            veh.tipo = tipo_v
+
+    # 3. Gestión del Dispositivo GPS / IMEI
+    old_disp = veh.dispositivo
+    if payload.desvincular_gps:
+        if old_disp:
+            old_disp.estado = "disponible"
+        veh.dispositivo_id = None
+    elif payload.dispositivo_id:
+        if not old_disp or old_disp.id != payload.dispositivo_id:
+            target_disp = db.query(models.Dispositivo).filter(models.Dispositivo.id == payload.dispositivo_id).first()
+            if not target_disp:
+                raise HTTPException(status_code=404, detail="El dispositivo GPS seleccionado no existe.")
+            ocupado = db.query(models.Vehiculo).filter(
+                models.Vehiculo.dispositivo_id == target_disp.id,
+                models.Vehiculo.id != veh.id,
+                models.Vehiculo.activo == True
+            ).first()
+            if ocupado:
+                raise HTTPException(status_code=400, detail=f"Ese GPS ya está asignado a la placa {ocupado.placa}.")
+            if old_disp:
+                old_disp.estado = "disponible"
+            target_disp.empresa_id = emp.id
+            target_disp.estado = "instalado"
+            veh.dispositivo_id = target_disp.id
+    elif payload.imei:
+        imei_clean = payload.imei.strip()
+        if not re.match(r"^\d{15}$", imei_clean):
+            raise HTTPException(status_code=400, detail="El IMEI debe tener exactamente 15 dígitos numéricos.")
+        if not old_disp or old_disp.imei != imei_clean:
+            existing_disp = db.query(models.Dispositivo).filter(models.Dispositivo.imei == imei_clean).first()
+            if existing_disp:
+                ocupado = db.query(models.Vehiculo).filter(
+                    models.Vehiculo.dispositivo_id == existing_disp.id,
+                    models.Vehiculo.id != veh.id,
+                    models.Vehiculo.activo == True
+                ).first()
+                if ocupado:
+                    raise HTTPException(status_code=400, detail=f"El GPS con IMEI {imei_clean} ya está asignado a la placa {ocupado.placa}.")
+                if old_disp and old_disp.id != existing_disp.id:
+                    old_disp.estado = "disponible"
+                existing_disp.empresa_id = emp.id
+                existing_disp.estado = "instalado"
+                veh.dispositivo_id = existing_disp.id
+            else:
+                if old_disp:
+                    # Corregir el IMEI directamente sobre el dispositivo vinculado (ideal para reemplazar un IMEI ficticio de prueba)
+                    old_disp.imei = imei_clean
+                    old_disp.empresa_id = emp.id
+                    old_disp.estado = "instalado"
+                else:
+                    nuevo_disp = models.Dispositivo(
+                        empresa_id=emp.id,
+                        imei=imei_clean,
+                        numero_serie=f"SN-{imei_clean[-6:]}",
+                        modelo="FMC130",
+                        estado="instalado",
+                        activo=True
+                    )
+                    db.add(nuevo_disp)
+                    db.flush()
+                    veh.dispositivo_id = nuevo_disp.id
+
+    db.commit()
+    db.refresh(veh)
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "vehiculos"})
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "dispositivos"})
+
+    return {
+        "status": "ok",
+        "vehiculo_id": veh.id,
+        "placa": veh.placa,
+        "message": f"Vehículo {veh.placa} actualizado correctamente."
+    }
+
 @router.post("/", status_code=201)
 def create_cliente_particular(
     payload: schemas.ClienteParticularCreate,

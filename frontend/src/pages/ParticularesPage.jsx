@@ -73,6 +73,21 @@ export default function ParticularesPage() {
   const [savingAddVeh, setSavingAddVeh] = useState(false);
   const [addVehError, setAddVehError] = useState('');
 
+  // Modal para editar un vehículo existente y su GPS / IMEI en Cliente Particular
+  const [editVehContext, setEditVehContext] = useState(null); // { cliente, vehiculo }
+  const [editVehForm, setEditVehForm] = useState({
+    placa: '',
+    marca: '',
+    modelo: '',
+    color: '',
+    tipo_vehiculo: 'sedan',
+    gps_mode: 'imei', // 'imei' | 'stock' | 'unlink'
+    dispositivo_id: '',
+    imei: ''
+  });
+  const [savingEditVeh, setSavingEditVeh] = useState(false);
+  const [editVehError, setEditVehError] = useState('');
+
   // Verificación de correo para Cliente Particular
   const [emailCheck, setEmailCheck] = useState(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
@@ -250,6 +265,57 @@ export default function ParticularesPage() {
       setAddVehError(err.response?.data?.detail || 'Error al agregar vehículo adicional');
     } finally {
       setSavingAddVeh(false);
+    }
+  };
+
+  const openEditVehiculoModal = (cliente, vItem, disp) => {
+    setEditVehContext({ cliente, vehiculo: vItem, disp });
+    setEditVehForm({
+      placa: vItem.placa || '',
+      marca: vItem.marca || '',
+      modelo: vItem.modelo || '',
+      color: vItem.color || '',
+      tipo_vehiculo: vItem.tipo || 'sedan',
+      gps_mode: 'imei',
+      dispositivo_id: '',
+      imei: disp?.imei || ''
+    });
+    setEditVehError('');
+  };
+
+  const handleEditVehiculoSubmit = async (e) => {
+    e.preventDefault();
+    if (!editVehContext?.cliente || !editVehContext?.vehiculo) return;
+    setSavingEditVeh(true);
+    setEditVehError('');
+    try {
+      const payload = {
+        placa: editVehForm.placa.trim().toUpperCase(),
+        marca: editVehForm.marca.trim(),
+        modelo: editVehForm.modelo.trim(),
+        color: editVehForm.color.trim(),
+        tipo_vehiculo: editVehForm.tipo_vehiculo || 'sedan',
+        desvincular_gps: editVehForm.gps_mode === 'unlink',
+        dispositivo_id: editVehForm.gps_mode === 'stock' && editVehForm.dispositivo_id
+          ? parseInt(editVehForm.dispositivo_id, 10)
+          : null,
+        imei: editVehForm.gps_mode === 'imei' && editVehForm.imei.trim()
+          ? editVehForm.imei.trim()
+          : null
+      };
+      const res = await axios.put(
+        `${API_BASE_URL}/api/particulares/${editVehContext.cliente.id}/vehiculos/${editVehContext.vehiculo.id}`,
+        payload,
+        { headers }
+      );
+      setToastMsg(res.data?.message || `Vehículo ${payload.placa} actualizado correctamente.`);
+      setTimeout(() => setToastMsg(''), 4000);
+      setEditVehContext(null);
+      fetchData(true);
+    } catch (err) {
+      setEditVehError(err.response?.data?.detail || 'Error al actualizar el vehículo');
+    } finally {
+      setSavingEditVeh(false);
     }
   };
 
@@ -480,12 +546,24 @@ export default function ParticularesPage() {
                                   </span>
                                 </div>
                               </div>
-                              <span
-                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                  disp ? 'bg-emerald-500' : 'bg-amber-400'
-                                }`}
-                                title={disp ? 'GPS Vinculado' : 'Sin GPS'}
-                              />
+                              <div className="flex items-center gap-2 shrink-0">
+                                {!verBajas && vItem.id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditVehiculoModal(c, vItem, disp)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 border border-transparent hover:border-teal-200 transition-colors cursor-pointer"
+                                    title="Editar vehículo, placa o cambiar GPS / IMEI"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <span
+                                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                    disp ? 'bg-emerald-500' : 'bg-amber-400'
+                                  }`}
+                                  title={disp ? 'GPS Vinculado' : 'Sin GPS'}
+                                />
+                              </div>
                             </div>
                           );
                         })}
@@ -1009,6 +1087,186 @@ export default function ParticularesPage() {
                   className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
                 >
                   {savingAddVeh ? 'Guardando...' : 'Agregar Vehículo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Editar Vehículo y Cambiar/Corregir GPS o IMEI en Cliente Particular */}
+      {editVehContext && (
+        <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Editar Vehículo · {editVehContext.cliente.nombre}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Modifica la placa, marca, modelo o reemplaza el dispositivo GPS / IMEI vinculado.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditVehContext(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditVehiculoSubmit} className="space-y-4 mt-4">
+              {editVehError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+                  {editVehError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Placa Vehicular *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editVehForm.placa}
+                    onChange={(e) => setEditVehForm({ ...editVehForm, placa: e.target.value })}
+                    placeholder="HIP-501"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs uppercase font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tipo de Vehículo</label>
+                  <select
+                    value={editVehForm.tipo_vehiculo}
+                    onChange={(e) => setEditVehForm({ ...editVehForm, tipo_vehiculo: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  >
+                    {TIPOS_VEHICULO.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Marca</label>
+                  <input
+                    type="text"
+                    value={editVehForm.marca}
+                    onChange={(e) => setEditVehForm({ ...editVehForm, marca: e.target.value })}
+                    placeholder="Toyota"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Modelo</label>
+                  <input
+                    type="text"
+                    value={editVehForm.modelo}
+                    onChange={(e) => setEditVehForm({ ...editVehForm, modelo: e.target.value })}
+                    placeholder="Hilux"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <label className="block text-xs font-bold text-slate-700">
+                  Dispositivo GPS Teltonika Vinculado
+                </label>
+
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setEditVehForm({ ...editVehForm, gps_mode: 'imei' })}
+                    className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
+                      editVehForm.gps_mode === 'imei'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Editar IMEI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditVehForm({ ...editVehForm, gps_mode: 'stock' })}
+                    className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
+                      editVehForm.gps_mode === 'stock'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    De Almacén
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditVehForm({ ...editVehForm, gps_mode: 'unlink' })}
+                    className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
+                      editVehForm.gps_mode === 'unlink'
+                        ? 'bg-rose-600 text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Desvincular
+                  </button>
+                </div>
+
+                {editVehForm.gps_mode === 'imei' && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      IMEI del GPS (15 dígitos) — Puedes corregir el IMEI ficticio por el real
+                    </label>
+                    <input
+                      type="text"
+                      maxLength="15"
+                      value={editVehForm.imei}
+                      onChange={(e) => setEditVehForm({ ...editVehForm, imei: e.target.value.replace(/\D/g, '') })}
+                      placeholder="865124071781266"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                    />
+                  </div>
+                )}
+
+                {editVehForm.gps_mode === 'stock' && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Seleccionar GPS disponible en Almacén
+                    </label>
+                    <select
+                      value={editVehForm.dispositivo_id}
+                      onChange={(e) => setEditVehForm({ ...editVehForm, dispositivo_id: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    >
+                      <option value="">-- Seleccionar GPS disponible --</option>
+                      {dispositivosDisp.map(d => (
+                        <option key={d.id} value={d.id}>
+                          IMEI: {d.imei} ({d.modelo}{d.iccid_sim ? ` · ICC: ${d.iccid_sim}` : ''})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {editVehForm.gps_mode === 'unlink' && (
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                    El vehículo quedará sin GPS asignado y el equipo actual pasará a estado Disponible.
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditVehContext(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-semibold rounded-xl hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditVeh}
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                >
+                  {savingEditVeh ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
               </div>
             </form>

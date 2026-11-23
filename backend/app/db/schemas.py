@@ -94,6 +94,17 @@ class ParticularVehiculoCreate(BaseModel):
     dispositivo_id: Optional[int] = None
     imei: Optional[str] = None
 
+class ParticularVehiculoUpdate(BaseModel):
+    placa: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    tipo_vehiculo: Optional[str] = None
+    anio: Optional[int] = None
+    dispositivo_id: Optional[int] = None
+    imei: Optional[str] = None
+    desvincular_gps: Optional[bool] = False
+
 class EmpresaUpdate(BaseModel):
     nombre: Optional[str] = None
     slug: Optional[str] = None
