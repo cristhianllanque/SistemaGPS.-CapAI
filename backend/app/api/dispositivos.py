@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import date, timedelta
 
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
@@ -29,7 +30,9 @@ def list_dispositivos(
             (models.Dispositivo.imei.contains(search)) |
             (models.Dispositivo.numero_serie.contains(search)) |
             (models.Dispositivo.numero_sim.contains(search)) |
-            (models.Dispositivo.operador_sim.contains(search))
+            (models.Dispositivo.iccid_sim.contains(search)) |
+            (models.Dispositivo.operador_sim.contains(search)) |
+            (models.Dispositivo.plan_sim.contains(search))
         )
     dispositivos = query.order_by(models.Dispositivo.created_at.desc()).all()
 
@@ -157,6 +160,43 @@ def update_dispositivo(
     data = schemas.DispositivoOut.model_validate(d)
     if d.vehiculo:
         data.vehiculo_placa = d.vehiculo.placa
+    manager.notify_sync(d.empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": d.id})
+    return data
+
+
+@router.post("/{dispositivo_id}/renovar-sim", response_model=schemas.DispositivoOut)
+def renovar_sim_dispositivo(
+    dispositivo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user)
+):
+    if current_user.rol != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
+
+    d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
+
+    hoy = date.today()
+    if not d.fecha_activacion_sim:
+        d.fecha_activacion_sim = hoy
+
+    base_date = d.fecha_vencimiento_sim if (d.fecha_vencimiento_sim and d.fecha_vencimiento_sim >= hoy) else hoy
+    try:
+        d.fecha_vencimiento_sim = base_date.replace(year=base_date.year + 1)
+    except ValueError:
+        # En caso de 29 de febrero (año bisiesto)
+        d.fecha_vencimiento_sim = base_date + timedelta(days=365)
+
+    db.commit()
+    db.refresh(d)
+    data = schemas.DispositivoOut.model_validate(d)
+    if d.vehiculo:
+        data.vehiculo_placa = d.vehiculo.placa
+    if d.empresa:
+        data.empresa_nombre = d.empresa.nombre
+    elif d.vehiculo and d.vehiculo.empresa:
+        data.empresa_nombre = d.vehiculo.empresa.nombre
     manager.notify_sync(d.empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": d.id})
     return data
 

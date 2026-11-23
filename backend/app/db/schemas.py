@@ -209,7 +209,11 @@ class DispositivoCreate(BaseModel):
     version_firmware: Optional[str] = None
     numero_sim: Optional[str] = None
     operador_sim: Optional[str] = None
-    iccid_sim: Optional[str] = Field(None, min_length=19, max_length=20, pattern=r"^\d{19,20}$")
+    iccid_sim: Optional[str] = Field(None, min_length=15, max_length=25, pattern=r"^\d{15,25}$")
+    plan_sim: Optional[str] = None
+    costo_sim: Optional[float] = None
+    fecha_activacion_sim: Optional[date] = None
+    fecha_vencimiento_sim: Optional[date] = None
     tiene_boton_panico: bool = True
     fecha_compra: Optional[date] = None
     notas: Optional[str] = None
@@ -222,7 +226,11 @@ class DispositivoUpdate(BaseModel):
     version_firmware: Optional[str] = None
     numero_sim: Optional[str] = None
     operador_sim: Optional[str] = None
-    iccid_sim: Optional[str] = Field(None, min_length=19, max_length=20, pattern=r"^\d{19,20}$")
+    iccid_sim: Optional[str] = Field(None, min_length=15, max_length=25, pattern=r"^\d{15,25}$")
+    plan_sim: Optional[str] = None
+    costo_sim: Optional[float] = None
+    fecha_activacion_sim: Optional[date] = None
+    fecha_vencimiento_sim: Optional[date] = None
     tiene_boton_panico: Optional[bool] = None
     fecha_compra: Optional[date] = None
     notas: Optional[str] = None
@@ -239,6 +247,10 @@ class DispositivoOut(BaseModel):
     numero_sim: Optional[str] = None
     operador_sim: Optional[str] = None
     iccid_sim: Optional[str] = None
+    plan_sim: Optional[str] = None
+    costo_sim: Optional[float] = None
+    fecha_activacion_sim: Optional[date] = None
+    fecha_vencimiento_sim: Optional[date] = None
     tiene_boton_panico: bool
     fecha_compra: Optional[date] = None
     notas: Optional[str] = None

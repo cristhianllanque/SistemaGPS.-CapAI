@@ -39,6 +39,14 @@ def ensure_subscription_columns():
                 dcols = {c["name"] for c in inspector.get_columns("dispositivos")}
                 if "ultima_conexion" not in dcols:
                     conn.execute(text("ALTER TABLE dispositivos ADD COLUMN ultima_conexion DATETIME NULL"))
+                if "plan_sim" not in dcols:
+                    conn.execute(text("ALTER TABLE dispositivos ADD COLUMN plan_sim VARCHAR(150) NULL"))
+                if "costo_sim" not in dcols:
+                    conn.execute(text("ALTER TABLE dispositivos ADD COLUMN costo_sim FLOAT NULL"))
+                if "fecha_activacion_sim" not in dcols:
+                    conn.execute(text("ALTER TABLE dispositivos ADD COLUMN fecha_activacion_sim DATE NULL"))
+                if "fecha_vencimiento_sim" not in dcols:
+                    conn.execute(text("ALTER TABLE dispositivos ADD COLUMN fecha_vencimiento_sim DATE NULL"))
     except Exception as exc:
         print(f"[DB MIGRATION WARN] ensure_subscription_columns: {exc}", flush=True)
 

@@ -20,6 +20,7 @@ export default function DashboardHome() {
   const [stats, setStats] = useState(null);
   const [empresas, setEmpresas] = useState([]);
   const [particulares, setParticulares] = useState([]);
+  const [dispositivosSim, setDispositivosSim] = useState([]);
   const [misVehiculos, setMisVehiculos] = useState([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,7 @@ export default function DashboardHome() {
       const headers = { Authorization: `Bearer ${token}` };
       axios.get(`${API}/api/empresas/`, { headers }).then(res => setEmpresas(res.data)).catch(console.error);
       axios.get(`${API}/api/particulares/`, { headers }).then(res => setParticulares(res.data)).catch(console.error);
+      axios.get(`${API}/api/dispositivos/`, { headers }).then(res => setDispositivosSim(res.data || [])).catch(console.error);
     }
   }, [isSuperAdmin, token]);
 
@@ -520,6 +522,134 @@ export default function DashboardHome() {
                               <span>Renovar</span>
                             </button>
                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Superadmin: Control Anual de Chips SIM M2M (Teca IoT) */}
+      {isSuperAdmin && !selectedEmpresa && (() => {
+        const simsConFecha = (dispositivosSim || []).filter(d => d.fecha_vencimiento_sim || d.iccid_sim || d.plan_sim);
+        if (simsConFecha.length === 0) return null;
+
+        const calcDiasSim = (fIso) => {
+          if (!fIso) return null;
+          const target = new Date(`${String(fIso).split('T')[0]}T23:59:59`);
+          if (isNaN(target.getTime())) return null;
+          return Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        };
+
+        const simsOrdenados = [...simsConFecha].sort((a, b) => {
+          const da = calcDiasSim(a.fecha_vencimiento_sim) ?? 9999;
+          const db = calcDiasSim(b.fecha_vencimiento_sim) ?? 9999;
+          return da - db;
+        });
+
+        const handleRenovarSimDashboard = async (dispId) => {
+          try {
+            await axios.post(`${API}/api/dispositivos/${dispId}/renovar-sim`, {}, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchEmpresasList();
+          } catch (err) {
+            alert(err.response?.data?.detail || 'Error al renovar chip SIM');
+          }
+        };
+
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <Radio size={20} className="text-blue-600 flex-shrink-0" />
+                <div>
+                  <h2 className="text-base md:text-lg font-bold text-slate-800">
+                    Control Anual de Chips SIM M2M (Teca IoT)
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Recordatorio de renovación anual de planes de datos SIMCARD, ICCID y costo a pagar por cada GPS
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/dispositivos')}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer self-start sm:self-auto"
+              >
+                Gestionar SIMs →
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-500 text-xs">
+                    <th className="text-left py-2.5 font-semibold">Dispositivo / Vehículo</th>
+                    <th className="text-left py-2.5 font-semibold">ICCID / Operador</th>
+                    <th className="text-left py-2.5 font-semibold">Plan Contratado</th>
+                    <th className="text-left py-2.5 font-semibold">Costo Anual</th>
+                    <th className="text-left py-2.5 font-semibold">Vigencia / Días</th>
+                    <th className="text-right py-2.5 font-semibold">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {simsOrdenados.map((d) => {
+                    const dias = calcDiasSim(d.fecha_vencimiento_sim);
+                    let badgeCls = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                    let badgeTxt = dias != null ? `Activo (${dias} días)` : 'Sin fecha';
+                    if (dias != null && dias < 0) {
+                      badgeCls = 'bg-rose-50 text-rose-700 border-rose-200';
+                      badgeTxt = `🚨 Vencido hace ${Math.abs(dias)}d`;
+                    } else if (dias != null && dias <= 30) {
+                      badgeCls = 'bg-amber-50 text-amber-800 border-amber-300';
+                      badgeTxt = `⚠️ Renovar en ${dias}d`;
+                    }
+
+                    return (
+                      <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 text-xs">
+                          <div className="font-bold text-slate-800">{d.vehiculo_placa || 'En Stock'} ({d.modelo})</div>
+                          <div className="font-mono text-[11px] text-slate-400">IMEI: {d.imei}</div>
+                        </td>
+                        <td className="py-2.5 text-xs">
+                          <div className="font-semibold text-slate-700">{d.operador_sim || 'Teca IoT'}</div>
+                          {d.iccid_sim && <div className="font-mono text-[11px] text-slate-500">ICC: {d.iccid_sim}</div>}
+                        </td>
+                        <td className="py-2.5 text-xs text-slate-700 max-w-[240px] truncate" title={d.plan_sim || ''}>
+                          {d.plan_sim || 'Plan M2M Estándar'}
+                        </td>
+                        <td className="py-2.5 text-xs">
+                          {d.costo_sim != null ? (
+                            <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                              S/ {Number(d.costo_sim).toFixed(2)}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-2.5 text-xs">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeCls}`}>
+                            {badgeTxt}
+                          </span>
+                          {d.fecha_vencimiento_sim && (
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              Vence: {formatearFechaLatam(d.fecha_vencimiento_sim)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleRenovarSimDashboard(d.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-blue-600 text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Extender vigencia del chip SIM por +1 Año"
+                          >
+                            <Zap size={12} className="text-amber-400" />
+                            <span>+1 Año</span>
+                          </button>
                         </td>
                       </tr>
                     );
