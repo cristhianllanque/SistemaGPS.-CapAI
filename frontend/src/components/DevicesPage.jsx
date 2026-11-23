@@ -13,41 +13,35 @@ const ESTADOS = [
 ];
 
 const OPERADORES = [
-  'Teca IoT (Multioperador M2M)',
-  'Teca IoT (Claro M2M)',
+  'Teca IoT (M2M)',
+  'Multioperador M2M',
   'Claro',
   'Movistar',
   'Bitel',
-  'Entel',
-  'Multioperador M2M'
+  'Entel'
 ];
 
-// Catálogo oficial de Planes Teca Soluciones IoT (Planes 1 al 18)
-const PLANES_SIM_PARTICULARES = [
-  { id: '1) PLAN SIMCARD IOT-M2M 5MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)', shortLabel: '1) 5MB/MES x 1AÑO (Movistar, Claro y Entel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '2) PLAN SIMCARD IOT-M2M 10MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)', shortLabel: '2) 10MB/MES x 1AÑO (Movistar, Claro, Entel y Bitel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '3) PLAN SIMCARD IOT-M2M 10MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)', shortLabel: '3) 10MB/MES x 1AÑO (Movistar, Claro y Entel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '4) PLAN SIMCARD IOT-M2M 15MB/MES + SMS x 1AÑO (CLARO)', shortLabel: '4) 15MB/MES + SMS x 1AÑO (Claro)', operador: 'Teca IoT (Claro M2M)', suggestedCost: '' },
-  { id: '5) PLAN SIMCARD IOT-M2M 20MB/MES x 1AÑO (MOVISTAR Y CLARO)', shortLabel: '5) 20MB/MES x 1AÑO (Movistar y Claro)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '6) PLAN SIMCARD IOT-M2M 20MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)', shortLabel: '6) 20MB/MES x 1AÑO (Movistar, Claro, Entel y Bitel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '7) PLAN SIMCARD IOT-M2M 20MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)', shortLabel: '7) 20MB/MES x 1AÑO (Movistar, Claro y Entel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '8) PLAN SIMCARD IOT-M2M 30MB/MES + SMS x 1AÑO (CLARO)', shortLabel: '8) 30MB/MES + SMS x 1AÑO (Claro)', operador: 'Teca IoT (Claro M2M)', suggestedCost: '' },
-  { id: '9) PLAN SIMCARD IOT-M2M 30MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)', shortLabel: '9) 30MB/MES x 1AÑO (Movistar, Claro y Entel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '10) PLAN SIMCARD IOT-M2M 30MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)', shortLabel: '10) 30MB/MES x 1AÑO (Movistar, Claro, Entel y Bitel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
+// Catálogo limpio de Planes SIMCARD IoT-M2M (1 al 18) en orden numérico
+const TODOS_PLANES_SIM = [
+  '1) PLAN SIMCARD IOT-M2M 5MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
+  '2) PLAN SIMCARD IOT-M2M 10MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)',
+  '3) PLAN SIMCARD IOT-M2M 10MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
+  '4) PLAN SIMCARD IOT-M2M 15MB/MES + SMS x 1AÑO (CLARO)',
+  '5) PLAN SIMCARD IOT-M2M 20MB/MES x 1AÑO (MOVISTAR Y CLARO)',
+  '6) PLAN SIMCARD IOT-M2M 20MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)',
+  '7) PLAN SIMCARD IOT-M2M 20MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
+  '8) PLAN SIMCARD IOT-M2M 30MB/MES + SMS x 1AÑO (CLARO)',
+  '9) PLAN SIMCARD IOT-M2M 30MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
+  '10) PLAN SIMCARD IOT-M2M 30MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)',
+  '11) PLAN SIMCARD IOT-M2M 60MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)',
+  '12) PLAN SIMCARD IOT-M2M 60MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
+  '13) PLAN SIMCARD IOT-M2M 60MB/MES + SMS x 1AÑO (CLARO)',
+  '14) PLAN SIMCARD IOT-M2M 100MB/MES + SMS x 1AÑO (CLARO)',
+  '15) PLAN SIMCARD IOT-M2M 450MB/MES + SMS x 1AÑO (CLARO)',
+  '16) PLAN SIMCARD IOT-M2M 100MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)',
+  '17) PLAN SIMCARD IOT-M2M 100MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
+  '18) PLAN SIMCARD IOT-M2M 200MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
 ];
-
-const PLANES_SIM_FLOTAS = [
-  { id: '11) PLAN SIMCARD IOT-M2M 60MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)', shortLabel: '11) 60MB/MES x 1AÑO (Movistar, Claro, Entel y Bitel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '12) PLAN SIMCARD IOT-M2M 60MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)', shortLabel: '⭐ 12) 60MB/MES x 1AÑO (Movistar, Claro y Entel) — S/ 164.80', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '164.80' },
-  { id: '13) PLAN SIMCARD IOT-M2M 60MB/MES + SMS x 1AÑO (CLARO)', shortLabel: '13) 60MB/MES + SMS x 1AÑO (Claro)', operador: 'Teca IoT (Claro M2M)', suggestedCost: '' },
-  { id: '14) PLAN SIMCARD IOT-M2M 100MB/MES + SMS x 1AÑO (CLARO)', shortLabel: '14) 100MB/MES + SMS x 1AÑO (Claro)', operador: 'Teca IoT (Claro M2M)', suggestedCost: '' },
-  { id: '15) PLAN SIMCARD IOT-M2M 450MB/MES + SMS x 1AÑO (CLARO)', shortLabel: '15) 450MB/MES + SMS x 1AÑO (Claro)', operador: 'Teca IoT (Claro M2M)', suggestedCost: '' },
-  { id: '16) PLAN SIMCARD IOT-M2M 100MB/MES x 1AÑO (MOVISTAR, CLARO, ENTEL Y BITEL)', shortLabel: '16) 100MB/MES x 1AÑO (Movistar, Claro, Entel y Bitel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '17) PLAN SIMCARD IOT-M2M 100MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)', shortLabel: '17) 100MB/MES x 1AÑO (Movistar, Claro y Entel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-  { id: '18) PLAN SIMCARD IOT-M2M 200MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)', shortLabel: '18) 200MB/MES x 1AÑO (Movistar, Claro y Entel)', operador: 'Teca IoT (Multioperador M2M)', suggestedCost: '' },
-];
-
-const TODOS_PLANES_SIM = [...PLANES_SIM_PARTICULARES, ...PLANES_SIM_FLOTAS];
 
 function getTodayISO() {
   const now = new Date();
@@ -92,9 +86,9 @@ const ESTADO_COLORS = {
 
 const emptyForm = {
   empresa_id: '', imei: '', numero_serie: '', modelo: 'FMC130', version_firmware: '',
-  numero_sim: '', operador_sim: 'Teca IoT (Multioperador M2M)', iccid_sim: '',
-  plan_sim: '12) PLAN SIMCARD IOT-M2M 60MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)',
-  costo_sim: '164.80',
+  numero_sim: '', operador_sim: 'Teca IoT (M2M)', iccid_sim: '',
+  plan_sim: '',
+  costo_sim: '',
   fecha_activacion_sim: getTodayISO(),
   fecha_vencimiento_sim: addMonthsToDateISO(getTodayISO(), 12),
   tiene_boton_panico: true,
@@ -219,13 +213,11 @@ export default function DevicesPage() {
   };
 
   const handleSelectPlanSim = (selectedPlanId) => {
-    const found = TODOS_PLANES_SIM.find((p) => p.id === selectedPlanId);
     const actDate = form.fecha_activacion_sim || getTodayISO();
     setForm((prev) => ({
       ...prev,
       plan_sim: selectedPlanId,
-      operador_sim: found ? found.operador : prev.operador_sim,
-      costo_sim: found && found.suggestedCost ? found.suggestedCost : prev.costo_sim,
+      operador_sim: prev.operador_sim || 'Teca IoT (M2M)',
       fecha_activacion_sim: actDate,
       fecha_vencimiento_sim: selectedPlanId ? addMonthsToDateISO(actDate, 12) : prev.fecha_vencimiento_sim
     }));
@@ -249,17 +241,17 @@ export default function DevicesPage() {
     if (dias < 0) {
       return (
         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
-            <span>🚨 SIM Vencido ({Math.abs(dias)}d){costoTxt}</span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+            <span>SIM Vencido ({Math.abs(dias)}d){costoTxt}</span>
           </span>
           {isSuperAdmin && (
             <button
               type="button"
               onClick={() => handleRenovarSimAnual(d)}
-              className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-900 hover:bg-blue-600 text-white transition-colors cursor-pointer"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors cursor-pointer"
               title="Renovar chip SIM por +1 Año"
             >
-              🔄 +1 Año
+              +1 Año
             </button>
           )}
         </div>
@@ -268,17 +260,17 @@ export default function DevicesPage() {
     if (dias <= 30) {
       return (
         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full">
-            <span>⚠️ Renovar SIM en {dias}d{costoTxt}</span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full">
+            <span>Renovar SIM en {dias}d{costoTxt}</span>
           </span>
           {isSuperAdmin && (
             <button
               type="button"
               onClick={() => handleRenovarSimAnual(d)}
-              className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-900 hover:bg-blue-600 text-white transition-colors cursor-pointer"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors cursor-pointer"
               title="Renovar chip SIM por +1 Año"
             >
-              🔄 +1 Año
+              +1 Año
             </button>
           )}
         </div>
@@ -287,10 +279,10 @@ export default function DevicesPage() {
     return (
       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
         <span
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"
           title={`Vence el ${formatDateLatam(d.fecha_vencimiento_sim)}`}
         >
-          <span>🟢 SIM {dias}d · Vence {formatDateLatam(d.fecha_vencimiento_sim)}</span>
+          <span>SIM {dias}d · Vence {formatDateLatam(d.fecha_vencimiento_sim)}</span>
         </span>
       </div>
     );
@@ -570,47 +562,32 @@ export default function DevicesPage() {
                 </div>
               </div>
 
-              {/* Bloque Especial: Chip SIM M2M (Teca IoT / Operador), Plan, Costo Anual y Contador de 1 Año */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
-                    <Calendar size={14} />
-                    <span>Plan SIMCARD IoT-M2M &amp; Vigencia Anual</span>
-                  </span>
-                  {form.costo_sim && (
-                    <span className="text-[11px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
-                      Recordatorio pago: S/ {form.costo_sim} / año
-                    </span>
-                  )}
+              {/* Bloque Limpio: Chip SIM M2M, Plan, Costo Anual y Vigencia */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Datos de SIMCARD M2M &amp; Vigencia Anual
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Selecciona el Plan SIMCARD (Catálogo Teca IoT 1 al 18)
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Plan SIMCARD (1 al 18)
                   </label>
                   <select
                     value={form.plan_sim}
                     onChange={(e) => handleSelectPlanSim(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">-- Sin plan Teca / Chip estándar --</option>
-                    <optgroup label="🚐 Flotas, Minivanes y Rutas Interprovinciales (60MB a 200MB/mes)">
-                      {PLANES_SIM_FLOTAS.map((p) => (
-                        <option key={p.id} value={p.id}>{p.shortLabel}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="🚗 Vehículos Particulares / Rutas Urbanas (5MB a 30MB/mes)">
-                      {PLANES_SIM_PARTICULARES.map((p) => (
-                        <option key={p.id} value={p.id}>{p.shortLabel}</option>
-                      ))}
-                    </optgroup>
+                    <option value="">Seleccionar plan...</option>
+                    {TODOS_PLANES_SIM.map((planName) => (
+                      <option key={planName} value={planName}>{planName}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      ICCID SIM (18 a 20 dígitos, ej. Teca 89357...)
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      ICCID SIM
                     </label>
                     <input
                       type="text"
@@ -622,23 +599,23 @@ export default function DevicesPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Costo Anual (S/)
                     </label>
                     <input
                       type="number"
-                      step="0.10"
+                      step="0.01"
                       value={form.costo_sim}
                       onChange={(e) => setForm({ ...form, costo_sim: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="164.80"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ej. 164.80"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Proveedor / Operador</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Operador</label>
                     <select
                       value={form.operador_sim}
                       onChange={(e) => setForm({ ...form, operador_sim: e.target.value })}
@@ -651,7 +628,7 @@ export default function DevicesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">N° SIM (Opcional en M2M)</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">N° SIM (Opcional)</label>
                     <input
                       type="text"
                       maxLength="15"
@@ -665,8 +642,8 @@ export default function DevicesPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Fecha Compra / Activación SIM
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Fecha Activación SIM
                     </label>
                     <input
                       type="date"
@@ -684,8 +661,8 @@ export default function DevicesPage() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700">
-                        Vencimiento / Renovación SIM
+                      <label className="block text-xs font-medium text-slate-700">
+                        Vencimiento SIM
                       </label>
                       <div className="flex items-center gap-1">
                         <button
@@ -694,8 +671,7 @@ export default function DevicesPage() {
                             ...prev,
                             fecha_vencimiento_sim: addMonthsToDateISO(prev.fecha_activacion_sim || getTodayISO(), 12)
                           }))}
-                          className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer"
-                          title="Calcular +1 Año exacto desde la fecha de activación"
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer"
                         >
                           +1 Año
                         </button>
@@ -705,7 +681,7 @@ export default function DevicesPage() {
                             ...prev,
                             fecha_vencimiento_sim: addMonthsToDateISO(prev.fecha_activacion_sim || getTodayISO(), 6)
                           }))}
-                          className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer"
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer"
                         >
                           +6M
                         </button>
@@ -715,7 +691,7 @@ export default function DevicesPage() {
                       type="date"
                       value={form.fecha_vencimiento_sim}
                       onChange={(e) => setForm({ ...form, fecha_vencimiento_sim: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>

@@ -604,10 +604,10 @@ export default function DashboardHome() {
                     let badgeTxt = dias != null ? `Activo (${dias} días)` : 'Sin fecha';
                     if (dias != null && dias < 0) {
                       badgeCls = 'bg-rose-50 text-rose-700 border-rose-200';
-                      badgeTxt = `🚨 Vencido hace ${Math.abs(dias)}d`;
+                      badgeTxt = `Vencido hace ${Math.abs(dias)}d`;
                     } else if (dias != null && dias <= 30) {
                       badgeCls = 'bg-amber-50 text-amber-800 border-amber-300';
-                      badgeTxt = `⚠️ Renovar en ${dias}d`;
+                      badgeTxt = `Renovar en ${dias}d`;
                     }
 
                     return (
