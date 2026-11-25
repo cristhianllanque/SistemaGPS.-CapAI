@@ -83,6 +83,7 @@ class ClienteParticularCreate(BaseModel):
     # GPS asignado
     dispositivo_id: Optional[int] = None
     imei: Optional[str] = None
+    modelo_gps: Optional[str] = Field(None, max_length=50)
 
 class ParticularVehiculoCreate(BaseModel):
     placa: str
@@ -93,6 +94,7 @@ class ParticularVehiculoCreate(BaseModel):
     anio: Optional[int] = None
     dispositivo_id: Optional[int] = None
     imei: Optional[str] = None
+    modelo_gps: Optional[str] = Field(None, max_length=50)
 
 class ParticularVehiculoUpdate(BaseModel):
     placa: Optional[str] = None
@@ -103,6 +105,7 @@ class ParticularVehiculoUpdate(BaseModel):
     anio: Optional[int] = None
     dispositivo_id: Optional[int] = None
     imei: Optional[str] = None
+    modelo_gps: Optional[str] = Field(None, max_length=50)
     desvincular_gps: Optional[bool] = False
 
 class EmpresaUpdate(BaseModel):
@@ -373,7 +376,7 @@ class ConductorMini(BaseModel):
 
 class VehiculoOut(BaseModel):
     id: int
-    empresa_id: int
+    empresa_id: Optional[int] = None
     empresa_nombre: Optional[str] = None
     empresa_limite_velocidad: Optional[int] = 90
     padron: str
@@ -388,6 +391,8 @@ class VehiculoOut(BaseModel):
     estado: str
     activo: bool
     dispositivo_id: Optional[int] = None
+    gps_asignado_at: OptionalUTCDateTime = None
+    baja_individual_at: OptionalUTCDateTime = None
     conductor_id: Optional[int] = None
     dispositivo: Optional[DispositivoMini] = None
     conductor: Optional[ConductorMini] = None

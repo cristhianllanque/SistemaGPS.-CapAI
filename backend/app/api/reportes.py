@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import openpyxl
+from sqlalchemy import and_
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -34,7 +35,19 @@ def get_reporte_consolidado(
         raise HTTPException(status_code=400, detail="Formato de fecha inválido")
 
     # Get vehicles
-    veh_query = db.query(models.Vehiculo).filter(models.Vehiculo.activo == True)
+    vehicle = models.Vehiculo
+    reading = models.LecturaGPS
+    valid_positions = (
+        reading.timestamp.between(inicio, fin),
+        reading.latitud.between(-90, 90),
+        reading.longitud.between(-180, 180),
+        (reading.latitud != 0) | (reading.longitud != 0),
+    )
+    veh_query = db.query(vehicle).filter(
+        vehicle.activo.is_(True)
+        | vehicle.lecturas.any(and_(*valid_positions))
+        | vehicle.alertas.any(models.AlertaPanico.fecha_hora.between(inicio, fin)),
+    )
     if current_user.rol != 'superadmin':
         veh_query = veh_query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
     elif empresa_id:
@@ -48,8 +61,7 @@ def get_reporte_consolidado(
         # Get GPS readings
         lecturas = db.query(models.LecturaGPS).filter(
             models.LecturaGPS.vehiculo_id == v.id,
-            models.LecturaGPS.timestamp >= inicio,
-            models.LecturaGPS.timestamp <= fin
+            *valid_positions,
         ).order_by(models.LecturaGPS.timestamp).all()
 
         distancia_total = 0.0
@@ -57,8 +69,7 @@ def get_reporte_consolidado(
         tiempo_encendido_min = 0.0
 
         for i, lec in enumerate(lecturas):
-            if lec.velocidad > velocidad_maxima:
-                velocidad_maxima = lec.velocidad
+            velocidad_maxima = max(velocidad_maxima, lec.velocidad or 0)
                 
             if i > 0:
                 prev_lec = lecturas[i-1]

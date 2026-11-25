@@ -42,6 +42,18 @@ const emptyForm = {
   imei: ''
 };
 
+function GpsModelField({ imei, value, onChange }) {
+  if (!imei.trim()) return null;
+  return (
+    <label className="mt-2 block text-xs font-semibold text-slate-700">
+      Modelo Teltonika (si el IMEI es nuevo)
+      <input value={value} onChange={(event) => onChange(event.target.value)} maxLength={50}
+        placeholder="FMC130, FMC920, FMC150…"
+        className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs" />
+    </label>
+  );
+}
+
 export default function ParticularesPage() {
   const navigate = useNavigate();
   const [clientes, setClientes] = useState([]);
@@ -58,6 +70,7 @@ export default function ParticularesPage() {
   const [successData, setSuccessData] = useState(null);
   const [suscripcionModalCliente, setSuscripcionModalCliente] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
+  const [archivingVehicle, setArchivingVehicle] = useState(false);
 
   // Modal para agregar 2do, 3er, 5to vehículo a un mismo Cliente Particular
   const [addVehClient, setAddVehClient] = useState(null);
@@ -95,6 +108,7 @@ export default function ParticularesPage() {
   const emailDebounceRef = useRef(null);
 
   const token = localStorage.getItem('token');
+  const isSuperAdmin = JSON.parse(localStorage.getItem('usuario') || '{}')?.rol === 'superadmin';
   const headers = { Authorization: `Bearer ${token}` };
 
   const verifyParticularEmail = async (rawEmail) => {
@@ -199,7 +213,8 @@ export default function ParticularesPage() {
         tipo_vehiculo: form.tipo_vehiculo,
         anio: form.anio ? parseInt(form.anio) : null,
         dispositivo_id: form.dispositivo_id ? parseInt(form.dispositivo_id) : null,
-        imei: form.imei.trim() || null
+        imei: form.imei.trim() || null,
+        modelo_gps: form.modelo_gps?.trim() || null
       };
 
       const res = await axios.post(`${API_BASE_URL}/api/particulares/`, payload, { headers });
@@ -229,6 +244,19 @@ export default function ParticularesPage() {
     }
   };
 
+  const archiveVehicle = async (vehicle) => {
+    if (archivingVehicle || !window.confirm(`¿Dar de baja el vehículo ${vehicle.placa}? Se conservarán sus recorridos y alertas.`)) return;
+    setArchivingVehicle(true);
+    try {
+      await axios.delete(`${API_BASE_URL}/api/vehiculos/${vehicle.id}`, { headers });
+      await fetchData(true);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo dar de baja el vehículo.');
+    } finally {
+      setArchivingVehicle(false);
+    }
+  };
+
   const handleReactivar = async (id, nombre) => {
     if (!window.confirm(`¿Reactivar al cliente particular ${nombre}? Recuperará su acceso, correo y placa. Deberás vincularle un GPS nuevamente.`)) {
       return;
@@ -254,7 +282,8 @@ export default function ParticularesPage() {
         color: addVehForm.color.trim() || null,
         tipo_vehiculo: addVehForm.tipo_vehiculo || 'camioneta',
         dispositivo_id: addVehForm.dispositivo_id ? parseInt(addVehForm.dispositivo_id, 10) : null,
-        imei: addVehForm.imei.trim() || null
+        imei: addVehForm.imei.trim() || null,
+        modelo_gps: addVehForm.modelo_gps?.trim() || null
       };
       const res = await axios.post(`${API_BASE_URL}/api/particulares/${addVehClient.id}/vehiculos`, payload, { headers });
       setToastMsg(res.data?.message || `Vehículo ${payload.placa} agregado a ${addVehClient.nombre}.`);
@@ -299,6 +328,7 @@ export default function ParticularesPage() {
         dispositivo_id: editVehForm.gps_mode === 'stock' && editVehForm.dispositivo_id
           ? parseInt(editVehForm.dispositivo_id, 10)
           : null,
+        modelo_gps: editVehForm.modelo_gps?.trim() || null,
         imei: editVehForm.gps_mode === 'imei' && editVehForm.imei.trim()
           ? editVehForm.imei.trim()
           : null
@@ -323,7 +353,7 @@ export default function ParticularesPage() {
     const q = searchTerm.toLowerCase();
     const matchNombre = c.nombre?.toLowerCase().includes(q);
     const matchDni = c.documento?.toLowerCase().includes(q);
-    const vehs = c.vehiculos?.length ? c.vehiculos : (c.vehiculo ? [c.vehiculo] : []);
+    const vehs = c.vehiculos ?? (c.vehiculo ? [c.vehiculo] : []);
     const matchPlaca = vehs.some(v => v?.placa?.toLowerCase().includes(q));
     const matchImei = vehs.some(v => v?.dispositivo?.imei?.toLowerCase().includes(q)) || c.dispositivo?.imei?.toLowerCase().includes(q);
     return matchNombre || matchPlaca || matchDni || matchImei;
@@ -487,9 +517,7 @@ export default function ParticularesPage() {
               <div className="p-5 flex-1 space-y-4">
                 {/* Vehicles list box (Soporta 1, 2, 3, 5 o más vehículos del mismo cliente) */}
                 {(() => {
-                  const listaVehs = c.vehiculos?.length
-                    ? c.vehiculos
-                    : (c.vehiculo ? [{ ...c.vehiculo, dispositivo: c.dispositivo }] : []);
+                  const listaVehs = c.vehiculos ?? (c.vehiculo ? [{ ...c.vehiculo, dispositivo: c.dispositivo }] : []);
                   return (
                     <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 space-y-2.5">
                       <div className="flex items-center justify-between">
@@ -557,6 +585,13 @@ export default function ParticularesPage() {
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
                                 )}
+                                 {isSuperAdmin && !verBajas && !disp && vItem.id && (
+                                   <button type="button" disabled={archivingVehicle} onClick={() => archiveVehicle(vItem)}
+                                     title="Dar de baja vehículo" aria-label="Dar de baja vehículo"
+                                     className="rounded-lg p-1.5 text-slate-400 hover:text-red-600 disabled:opacity-50">
+                                     <Trash2 className="w-3.5 h-3.5" />
+                                   </button>
+                                 )}
                                 <span
                                   className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                                     disp ? 'bg-emerald-500' : 'bg-amber-400'
@@ -920,6 +955,8 @@ export default function ParticularesPage() {
                         maxLength="15"
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                       />
+                      <GpsModelField imei={form.imei} value={form.modelo_gps ?? ''}
+                        onChange={(value) => setForm((prev) => ({ ...prev, modelo_gps: value }))} />
                     </div>
                   </div>
                 </div>
@@ -1069,6 +1106,8 @@ export default function ParticularesPage() {
                       placeholder="865124071781266"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
                     />
+                    <GpsModelField imei={addVehForm.imei} value={addVehForm.modelo_gps ?? ''}
+                      onChange={(value) => setAddVehForm((prev) => ({ ...prev, modelo_gps: value }))} />
                   </div>
                 </div>
               </div>
@@ -1223,6 +1262,8 @@ export default function ParticularesPage() {
                       placeholder="865124071781266"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
                     />
+                    <GpsModelField imei={editVehForm.imei} value={editVehForm.modelo_gps ?? ''}
+                      onChange={(value) => setEditVehForm((prev) => ({ ...prev, modelo_gps: value }))} />
                   </div>
                 )}
 

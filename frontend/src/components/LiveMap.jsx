@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { AlertTriangle, Navigation, RotateCcw, Compass, X, ExternalLink, LocateFixed, Sun, Moon, Layers, RotateCw, Plus, Minus, MapPin } from 'lucide-react';
+import { hasValidPosition } from '../utils/fleet';
 import { parseServerUTC, formatPeruTime, formatPeruDateTime } from '../utils/peruTime';
 import { useVehicleAddresses } from '../utils/reverseGeocode';
 
@@ -329,7 +330,7 @@ export default function LiveMap({
 
   const activeId = routeTargetVehicleId || emergencyVehicleId || selectedVehicleId;
   const trackedVehicle = vehiculos.find(v => v.id === activeId);
-  const targetCoords = trackedVehicle?.ultima_lectura 
+  const targetCoords = hasValidPosition(trackedVehicle?.ultima_lectura)
     ? [trackedVehicle.ultima_lectura.latitud, trackedVehicle.ultima_lectura.longitud] 
     : null;
 
@@ -699,7 +700,7 @@ export default function LiveMap({
         )}
 
         {vehiculos.map(v => {
-          if (!v.ultima_lectura) return null;
+          if (!hasValidPosition(v.ultima_lectura)) return null;
           
           const u = v.ultima_lectura;
           const readingDate = parseServerUTC(u?.timestamp);
@@ -793,7 +794,7 @@ export default function LiveMap({
                         </span>
                       </>
                     )}
-                    <span className="font-semibold text-slate-600">Último reporte:</span>
+                    <span className="font-semibold text-slate-600">Última posición:</span>
                     <span className="text-slate-600">
                       {readingDate
                         ? (diffMinutes > 720 ? formatPeruDateTime(readingDate, false) : formatPeruTime(readingDate, true))

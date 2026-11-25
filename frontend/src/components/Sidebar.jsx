@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X, Compass, MapPin } from 'lucide-react';
+import { hasValidPosition, vehicleConnectionLabel } from '../utils/fleet';
 import { parseServerUTC } from '../utils/peruTime';
 import { useVehicleAddresses } from '../utils/reverseGeocode';
 
@@ -122,7 +123,8 @@ export default function Sidebar({
 
           let statusColor = 'bg-slate-50 border-slate-200';
           let statusDot = 'bg-slate-400';
-          let statusLabel = 'Desconectado';
+          const connectionLabel = vehicleConnectionLabel(v);
+          let statusLabel = connectionLabel;
 
           if (isPanic) { 
             statusColor = 'bg-red-50 border-red-300 ring-2 ring-red-400'; 
@@ -138,7 +140,7 @@ export default function Sidebar({
             statusLabel = '¡Exceso de velocidad!';
           } else if (isSelected) { 
             statusDot = isMoving ? 'bg-green-500' : (isIgnitionOn ? 'bg-emerald-500' : 'bg-slate-400'); 
-            statusLabel = isMoving ? 'En ruta' : (isIgnitionOn ? 'Motor ON' : (isOnline ? 'Detenido' : 'Desconectado'));
+            statusLabel = isMoving ? 'En ruta' : (isIgnitionOn ? 'Motor ON' : (isOnline ? 'Detenido' : connectionLabel));
           } else if (isMoving) { 
             statusColor = 'bg-green-50 border-green-200'; 
             statusDot = 'bg-green-500'; 
@@ -171,7 +173,7 @@ export default function Sidebar({
                     <span className={`w-2 h-2 rounded-full ${statusDot}`} title={statusLabel}></span>
                   </h3>
                   <p className="text-xs text-slate-500">{v.conductor?.nombre || 'Sin conductor asignado'}</p>
-                  {u && u.latitud != null && (
+                  {hasValidPosition(u) && (
                     <p className="text-[11px] text-slate-600 font-medium flex items-start gap-1 mt-1 leading-snug">
                       <MapPin size={12} className="text-sky-600 flex-shrink-0 mt-0.5" />
                       <span className="line-clamp-2">{addresses[v.id] || 'Ubicando avenida / calle...'}</span>

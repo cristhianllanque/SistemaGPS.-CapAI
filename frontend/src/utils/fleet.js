@@ -1,0 +1,108 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
+import { parseServerUTC } from './peruTime';
+
+export function hasValidPosition(reading) {
+  const lat = reading?.latitud;
+  const lng = reading?.longitud;
+  return Number.isFinite(lat) && Number.isFinite(lng)
+    && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0);
+}
+
+export function vehicleConnectionLabel(vehicle) {
+  if (!vehicle.dispositivo_id) return 'Sin GPS vinculado';
+  const latest = parseServerUTC(vehicle.ultima_lectura?.timestamp);
+  const assigned = parseServerUTC(vehicle.gps_asignado_at);
+  if (!latest || (assigned && latest.getTime() < Math.floor(assigned.getTime() / 1000) * 1000)) {
+    return 'Esperando primera posición';
+  }
+  return 'Sin señal reciente';
+}
+
+export function applyVehicleTelemetry(vehicle, message) {
+  const reading = message.data;
+  const timestamp = parseServerUTC(reading?.timestamp);
+  const previous = parseServerUTC(vehicle.ultima_lectura?.timestamp);
+  const assigned = parseServerUTC(vehicle.gps_asignado_at);
+  if (vehicle.id !== message.vehiculo_id || !vehicle.activo || !vehicle.dispositivo_id
+    || (message.dispositivo_id != null && message.dispositivo_id !== vehicle.dispositivo_id)
+    || !hasValidPosition(reading) || !timestamp
+    || (assigned && timestamp < assigned) || (previous && timestamp < previous)) {
+    return vehicle;
+  }
+  return {
+    ...vehicle,
+    empresa_limite_velocidad: message.limite_velocidad || vehicle.empresa_limite_velocidad,
+    ultima_lectura: reading,
+  };
+}
+
+export function useFleetVehicles(token, empresaId, archived = false) {
+  const [vehiculos, setVehiculos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fleetError, setFleetError] = useState('');
+  const request = useRef(null);
+  const pendingTelemetry = useRef(new Map());
+
+  const receiveTelemetry = useCallback((message) => {
+    if (archived || !hasValidPosition(message.data)) return;
+    const queued = pendingTelemetry.current.get(message.vehiculo_id);
+    if (!queued || parseServerUTC(message.data.timestamp) >= parseServerUTC(queued.data.timestamp)) {
+      pendingTelemetry.current.set(message.vehiculo_id, message);
+    }
+    setVehiculos((current) => current.map((vehicle) => applyVehicleTelemetry(vehicle, message)));
+  }, [archived]);
+
+  const refresh = useCallback(async () => {
+    if (!token) return;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/api/vehiculos/`, {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${token}` },
+        params: { empresa_id: empresaId || undefined, archivados: archived || undefined },
+      });
+      if (controller.signal.aborted) return;
+      const pending = pendingTelemetry.current;
+      pendingTelemetry.current = new Map();
+      setVehiculos((current) => {
+        const previous = new Map(current.map((vehicle) => [vehicle.id, vehicle]));
+        return data.map((vehicle) => {
+          const cached = previous.get(vehicle.id);
+          if (vehicle.activo && vehicle.dispositivo_id && cached?.dispositivo_id === vehicle.dispositivo_id
+            && cached.gps_asignado_at === vehicle.gps_asignado_at) {
+            const newer = parseServerUTC(cached.ultima_lectura?.timestamp);
+            const incoming = parseServerUTC(vehicle.ultima_lectura?.timestamp);
+            if (newer && (!incoming || newer > incoming)) {
+              return { ...vehicle, ultima_lectura: cached.ultima_lectura };
+            }
+          }
+          const update = pending.get(vehicle.id);
+          const last = parseServerUTC(vehicle.ultima_lectura?.timestamp);
+          if (update && (!last || parseServerUTC(update.data.timestamp) > last)) {
+            return applyVehicleTelemetry(vehicle, update);
+          }
+          return vehicle;
+        });
+      });
+      setFleetError('');
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        const detail = error.response?.data?.detail;
+        setFleetError(typeof detail === 'string' ? detail : 'No se pudo actualizar la flota.');
+      }
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }, [token, empresaId, archived]);
+
+  useEffect(() => {
+    refresh();
+    return () => request.current?.abort();
+  }, [refresh]);
+
+  return { vehiculos, setVehiculos, loading, fleetError, refresh, receiveTelemetry };
+}

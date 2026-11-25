@@ -11,6 +11,7 @@ from app.db import models, schemas
 from app.core.security import get_password_hash
 from app.services.email_service import send_welcome_email
 from app.websockets.manager import manager
+from app.services.gps_assignments import notify_vehicle_change, set_vehicle_device
 
 router = APIRouter()
 
@@ -24,6 +25,27 @@ def _limpiar_email_baja(email: str) -> str:
 
 def _limpiar_placa_baja(placa: str) -> str:
     return re.sub(r'-B\d+$', '', placa or '')
+
+def _gps_id_for_particular(db: Session, payload) -> int | None:
+    if payload.dispositivo_id is not None:
+        return payload.dispositivo_id
+    if not payload.imei:
+        return None
+    imei = payload.imei.strip()
+    if not re.fullmatch(r"[0-9]{15}", imei):
+        raise HTTPException(400, "El IMEI debe tener exactamente 15 dígitos.")
+    existing = db.query(models.Dispositivo.id).filter_by(imei=imei).first()
+    if existing:
+        return existing.id
+
+    modelo = (payload.modelo_gps or "").strip().upper()
+    if not modelo:
+        raise HTTPException(400, "Indica el modelo Teltonika para registrar un IMEI nuevo.")
+    gps = models.Dispositivo(imei=imei, numero_serie=f"IMEI-{imei}", modelo=modelo)
+    db.add(gps)
+    db.flush()
+    return gps.id
+
 
 @router.get("/")
 def list_clientes_particulares(
@@ -48,14 +70,15 @@ def list_clientes_particulares(
         vq = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == p.id)
         uq = db.query(models.Usuario).filter(models.Usuario.empresa_id == p.id)
         todos_vehiculos = vq.order_by(models.Vehiculo.id.asc()).all()
-        vehiculo = todos_vehiculos[0] if todos_vehiculos else None
+        elegibles = todos_vehiculos if inactivos else [v for v in todos_vehiculos if v.activo]
+        vehiculo = elegibles[0] if elegibles else None
         usuario = uq.first()
 
         # Determinar si es una baja definitiva (con GPS liberado y correo prefijado 'baja')
         es_baja_definitiva = bool(
             not p.activo and (
                 (usuario and (usuario.email or '').startswith('baja')) or
-                (vehiculo and not vehiculo.activo)
+                any(not v.activo and v.baja_individual_at is None for v in todos_vehiculos)
             )
         )
         if inactivos != es_baja_definitiva:
@@ -145,31 +168,7 @@ def add_vehiculo_particular(
             detail=f"La placa {placa_clean} ya se encuentra registrada en el sistema."
         )
 
-    dispositivo = None
-    if payload.dispositivo_id:
-        dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.id == payload.dispositivo_id).first()
-        if not dispositivo:
-            raise HTTPException(status_code=404, detail="El dispositivo GPS seleccionado no existe.")
-        veh_ocupado = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id, models.Vehiculo.activo == True).first()
-        if veh_ocupado:
-            raise HTTPException(status_code=400, detail=f"El GPS ya está asignado al vehículo con placa {veh_ocupado.placa}.")
-    elif payload.imei:
-        imei_clean = payload.imei.strip()
-        dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.imei == imei_clean).first()
-        if dispositivo:
-            veh_ocupado = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id, models.Vehiculo.activo == True).first()
-            if veh_ocupado:
-                raise HTTPException(status_code=400, detail=f"El GPS con IMEI {imei_clean} ya está asignado a la placa {veh_ocupado.placa}.")
-        else:
-            dispositivo = models.Dispositivo(
-                imei=imei_clean,
-                numero_serie=f"SN-{imei_clean[-6:]}",
-                modelo="FMC130",
-                estado="disponible",
-                activo=True
-            )
-            db.add(dispositivo)
-            db.flush()
+    device_id = _gps_id_for_particular(db, payload)
 
     tipo_v = payload.tipo_vehiculo or 'sedan'
     if tipo_v not in ['minivan', 'bus', 'camioneta', 'sedan', 'otro']:
@@ -177,7 +176,6 @@ def add_vehiculo_particular(
 
     nuevo_veh = models.Vehiculo(
         empresa_id=emp.id,
-        dispositivo_id=dispositivo.id if dispositivo else None,
         conductor_id=None,
         padron="S/N",
         placa=placa_clean,
@@ -191,14 +189,12 @@ def add_vehiculo_particular(
     )
     db.add(nuevo_veh)
 
-    if dispositivo:
-        dispositivo.empresa_id = emp.id
-        dispositivo.estado = "instalado"
+    owners = set_vehicle_device(db, nuevo_veh, device_id)
 
     db.commit()
     db.refresh(nuevo_veh)
     manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
-    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "vehiculos"})
+    notify_vehicle_change(emp.id, nuevo_veh.id, owners if device_id else None)
 
     return {
         "status": "ok",
@@ -227,7 +223,7 @@ def update_vehiculo_particular(
     veh = db.query(models.Vehiculo).filter(
         models.Vehiculo.id == vehiculo_id,
         models.Vehiculo.empresa_id == emp.id
-    ).first()
+    ).with_for_update().first()
     if not veh:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado en este cliente particular.")
 
@@ -255,72 +251,16 @@ def update_vehiculo_particular(
         if tipo_v in ['minivan', 'bus', 'camioneta', 'sedan', 'otro']:
             veh.tipo = tipo_v
 
-    # 3. Gestión del Dispositivo GPS / IMEI
-    old_disp = veh.dispositivo
+    owners = None
     if payload.desvincular_gps:
-        if old_disp:
-            old_disp.estado = "disponible"
-        veh.dispositivo_id = None
-    elif payload.dispositivo_id:
-        if not old_disp or old_disp.id != payload.dispositivo_id:
-            target_disp = db.query(models.Dispositivo).filter(models.Dispositivo.id == payload.dispositivo_id).first()
-            if not target_disp:
-                raise HTTPException(status_code=404, detail="El dispositivo GPS seleccionado no existe.")
-            ocupado = db.query(models.Vehiculo).filter(
-                models.Vehiculo.dispositivo_id == target_disp.id,
-                models.Vehiculo.id != veh.id,
-                models.Vehiculo.activo == True
-            ).first()
-            if ocupado:
-                raise HTTPException(status_code=400, detail=f"Ese GPS ya está asignado a la placa {ocupado.placa}.")
-            if old_disp:
-                old_disp.estado = "disponible"
-            target_disp.empresa_id = emp.id
-            target_disp.estado = "instalado"
-            veh.dispositivo_id = target_disp.id
-    elif payload.imei:
-        imei_clean = payload.imei.strip()
-        if not re.match(r"^\d{15}$", imei_clean):
-            raise HTTPException(status_code=400, detail="El IMEI debe tener exactamente 15 dígitos numéricos.")
-        if not old_disp or old_disp.imei != imei_clean:
-            existing_disp = db.query(models.Dispositivo).filter(models.Dispositivo.imei == imei_clean).first()
-            if existing_disp:
-                ocupado = db.query(models.Vehiculo).filter(
-                    models.Vehiculo.dispositivo_id == existing_disp.id,
-                    models.Vehiculo.id != veh.id,
-                    models.Vehiculo.activo == True
-                ).first()
-                if ocupado:
-                    raise HTTPException(status_code=400, detail=f"El GPS con IMEI {imei_clean} ya está asignado a la placa {ocupado.placa}.")
-                if old_disp and old_disp.id != existing_disp.id:
-                    old_disp.estado = "disponible"
-                existing_disp.empresa_id = emp.id
-                existing_disp.estado = "instalado"
-                veh.dispositivo_id = existing_disp.id
-            else:
-                if old_disp:
-                    # Corregir el IMEI directamente sobre el dispositivo vinculado (ideal para reemplazar un IMEI ficticio de prueba)
-                    old_disp.imei = imei_clean
-                    old_disp.empresa_id = emp.id
-                    old_disp.estado = "instalado"
-                else:
-                    nuevo_disp = models.Dispositivo(
-                        empresa_id=emp.id,
-                        imei=imei_clean,
-                        numero_serie=f"SN-{imei_clean[-6:]}",
-                        modelo="FMC130",
-                        estado="instalado",
-                        activo=True
-                    )
-                    db.add(nuevo_disp)
-                    db.flush()
-                    veh.dispositivo_id = nuevo_disp.id
+        owners = set_vehicle_device(db, veh, None)
+    elif payload.dispositivo_id is not None or payload.imei:
+        owners = set_vehicle_device(db, veh, _gps_id_for_particular(db, payload))
 
     db.commit()
     db.refresh(veh)
     manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
-    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "vehiculos"})
-    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "dispositivos"})
+    notify_vehicle_change(emp.id, veh.id, owners)
 
     return {
         "status": "ok",
@@ -353,34 +293,7 @@ def create_cliente_particular(
             detail=f"La placa {placa_clean} ya se encuentra registrada en el sistema."
         )
 
-    # 3. Validar dispositivo GPS si se especificó
-    dispositivo = None
-    if payload.dispositivo_id:
-        dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.id == payload.dispositivo_id).first()
-        if not dispositivo:
-            raise HTTPException(status_code=404, detail="El dispositivo GPS seleccionado no existe.")
-        # Verificar que no esté asignado
-        veh_ocupado = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id, models.Vehiculo.activo == True).first()
-        if veh_ocupado:
-            raise HTTPException(status_code=400, detail=f"El GPS ya está asignado al vehículo con placa {veh_ocupado.placa}.")
-    elif payload.imei:
-        imei_clean = payload.imei.strip()
-        dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.imei == imei_clean).first()
-        if dispositivo:
-            veh_ocupado = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id, models.Vehiculo.activo == True).first()
-            if veh_ocupado:
-                raise HTTPException(status_code=400, detail=f"El GPS con IMEI {imei_clean} ya está asignado a la placa {veh_ocupado.placa}.")
-        else:
-            # Crear dispositivo automáticamente en inventario
-            dispositivo = models.Dispositivo(
-                imei=imei_clean,
-                numero_serie=f"SN-{imei_clean[-6:]}",
-                modelo="FMC130",
-                estado="disponible",
-                activo=True
-            )
-            db.add(dispositivo)
-            db.flush()
+    device_id = _gps_id_for_particular(db, payload)
 
     # 4. Crear Cuenta Particular (en tabla empresas con tipo='particular')
     base_slug = f"part-{slugify(placa_clean)}"
@@ -422,7 +335,6 @@ def create_cliente_particular(
 
     vehiculo_part = models.Vehiculo(
         empresa_id=empresa_part.id,
-        dispositivo_id=dispositivo.id if dispositivo else None,
         conductor_id=None,
         padron="S/N",
         placa=placa_clean,
@@ -436,16 +348,14 @@ def create_cliente_particular(
     )
     db.add(vehiculo_part)
     
-    # Si se asignó dispositivo, actualizar su estado y empresa_id
-    if dispositivo:
-        dispositivo.empresa_id = empresa_part.id
-        dispositivo.estado = "instalado"
+    owners = set_vehicle_device(db, vehiculo_part, device_id)
 
     db.commit()
     db.refresh(empresa_part)
     db.refresh(vehiculo_part)
 
     manager.notify_sync(empresa_part.id, {"type": "entity_updated", "entity": "particulares"})
+    notify_vehicle_change(empresa_part.id, vehiculo_part.id, owners if device_id else None)
 
     # Disparar correo de bienvenida y credenciales en segundo plano (no bloqueante)
     desc_vehiculo = f"{placa_clean} ({payload.marca.strip() if payload.marca else 'Vehículo'} {payload.modelo.strip() if payload.modelo else ''})".strip()
@@ -458,6 +368,7 @@ def create_cliente_particular(
         tipo="particular"
     )
 
+    dispositivo = vehiculo_part.dispositivo
     return {
         "id": empresa_part.id,
         "nombre": empresa_part.nombre,
@@ -490,15 +401,14 @@ def delete_cliente_particular(
     if not emp:
         raise HTTPException(status_code=404, detail="Cliente particular no encontrado.")
 
-    # Desvincular GPS y ponerlo en disponible
-    vehiculos = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == emp.id).all()
+    vehiculos = db.query(models.Vehiculo).filter(
+        models.Vehiculo.empresa_id == emp.id,
+        models.Vehiculo.baja_individual_at.is_(None),
+    ).order_by(models.Vehiculo.id).with_for_update().all()
+    inventory_owners = set()
     for v in vehiculos:
-        if v.dispositivo:
-            v.dispositivo.estado = "disponible"
-            v.dispositivo.empresa_id = None
-        v.dispositivo_id = None
+        inventory_owners.update(set_vehicle_device(db, v, None))
         v.activo = False
-        # Liberar la placa (unique) para poder re-registrarla en el futuro
         if not v.placa.endswith(f"-B{v.id}"):
             v.placa = f"{v.placa[:14]}-B{v.id}"
 
@@ -512,6 +422,10 @@ def delete_cliente_particular(
     emp.activo = False
     db.commit()
     manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
+
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "vehiculos"})
+    for owner_id in inventory_owners | {emp.id}:
+        manager.notify_sync(owner_id, {"type": "entity_updated", "entity": "dispositivos"})
 
     return {"message": f"Cliente particular {emp.nombre} desactivado y GPS liberado."}
 
@@ -533,7 +447,10 @@ def reactivar_cliente_particular(
         raise HTTPException(status_code=404, detail="Cliente dado de baja no encontrado.")
 
     usuarios = db.query(models.Usuario).filter(models.Usuario.empresa_id == emp.id).all()
-    vehiculos = db.query(models.Vehiculo).filter(models.Vehiculo.empresa_id == emp.id).all()
+    vehiculos = db.query(models.Vehiculo).filter(
+        models.Vehiculo.empresa_id == emp.id,
+        models.Vehiculo.baja_individual_at.is_(None),
+    ).with_for_update().all()
 
     # Validar que correo y placa originales sigan libres antes de tocar nada
     for u in usuarios:
@@ -556,6 +473,8 @@ def reactivar_cliente_particular(
     emp.activo = True
     db.commit()
     manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
+
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "vehiculos"})
 
     return {"message": f"Cliente particular {emp.nombre} reactivado. Recuerda vincularle un GPS."}
 

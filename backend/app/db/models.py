@@ -1,5 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Float, DateTime, Enum, BigInteger, Text, SmallInteger, Date, Index
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.mysql import DATETIME as MySQLDateTime
 from app.db.database import Base
 from datetime import datetime
 
@@ -94,6 +95,7 @@ class Vehiculo(Base):
     id = Column(Integer, primary_key=True, index=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id"))
     dispositivo_id = Column(Integer, ForeignKey("dispositivos.id"), nullable=True)
+    gps_asignado_at = Column(DateTime().with_variant(MySQLDateTime(fsp=6), "mysql", "mariadb"), nullable=True)
     conductor_id = Column(Integer, ForeignKey("conductores.id"), nullable=True)
     padron = Column(String(10), nullable=False, default='S/N')
     placa = Column(String(20), unique=True, index=True, nullable=False)
@@ -107,6 +109,8 @@ class Vehiculo(Base):
     estado = Column(Enum('activo', 'inactivo', 'mantenimiento'), default='activo')
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    baja_individual_at = Column(DateTime, nullable=True)
 
     empresa = relationship("Empresa", back_populates="vehiculos")
     dispositivo = relationship("Dispositivo", back_populates="vehiculo")

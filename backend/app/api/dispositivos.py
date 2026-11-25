@@ -129,11 +129,22 @@ def update_dispositivo(
     if current_user.rol != 'superadmin':
         raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
-    d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
+    d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).with_for_update().first()
     if not d:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 
     update_data = payload.model_dump(exclude_unset=True)
+    old_owner = d.empresa_id
+    assigned = db.query(models.Vehiculo.id, models.Vehiculo.empresa_id).filter_by(
+        dispositivo_id=d.id, activo=True,
+    ).first()
+    if assigned and (
+        update_data.get("empresa_id", assigned.empresa_id) != assigned.empresa_id
+        or update_data.get("estado", "instalado") != "instalado"
+    ):
+        raise HTTPException(409, "Desvincula el GPS del vehículo antes de cambiar su empresa o estado.")
+    if "imei" in update_data and update_data["imei"] != d.imei and assigned:
+        raise HTTPException(409, "Desvincula el GPS antes de corregir su IMEI para conservar la asignación histórica.")
 
     # Validate unique constraints if changing
     if "imei" in update_data:
@@ -161,6 +172,8 @@ def update_dispositivo(
     if d.vehiculo:
         data.vehiculo_placa = d.vehiculo.placa
     manager.notify_sync(d.empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": d.id})
+    if old_owner != d.empresa_id and old_owner is not None:
+        manager.notify_sync(old_owner, {"type": "entity_updated", "entity": "dispositivos"})
     return data
 
 
@@ -210,11 +223,12 @@ def delete_dispositivo(
     if current_user.rol != 'superadmin':
         raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
 
-    d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
+    d = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).with_for_update().first()
     if not d:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 
-    if d.estado == 'instalado':
+    assigned = db.query(models.Vehiculo.id).filter_by(dispositivo_id=d.id, activo=True).first()
+    if assigned:
         raise HTTPException(status_code=400, detail="No se puede dar de baja un dispositivo instalado. Desvincúlelo primero.")
 
     d.activo = False

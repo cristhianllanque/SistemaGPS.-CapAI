@@ -11,7 +11,7 @@ import { WS_BASE_URL, getAssetUrl, isNativeApp, checkIsNativeApp } from '../conf
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
 import MobileBottomNav from './MobileBottomNav';
-import { emitLiveSync, useLiveSync } from '../utils/liveSync';
+import { emitLiveSync, readFlotaMessage, useLiveSync } from '../utils/liveSync';
 import {
   getNotificationPermissionState,
   subscribeUserToPush,
@@ -101,7 +101,7 @@ export default function Layout() {
         return merged;
       });
     }
-  });
+  }, true);
 
   // Hook de PWA oficial para Android e iOS
   const {
@@ -121,11 +121,36 @@ export default function Layout() {
     ? `${WS_BASE_URL}/ws/flota/${activeEmpresaId}?token=${token}` 
     : null;
   
-  const { lastJsonMessage } = useWebSocket(WS_URL, {
+  const { lastJsonMessage, readyState } = useWebSocket(WS_URL, {
     share: true,
     shouldReconnect: (closeEvent) => closeEvent.code !== 1008,
     reconnectInterval: 3000,
+    onMessage: (event) => {
+      const message = readFlotaMessage(event);
+      if (!message || !['entity_updated', 'empresa_updated'].includes(message.type)) return;
+      if (usuario?.rol === 'superadmin' || (empresa?.id && Number(message.empresa_id) === Number(empresa.id))) {
+        emitLiveSync(message);
+      }
+    },
   });
+
+  useEffect(() => {
+    if (readyState === 1) emitLiveSync({ type: 'connection_restored' });
+  }, [readyState]);
+
+  useEffect(() => {
+    const refreshVisible = () => {
+      if (document.visibilityState === 'visible') emitLiveSync({ type: 'connection_restored' });
+    };
+    document.addEventListener('visibilitychange', refreshVisible);
+    window.addEventListener('online', refreshVisible);
+    window.addEventListener('pageshow', refreshVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshVisible);
+      window.removeEventListener('online', refreshVisible);
+      window.removeEventListener('pageshow', refreshVisible);
+    };
+  }, []);
 
   useEffect(() => {
     if (!lastJsonMessage) return;
@@ -221,18 +246,6 @@ export default function Layout() {
         }
         return curr;
       });
-      emitLiveSync(lastJsonMessage);
-    } else if (lastJsonMessage.type === 'empresa_updated') {
-      const updatedEmp = lastJsonMessage.empresa;
-      if (updatedEmp && empresa?.id && Number(updatedEmp.id) === Number(empresa.id)) {
-        setEmpresa((prev) => {
-          const merged = { ...prev, ...updatedEmp };
-          localStorage.setItem('empresa', JSON.stringify(merged));
-          return merged;
-        });
-      }
-      emitLiveSync(lastJsonMessage);
-    } else if (lastJsonMessage.type === 'entity_updated') {
       emitLiveSync(lastJsonMessage);
     }
   }, [lastJsonMessage]);

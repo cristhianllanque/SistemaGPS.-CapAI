@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc
+from sqlalchemy import String, cast
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 
@@ -30,8 +30,56 @@ def parse_filter_to_naive_utc(raw_str: str, is_end: bool = False) -> datetime:
 from app.api.deps import get_db, get_current_user
 from app.db import models, schemas
 from app.websockets.manager import manager
+from app.services.gps_assignments import notify_vehicle_change, set_vehicle_device
 
 router = APIRouter()
+
+
+def _vehiculos_con_telemetria(query, db: Session):
+    lectura = models.LecturaGPS
+    vehiculo = models.Vehiculo
+    ultima_id = db.query(lectura.id).filter(
+        lectura.vehiculo_id == vehiculo.id,
+        lectura.timestamp.is_not(None),
+        lectura.latitud.between(-90, 90),
+        lectura.longitud.between(-180, 180),
+        (lectura.latitud != 0) | (lectura.longitud != 0),
+    ).order_by(lectura.timestamp.desc(), lectura.id.desc()).limit(1).correlate(vehiculo).scalar_subquery()
+    rows = query.options(
+        joinedload(vehiculo.dispositivo), joinedload(vehiculo.conductor), joinedload(vehiculo.empresa)
+    ).outerjoin(lectura, lectura.id == ultima_id).add_entity(lectura).all()
+    with_readings = [vehicle.id for vehicle, last in rows if last]
+    pending = set(db.query(models.AlertaPanico.vehiculo_id, models.AlertaPanico.tipo).filter(
+        models.AlertaPanico.vehiculo_id.in_(with_readings),
+        models.AlertaPanico.estado == "pendiente",
+        models.AlertaPanico.tipo.in_(["sabotaje", "panico"]),
+    ).all()) if with_readings else set()
+
+    now = datetime.utcnow()
+    result = []
+    for vehicle, last in rows:
+        data = schemas.VehiculoOut.model_validate(vehicle)
+        if vehicle.empresa:
+            data.empresa_nombre = vehicle.empresa.nombre
+            data.empresa_limite_velocidad = vehicle.empresa.limite_velocidad or 90
+        if last:
+            demo = vehicle.activo and vehicle.placa.startswith("DEMO-")
+            online = demo or bool(
+                vehicle.activo and vehicle.dispositivo and vehicle.dispositivo.activo
+                and (vehicle.gps_asignado_at is None or last.timestamp >= vehicle.gps_asignado_at.replace(microsecond=0))
+                and abs((now - last.timestamp).total_seconds()) <= 900
+            )
+            data.ultima_lectura = schemas.LecturaGPSBase(
+                latitud=last.latitud, longitud=last.longitud, timestamp=now if demo else last.timestamp,
+                velocidad=(last.velocidad or 0) if online else 0,
+                ignicion=online and bool(last.ignicion),
+                boton_panico=(vehicle.id, "panico") in pending,
+                sabotaje=(vehicle.id, "sabotaje") in pending and (last.bateria_ext is None or last.bateria_ext < 7),
+                bateria_ext=last.bateria_ext, bateria_int=last.bateria_int,
+                bateria_porcentaje=last.bateria_porcentaje, online=online,
+            )
+        result.append(data)
+    return result
 
 
 @router.get("/", response_model=List[schemas.VehiculoOut])
@@ -40,70 +88,32 @@ def list_vehiculos(
     estado: Optional[str] = Query(None),
     empresa_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(get_current_user)
+    current_user: models.Usuario = Depends(get_current_user),
+    archivados: bool = False,
 ):
-    query = db.query(models.Vehiculo).options(
-        joinedload(models.Vehiculo.dispositivo),
-        joinedload(models.Vehiculo.conductor),
-        joinedload(models.Vehiculo.empresa)
-    ).filter(models.Vehiculo.activo == True)
-
-    if current_user.rol == 'superadmin':
+    query = db.query(models.Vehiculo)
+    if archivados:
+        if current_user.rol != "superadmin":
+            raise HTTPException(403, "Solo el administrador principal puede ver las bajas individuales.")
+        vehicle = models.Vehiculo
+        legacy_suffix = "-B" + cast(vehicle.id, String)
+        query = query.filter(
+            vehicle.activo.is_(False),
+            vehicle.baja_individual_at.is_not(None)
+            | (vehicle.empresa.has(activo=True) & ~vehicle.placa.endswith(legacy_suffix)),
+        )
+    else:
+        query = query.filter(models.Vehiculo.activo.is_(True))
+    if current_user.rol == "superadmin":
         if empresa_id:
             query = query.filter(models.Vehiculo.empresa_id == empresa_id)
     else:
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
-
     if estado:
         query = query.filter(models.Vehiculo.estado == estado)
     if search:
         query = query.filter(models.Vehiculo.placa.contains(search))
-
-    vehiculos = query.order_by(models.Vehiculo.created_at.desc()).all()
-
-    result = []
-    now_utc = datetime.utcnow()
-    for v in vehiculos:
-        data = schemas.VehiculoOut.model_validate(v)
-        if v.empresa:
-            data.empresa_nombre = v.empresa.nombre
-            data.empresa_limite_velocidad = v.empresa.limite_velocidad or 90
-        # Attach last GPS reading
-        ultima = db.query(models.LecturaGPS).filter(
-            models.LecturaGPS.vehiculo_id == v.id
-        ).order_by(desc(models.LecturaGPS.id)).first()
-        if ultima:
-            lect_out = schemas.LecturaGPSBase.model_validate(ultima)
-            is_demo = bool(v.placa and v.placa.startswith('DEMO-'))
-            if is_demo:
-                is_online = True
-                lect_out.timestamp = now_utc
-            else:
-                # Use abs to prevent micro clock skews from failing
-                diff_seconds = abs((now_utc - ultima.timestamp).total_seconds())
-                is_online = diff_seconds <= 900  # Online if reported within 15 minutes
-            lect_out.online = is_online
-            # Si el GPS lleva más de 15 min sin reportar (apagado/desconectado), en tiempo real su velocidad es 0 y motor OFF
-            lect_out.ignicion = bool(ultima.ignicion) if is_online else False
-            lect_out.velocidad = (ultima.velocidad or 0) if is_online else 0
-            lect_out.bateria_ext = ultima.bateria_ext
-            lect_out.bateria_int = ultima.bateria_int
-            lect_out.bateria_porcentaje = ultima.bateria_porcentaje
-            has_pending_sab = db.query(models.AlertaPanico.id).filter(
-                models.AlertaPanico.vehiculo_id == v.id,
-                models.AlertaPanico.estado == 'pendiente',
-                models.AlertaPanico.tipo == 'sabotaje'
-            ).first() is not None
-            has_pending_panic = db.query(models.AlertaPanico.id).filter(
-                models.AlertaPanico.vehiculo_id == v.id,
-                models.AlertaPanico.estado == 'pendiente',
-                models.AlertaPanico.tipo == 'panico'
-            ).first() is not None
-            lect_out.sabotaje = has_pending_sab and (ultima.bateria_ext is None or ultima.bateria_ext < 7.0)
-            lect_out.boton_panico = has_pending_panic
-            data.ultima_lectura = lect_out
-        result.append(data)
-    return result
+    return _vehiculos_con_telemetria(query.order_by(models.Vehiculo.created_at.desc()), db)
 
 
 @router.get("/{vehiculo_id}", response_model=schemas.VehiculoOut)
@@ -112,57 +122,13 @@ def get_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    query = db.query(models.Vehiculo).options(
-        joinedload(models.Vehiculo.dispositivo),
-        joinedload(models.Vehiculo.conductor),
-        joinedload(models.Vehiculo.empresa)
-    ).filter(models.Vehiculo.id == vehiculo_id)
-
-    if current_user.rol != 'superadmin':
+    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
+    if current_user.rol != "superadmin":
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
-
-    v = query.first()
-    if not v:
-        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
-    
-    data = schemas.VehiculoOut.model_validate(v)
-    if v.empresa:
-        data.empresa_nombre = v.empresa.nombre
-        data.empresa_limite_velocidad = v.empresa.limite_velocidad or 90
-
-    ultima = db.query(models.LecturaGPS).filter(
-        models.LecturaGPS.vehiculo_id == v.id
-    ).order_by(desc(models.LecturaGPS.id)).first()
-    if ultima:
-        lect_out = schemas.LecturaGPSBase.model_validate(ultima)
-        is_demo = bool(v.placa and v.placa.startswith('DEMO-'))
-        if is_demo:
-            is_online = True
-            lect_out.timestamp = datetime.utcnow()
-        else:
-            diff_seconds = abs((datetime.utcnow() - ultima.timestamp).total_seconds())
-            is_online = diff_seconds <= 900
-        lect_out.online = is_online
-        lect_out.ignicion = bool(ultima.ignicion) if is_online else False
-        lect_out.velocidad = (ultima.velocidad or 0) if is_online else 0
-        lect_out.bateria_ext = ultima.bateria_ext
-        lect_out.bateria_int = ultima.bateria_int
-        lect_out.bateria_porcentaje = ultima.bateria_porcentaje
-        has_pending_sab = db.query(models.AlertaPanico.id).filter(
-            models.AlertaPanico.vehiculo_id == v.id,
-            models.AlertaPanico.estado == 'pendiente',
-            models.AlertaPanico.tipo == 'sabotaje'
-        ).first() is not None
-        has_pending_panic = db.query(models.AlertaPanico.id).filter(
-            models.AlertaPanico.vehiculo_id == v.id,
-            models.AlertaPanico.estado == 'pendiente',
-            models.AlertaPanico.tipo == 'panico'
-        ).first() is not None
-        lect_out.sabotaje = has_pending_sab and (ultima.bateria_ext is None or ultima.bateria_ext < 7.0)
-        lect_out.boton_panico = has_pending_panic
-        data.ultima_lectura = lect_out
-
-    return data
+    rows = _vehiculos_con_telemetria(query, db)
+    if not rows:
+        raise HTTPException(404, "Vehículo no encontrado")
+    return rows[0]
 
 
 @router.post("/", response_model=schemas.VehiculoOut, status_code=201)
@@ -223,13 +189,22 @@ def update_vehiculo(
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
 
-    v = query.first()
+    v = query.filter(models.Vehiculo.activo.is_(True)).with_for_update().first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
     update_data = payload.model_dump(exclude_unset=True)
     if current_user.rol != 'superadmin':
         update_data.pop("empresa_id", None)
+    old_owner = v.empresa_id
+    if "empresa_id" in update_data and update_data["empresa_id"] != old_owner:
+        if v.dispositivo_id or db.query(models.LecturaGPS.id).filter_by(vehiculo_id=v.id).first() \
+                or db.query(models.AlertaPanico.id).filter_by(vehiculo_id=v.id).first():
+            raise HTTPException(409, "Para cambiar de empresa, crea una ficha en el destino y traslada el GPS. El historial pertenece a la empresa original.")
+        target = db.query(models.Empresa.id).filter_by(id=update_data["empresa_id"], activo=True).first()
+        if not target:
+            raise HTTPException(400, "Selecciona una empresa activa.")
+        v.conductor_id = None
 
     if "placa" in update_data:
         exists = db.query(models.Vehiculo).filter(
@@ -255,7 +230,9 @@ def update_vehiculo(
     if v_reloaded.empresa:
         data.empresa_nombre = v_reloaded.empresa.nombre
         data.empresa_limite_velocidad = v_reloaded.empresa.limite_velocidad or 90
-    manager.notify_sync(v_reloaded.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v_reloaded.id})
+    notify_vehicle_change(v_reloaded.empresa_id, v_reloaded.id)
+    if old_owner != v_reloaded.empresa_id:
+        notify_vehicle_change(old_owner, v_reloaded.id)
     return data
 
 
@@ -273,33 +250,20 @@ def vincular_vehiculo(
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
 
-    v = query.first()
+    v = query.filter(models.Vehiculo.activo.is_(True)).with_for_update().first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
+    inventory_owners = None
     if payload.dispositivo_id is not None:
-        disp_query = db.query(models.Dispositivo).filter(models.Dispositivo.id == payload.dispositivo_id)
-        if current_user.rol != 'superadmin':
-            disp_query = disp_query.filter(models.Dispositivo.empresa_id == current_user.empresa_id)
-        disp = disp_query.first()
-
-        if not disp:
-            raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
-        if disp.estado == 'instalado' and v.dispositivo_id != disp.id:
-            raise HTTPException(status_code=400, detail="El dispositivo ya está instalado en otro vehículo")
-
-        # If vehicle already had a different device, release the old one
-        if v.dispositivo_id and v.dispositivo_id != payload.dispositivo_id:
-            old_disp = db.query(models.Dispositivo).filter(models.Dispositivo.id == v.dispositivo_id).first()
-            if old_disp:
-                old_disp.estado = 'disponible'
-
-        v.dispositivo_id = payload.dispositivo_id
-        disp.estado = 'instalado'
-        disp.empresa_id = v.empresa_id
+        inventory_owners = set_vehicle_device(db, v, payload.dispositivo_id)
 
     if payload.conductor_id is not None:
-        cond_query = db.query(models.Conductor).filter(models.Conductor.id == payload.conductor_id)
+        cond_query = db.query(models.Conductor).filter(
+            models.Conductor.id == payload.conductor_id,
+            models.Conductor.empresa_id == v.empresa_id,
+            models.Conductor.activo.is_(True),
+        )
         if current_user.rol != 'superadmin':
             cond_query = cond_query.filter(models.Conductor.empresa_id == current_user.empresa_id)
         cond = cond_query.first()
@@ -330,7 +294,7 @@ def vincular_vehiculo(
     if v_reloaded.empresa:
         data.empresa_nombre = v_reloaded.empresa.nombre
         data.empresa_limite_velocidad = v_reloaded.empresa.limite_velocidad or 90
-    manager.notify_sync(v_reloaded.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v_reloaded.id})
+    notify_vehicle_change(v_reloaded.empresa_id, v_reloaded.id, inventory_owners)
     return data
 
 
@@ -346,15 +310,11 @@ def desvincular_dispositivo(
     query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
     if current_user.rol != 'superadmin':
         query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
-    v = query.first()
+    v = query.filter(models.Vehiculo.activo.is_(True)).with_for_update().first()
     if not v:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
-    if v.dispositivo_id:
-        disp = db.query(models.Dispositivo).filter(models.Dispositivo.id == v.dispositivo_id).first()
-        if disp:
-            disp.estado = 'disponible'
-        v.dispositivo_id = None
+    inventory_owners = set_vehicle_device(db, v, None)
 
     db.commit()
     db.refresh(v)
@@ -369,7 +329,7 @@ def desvincular_dispositivo(
     if v_reloaded.empresa:
         data.empresa_nombre = v_reloaded.empresa.nombre
         data.empresa_limite_velocidad = v_reloaded.empresa.limite_velocidad or 90
-    manager.notify_sync(v_reloaded.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v_reloaded.id})
+    notify_vehicle_change(v_reloaded.empresa_id, v_reloaded.id, inventory_owners)
     return data
 
 
@@ -413,28 +373,47 @@ def delete_vehiculo(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
-    if current_user.rol != 'superadmin':
-        raise HTTPException(status_code=403, detail="Acción permitida exclusivamente para el Administrador Principal (Copai)")
-
-    query = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id)
-    if current_user.rol != 'superadmin':
-        query = query.filter(models.Vehiculo.empresa_id == current_user.empresa_id)
-    v = query.first()
-    if not v:
-        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
-
-    # Release the device if assigned
-    if v.dispositivo_id:
-        disp = db.query(models.Dispositivo).filter(models.Dispositivo.id == v.dispositivo_id).first()
-        if disp:
-            disp.estado = 'disponible'
-
-    v.activo = False
-    v.dispositivo_id = None
-    v.conductor_id = None
-    db.commit()
-    manager.notify_sync(v.empresa_id, {"type": "entity_updated", "entity": "vehiculos", "vehiculo_id": v.id})
+    if current_user.rol != "superadmin":
+        raise HTTPException(403, "Solo el administrador principal puede dar de baja vehículos.")
+    v = db.query(models.Vehiculo).filter_by(id=vehiculo_id).with_for_update().first()
+    if not v or (not v.activo and not _individual_archive(v)):
+        raise HTTPException(404, "Vehículo no encontrado")
+    if v.dispositivo_id is not None:
+        raise HTTPException(409, "Desvincule el GPS antes de dar de baja el vehículo.")
+    if v.activo:
+        v.activo = False
+        v.baja_individual_at = datetime.utcnow()
+        v.conductor_id = None
+        db.commit()
+        notify_vehicle_change(v.empresa_id, v.id)
     return {"status": "ok", "message": "Vehículo dado de baja"}
+
+
+def _individual_archive(vehicle: models.Vehiculo):
+    return vehicle.baja_individual_at is not None or (
+        bool(vehicle.empresa and vehicle.empresa.activo) and not vehicle.placa.endswith(f"-B{vehicle.id}")
+    )
+
+
+@router.post("/{vehiculo_id}/reactivar")
+def restore_vehiculo(
+    vehiculo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user)
+):
+    if current_user.rol != "superadmin":
+        raise HTTPException(403, "Solo el administrador principal puede reactivar vehículos.")
+    v = db.query(models.Vehiculo).filter_by(id=vehiculo_id).with_for_update().first()
+    if not v or (not v.activo and not _individual_archive(v)):
+        raise HTTPException(404, "Baja individual no encontrada")
+    if not v.empresa or not v.empresa.activo:
+        raise HTTPException(409, "Reactive primero la cuenta propietaria del vehículo.")
+    if not v.activo:
+        v.activo = True
+        v.baja_individual_at = None
+        db.commit()
+        notify_vehicle_change(v.empresa_id, v.id)
+    return {"status": "ok", "message": "Vehículo reactivado"}
 
 
 import math
@@ -475,7 +454,10 @@ def get_historial(
     lecturas = db.query(models.LecturaGPS).filter(
         models.LecturaGPS.vehiculo_id == vehiculo_id,
         models.LecturaGPS.timestamp >= inicio,
-        models.LecturaGPS.timestamp <= fin
+        models.LecturaGPS.timestamp <= fin,
+        models.LecturaGPS.latitud.between(-90, 90),
+        models.LecturaGPS.longitud.between(-180, 180),
+        (models.LecturaGPS.latitud != 0) | (models.LecturaGPS.longitud != 0),
     ).order_by(models.LecturaGPS.timestamp).all()
 
     if not lecturas and bool(vehiculo.placa and vehiculo.placa.startswith('DEMO-')):
@@ -537,8 +519,7 @@ def get_historial(
             "timestamp": lec.timestamp
         })
         
-        if lec.velocidad > velocidad_maxima:
-            velocidad_maxima = lec.velocidad
+        velocidad_maxima = max(velocidad_maxima, lec.velocidad or 0)
             
         if i > 0:
             prev_lec = lecturas[i-1]

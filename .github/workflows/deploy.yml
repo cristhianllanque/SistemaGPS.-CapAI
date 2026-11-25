@@ -33,11 +33,12 @@ jobs:
           cache: 'pip'
           cache-dependency-path: backend/requirements.txt
 
-      - name: Validar Sintaxis Backend
+      - name: Validar Sintaxis y Pruebas del Backend
         working-directory: ./backend
         run: |
           pip install -r requirements.txt --quiet
           python -m compileall app/
+          python -m unittest discover -s tests
 
   deploy:
     name: Despliegue Autónomo a AWS EC2

@@ -5,10 +5,11 @@ import axios from 'axios';
 import {
   Truck, Plus, Search, Edit2, Trash2, X, Check, AlertCircle, Building2,
   MapPin, User, BatteryCharging, Gauge, Compass, Map as MapIcon, Moon, Power,
-  Radio, RefreshCw, Car, Share2
+  Radio, RefreshCw, Car, Share2, RotateCcw
 } from 'lucide-react';
 import { API_BASE_URL as API, WS_BASE_URL, getAssetUrl } from '../config';
-import { useLiveSync } from '../utils/liveSync';
+import { readFlotaMessage, useLiveSync } from '../utils/liveSync';
+import { hasValidPosition, useFleetVehicles, vehicleConnectionLabel } from '../utils/fleet';
 import { useVehicleAddresses } from '../utils/reverseGeocode';
 import { parseServerUTC } from '../utils/peruTime';
 
@@ -59,10 +60,10 @@ export default function VehiclesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [vehiculos, setVehiculos] = useState([]);
   const [empresas, setEmpresas] = useState([]);
   const [selectedEmpresaFilter, setSelectedEmpresaFilter] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
+  const [changingVehicle, setChangingVehicle] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ ...emptyForm });
@@ -104,21 +105,28 @@ export default function VehiclesPage() {
   const isSuperAdmin = usuario.rol === 'superadmin';
   const isParticular = empresaLocal?.tipo === 'particular';
   const canEdit = isSuperAdmin || (usuario.rol === 'admin' && !isParticular);
+  const archived = isSuperAdmin && viewMode === 'padron' && showArchived;
+  const { vehiculos: fleet, loading, fleetError, refresh: fetchData, receiveTelemetry } = useFleetVehicles(
+    token, isSuperAdmin ? selectedEmpresaFilter : '', archived,
+  );
+  const vehiculos = useMemo(() => fleet.filter((vehicle) => vehicle.activo !== archived), [fleet, archived]);
   const headers = { Authorization: `Bearer ${token}` };
   const primaryColor = empresaLocal?.color_primario || '#16A34A';
 
   const handleShareLocationWhatsApp = (v, streetAddr) => {
     const u = v?.ultima_lectura;
-    if (!u || u.latitud == null || u.longitud == null) return;
+    if (!hasValidPosition(u)) return;
+    const readingDate = parseServerUTC(u.timestamp);
+    const isOnline = u.online && readingDate && Math.abs(Date.now() - readingDate.getTime()) < 900000;
     const speed = u.velocidad || 0;
-    const estadoTxt = speed > 0
+    const estadoTxt = !isOnline ? vehicleConnectionLabel(v) : speed > 0
       ? `En movimiento (${speed} km/h)`
       : u.ignicion
       ? 'Motor encendido (Detenido)'
       : 'Apagado / Estacionado';
     const mapsUrl = `https://www.google.com/maps?q=${u.latitud},${u.longitud}`;
     const msg = [
-      `📍 *Ubicación en Vivo - ${v.placa}*`,
+      `📍 *${isOnline ? 'Ubicación en vivo' : 'Última ubicación conocida'} - ${v.placa}*`,
       `🛣️ Dirección: ${streetAddr || 'Ubicación satelital'}`,
       `🚗 Estado: ${estadoTxt}`,
       `🕒 Reporte: ${u.timestamp ? formatHumanPeruDateTime(u.timestamp) : 'En vivo'}`,
@@ -130,31 +138,18 @@ export default function VehiclesPage() {
   // Conexión WebSocket compartida para actualizar velocidad, motor, batería y posición en tiempo real
   const wsEmpresaId = empresaLocal?.id || 1;
   const WS_URL = token ? `${WS_BASE_URL}/ws/flota/${wsEmpresaId}?token=${token}` : null;
-  const { lastJsonMessage } = useWebSocket(WS_URL, {
+  useWebSocket(WS_URL, {
     share: true,
     shouldReconnect: (closeEvent) => closeEvent.code !== 1008,
     reconnectInterval: 3000,
+    filter: () => false,
+    onMessage: (event) => {
+      const message = readFlotaMessage(event);
+      if (message?.type !== 'telemetria') return;
+      if (!isSuperAdmin && (!empresaLocal?.id || Number(message.empresa_id) !== Number(empresaLocal.id))) return;
+      receiveTelemetry(message);
+    },
   });
-
-  useEffect(() => {
-    if (!lastJsonMessage) return;
-    if (!isSuperAdmin && (!lastJsonMessage.empresa_id || !empresaLocal?.id || Number(lastJsonMessage.empresa_id) !== Number(empresaLocal.id))) {
-      return;
-    }
-    if (lastJsonMessage.type === 'telemetria' && lastJsonMessage.vehiculo_id) {
-      setVehiculos((prev) =>
-        prev.map((v) =>
-          v.id === lastJsonMessage.vehiculo_id
-            ? {
-                ...v,
-                empresa_limite_velocidad: lastJsonMessage.limite_velocidad || v.empresa_limite_velocidad,
-                ultima_lectura: { ...(v.ultima_lectura || {}), ...lastJsonMessage.data, online: true }
-              }
-            : v
-        )
-      );
-    }
-  }, [lastJsonMessage, isSuperAdmin, empresaLocal?.id]);
 
   // Geocodificación inversa en vivo (Avenida / Jirón / Calle + Distrito) con caché instantánea
   const addresses = useVehicleAddresses(vehiculos);
@@ -169,30 +164,13 @@ export default function VehiclesPage() {
     }
   };
 
-  const fetchData = async () => {
-    try {
-      const params = {};
-      if (isSuperAdmin && selectedEmpresaFilter) params.empresa_id = selectedEmpresaFilter;
-      const res = await axios.get(`${API}/api/vehiculos/`, { headers, params });
-      setVehiculos(res.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchEmpresas();
   }, []);
 
-  useEffect(() => {
+  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'empresas', 'particulares'], (detail) => {
     fetchData();
-  }, [selectedEmpresaFilter]);
-
-  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'empresas'], () => {
-    fetchData();
-    fetchEmpresas();
+    if (detail.entity === 'empresas' || detail.type === 'connection_restored') fetchEmpresas();
   });
 
   // Búsqueda local instantánea por placa, padrón, marca, modelo, conductor o avenida/calle
@@ -316,15 +294,47 @@ export default function VehiclesPage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Está seguro de dar de baja este vehículo?')) return;
+  const changeVehicleStatus = async (vehicle) => {
+    const action = archived ? 'reactivar' : 'dar de baja';
+    if (changingVehicle || !confirm(`¿Quieres ${action} el vehículo ${vehicle.placa}?`)) return;
+    setChangingVehicle(true);
     try {
-      await axios.delete(`${API}/api/vehiculos/${id}`, { headers });
-      fetchData();
+      if (archived) {
+        await axios.post(`${API}/api/vehiculos/${vehicle.id}/reactivar`, {}, { headers });
+      } else {
+        await axios.delete(`${API}/api/vehiculos/${vehicle.id}`, { headers });
+      }
+      await fetchData();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al eliminar');
+      alert(err.response?.data?.detail || `No se pudo ${action} el vehículo.`);
+    } finally {
+      setChangingVehicle(false);
     }
   };
+
+  const vehicleActions = (vehicle) => (
+    <>
+      {archived ? (
+        <button type="button" onClick={() => navigate(`/historial-rutas?vehiculo=${vehicle.id}`)}
+          className="p-2 text-xs font-semibold text-indigo-700">
+          Historial
+        </button>
+      ) : (
+        <button type="button" onClick={() => openEdit(vehicle)} title="Editar" aria-label="Editar"
+          className="p-2 text-slate-500 hover:text-emerald-700">
+          <Edit2 size={15} />
+        </button>
+      )}
+      {isSuperAdmin && (archived || vehicle.dispositivo_id == null) && (
+        <button type="button" disabled={changingVehicle} onClick={() => changeVehicleStatus(vehicle)}
+          title={archived ? 'Reactivar vehículo' : 'Dar de baja vehículo'}
+          aria-label={archived ? 'Reactivar vehículo' : 'Dar de baja vehículo'}
+          className="p-2 text-slate-500 hover:text-red-600 disabled:opacity-50">
+          {archived ? <RotateCcw size={15} /> : <Trash2 size={15} />}
+        </button>
+      )}
+    </>
+  );
 
   return (
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto">
@@ -338,7 +348,7 @@ export default function VehiclesPage() {
                 ? 'Mis Vehículos • Activos en Vivo'
                 : viewMode === 'activos'
                 ? 'Mi Flota • Activos en Vivo'
-                : 'Padrón de Vehículos'}
+                : archived ? 'Bajas individuales' : 'Padrón de Vehículos'}
             </span>
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
@@ -381,7 +391,13 @@ export default function VehiclesPage() {
             </div>
           )}
 
-          {isSuperAdmin && (
+          {isSuperAdmin && viewMode === 'padron' && (
+            <button type="button" onClick={() => setShowArchived(!archived)}
+              aria-pressed={archived} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700">
+              {archived ? 'Ver padrón activo' : 'Ver bajas'}
+            </button>
+          )}
+          {isSuperAdmin && !archived && (
             <button
               type="button"
               onClick={openCreate}
@@ -394,13 +410,19 @@ export default function VehiclesPage() {
         </div>
       </div>
 
+      {fleetError && (
+        <div role="status" className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {fleetError}{' '}
+          <button type="button" onClick={fetchData} className="font-bold underline">Reintentar</button>
+        </div>
+      )}
       {/* Buscador + Filtro por Empresa (Superadmin) */}
       <div className="flex flex-col sm:flex-row gap-2.5 mb-3.5">
         <div className="relative flex-1">
           <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder={`Buscar entre ${vehiculos.length} activos (placa, padrón, conductor o avenida)...`}
+            placeholder={`Buscar entre ${vehiculos.length} vehículos (placa, padrón, conductor o avenida)...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200/90 rounded-xl text-sm text-slate-800 placeholder-slate-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -519,9 +541,9 @@ export default function VehiclesPage() {
                       const isPanic = isOnline && u && Boolean(u.boton_panico);
 
                       const vehicleTitle = [v.marca, v.modelo].filter(Boolean).join(' ').toUpperCase() || (v.tipo ? v.tipo.toUpperCase() : 'UNIDAD');
-                      const streetAddress = u && u.latitud != null
+                      const streetAddress = hasValidPosition(u)
                         ? (addresses[v.id] || 'Ubicando avenida / calle...')
-                        : (v.dispositivo ? 'Esperando primer reporte GPS...' : 'Sin equipo GPS vinculado');
+                        : vehicleConnectionLabel(v);
 
                       return (
                         <div
@@ -575,14 +597,14 @@ export default function VehiclesPage() {
                                     <Power size={12} />
                                     <span>Encendido Detenido</span>
                                   </span>
-                                ) : u ? (
+                                ) : isOnline ? (
                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-extrabold bg-slate-500 text-white">
                                     <Moon size={12} />
                                     <span>Apagado</span>
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-slate-200 text-slate-600">
-                                    <span>Sin Señal GPS</span>
+                                    <span>{vehicleConnectionLabel(v)}</span>
                                   </span>
                                 )}
 
@@ -594,14 +616,14 @@ export default function VehiclesPage() {
                                       : 'bg-slate-100 text-slate-700 border-slate-200/80'
                                   }`}
                                 >
-                                  <span>{speed} km/h</span>
+                                  <span>{isOnline ? `${speed} km/h` : '— km/h'}</span>
                                 </span>
 
                                 {/* Píldora de Batería Interna del GPS (%) */}
-                                {u && (
+                                {isOnline && u.bateria_porcentaje != null && (
                                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200/80">
                                     <BatteryCharging size={13} className="text-emerald-600" />
-                                    <span>{u.bateria_porcentaje !== null && u.bateria_porcentaje !== undefined ? `${u.bateria_porcentaje}%` : '88%'}</span>
+                                    <span>{u.bateria_porcentaje}%</span>
                                   </span>
                                 )}
 
@@ -760,7 +782,7 @@ export default function VehiclesPage() {
                             {v.placa}
                           </span>
                           <span className={`inline-block px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${ESTADO_COLORS[v.estado] || 'bg-slate-100'}`}>
-                            {v.estado}
+                            {archived ? 'De baja' : v.estado}
                           </span>
                         </div>
                         {isSuperAdmin && (
@@ -775,22 +797,7 @@ export default function VehiclesPage() {
 
                       {canEdit && (
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => openEdit(v)}
-                            className="p-2 text-slate-500 hover:text-emerald-600 bg-slate-50 hover:bg-emerald-50 rounded-lg border border-slate-200/80 transition-colors cursor-pointer"
-                            title="Editar"
-                          >
-                            <Edit2 size={15} />
-                          </button>
-                          {isSuperAdmin && (
-                            <button
-                              onClick={() => handleDelete(v.id)}
-                              className="p-2 text-slate-500 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg border border-slate-200/80 transition-colors cursor-pointer"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
+                          {vehicleActions(v)}
                         </div>
                       )}
                     </div>
@@ -870,7 +877,7 @@ export default function VehiclesPage() {
                     <tr>
                       <td colSpan={canEdit ? (isSuperAdmin ? '8' : '7') : '6'} className="text-center py-12 text-slate-400">
                         <Truck size={40} className="mx-auto mb-3 opacity-30" />
-                        <p className="font-medium">No hay vehículos registrados</p>
+                        <p className="font-medium">{archived ? 'No hay bajas individuales' : 'No hay vehículos registrados'}</p>
                       </td>
                     </tr>
                   ) : searchedVehiculos.map((v) => (
@@ -915,16 +922,13 @@ export default function VehiclesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full ${ESTADO_COLORS[v.estado] || 'bg-slate-100'}`}>
-                          {v.estado}
+                          {archived ? 'De baja' : v.estado}
                         </span>
                       </td>
                       {canEdit && (
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => openEdit(v)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors cursor-pointer" title="Editar"><Edit2 size={15} /></button>
-                            {isSuperAdmin && (
-                              <button onClick={() => handleDelete(v.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer" title="Eliminar"><Trash2 size={15} /></button>
-                            )}
+                            {vehicleActions(v)}
                           </div>
                         </td>
                       )}

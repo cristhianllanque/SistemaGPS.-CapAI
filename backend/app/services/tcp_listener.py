@@ -1,8 +1,7 @@
 import asyncio
 import struct
 import logging
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
+from datetime import datetime, timedelta, timezone
 from app.db.database import SessionLocal
 from app.db import models
 from app.services.teltonika_parser import TeltonikaCodec8Parser
@@ -16,72 +15,51 @@ async def run_in_thread(func, *args, **kwargs):
 
 def verify_imei_in_db(imei: str):
     with SessionLocal() as db:
-        dispositivo = db.query(models.Dispositivo).filter(models.Dispositivo.imei == imei, models.Dispositivo.activo == True).first()
-        if not dispositivo:
+        device = db.query(models.Dispositivo).filter_by(imei=imei, activo=True).with_for_update().first()
+        if not device:
             return None
-
-        dispositivo.ultima_conexion = datetime.utcnow()
+        device.ultima_conexion = datetime.utcnow()
+        device_id, owner_id = device.id, device.empresa_id
         db.commit()
-            
-        vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.dispositivo_id == dispositivo.id).first()
-        if not vehiculo:
-            return {
-                'dispositivo_id': dispositivo.id,
-                'empresa_id': dispositivo.empresa_id or 1,
-                'vehiculo_id': None,
-                'placa': 'EN PRUEBA (SIN VEHÍCULO)',
-                'conductor': 'Banco de pruebas'
-            }
-            
-        return {
-            'dispositivo_id': dispositivo.id,
-            'empresa_id': dispositivo.empresa_id,
-            'vehiculo_id': vehiculo.id,
-            'placa': vehiculo.placa,
-            'conductor': vehiculo.conductor.nombre if vehiculo.conductor else "Sin conductor asignado"
-        }
+        return device_id, owner_id
 
-def touch_device_heartbeat(dispositivo_id: int):
-    if not dispositivo_id:
-        return
-    with SessionLocal() as db:
-        disp = db.query(models.Dispositivo).filter(models.Dispositivo.id == dispositivo_id).first()
-        if disp:
-            disp.ultima_conexion = datetime.utcnow()
-            db.commit()
 
-def save_records_to_db(vehiculo_id: int, records: list[dict]):
-    inserted_lecturas = []
+def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
+    received_lecturas = []
     panic_alert_id = None
     speed_alert_info = None
     sabotage_alert_info = None
-    
+
     with SessionLocal() as db:
-        # Obtain vehicle and company's speed limit
-        vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id).first()
-        limite_velocidad = 90
-        if vehiculo and vehiculo.empresa and vehiculo.empresa.limite_velocidad:
-            limite_velocidad = vehiculo.empresa.limite_velocidad
+        device = db.query(models.Dispositivo).filter_by(
+            id=dispositivo_id, imei=imei, activo=True,
+        ).with_for_update().first()
+        if not device:
+            return None
 
         now_utc = datetime.utcnow()
-        has_panic_button_enabled = True
-        is_5pin_920_model = False
-        if vehiculo and vehiculo.dispositivo:
-            vehiculo.dispositivo.ultima_conexion = now_utc
-            if vehiculo.dispositivo.tiene_boton_panico is False:
-                has_panic_button_enabled = False
-            modelo_str = (vehiculo.dispositivo.modelo or '').upper()
-            if '920' in modelo_str:
-                is_5pin_920_model = True
+        device.ultima_conexion = now_utc
+        # A device lock coordinates assignment changes with writes from existing sockets.
+        candidates = db.query(models.Vehiculo).filter_by(dispositivo_id=device.id, activo=True).limit(2).all()
+        if len(candidates) != 1 or candidates[0].empresa_id != device.empresa_id:
+            owner_id = device.empresa_id
+            db.commit()
+            return {"empresa_id": owner_id, "vehiculo_id": None, "lectura": None}
+
+        vehiculo = candidates[0]
+        vehiculo_id = vehiculo.id
+        limite_velocidad = (vehiculo.empresa.limite_velocidad if vehiculo.empresa else None) or 90
+        has_panic_button_enabled = device.tiene_boton_panico is not False
+        is_5pin_920_model = (device.modelo or "").strip().upper() in {"FMC920", "FMB920"}
         for r in records:
-            # Normalize timestamp to naive UTC for MySQL compatibility
-            ts = r['timestamp']
-            if hasattr(ts, 'tzinfo') and ts.tzinfo is not None:
-                ts = ts.replace(tzinfo=None)
-            # If the Teltonika internal battery drained completely, its RTC resets to 2004-01-01 (31/12/2003 UTC-5).
-            # Fall back to current server UTC time so the reading is never treated as 22 years old (offline).
+            ts = r["timestamp"]
+            if ts is not None and ts.tzinfo is not None:
+                ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+            # After a reassignment we cannot attribute records captured before it or
+            # records whose device clock cannot establish which assignment owned them.
+            if vehiculo.gps_asignado_at and (ts is None or ts < vehiculo.gps_asignado_at):
+                continue
             if ts is None or ts.year < 2025:
-                print(f"[TCP] RTC desincronizado detectado ({ts}), usando hora UTC del servidor ({now_utc})", flush=True)
                 ts = now_utc
 
             bateria_ext_v = r.get('bateria_ext')
@@ -93,6 +71,11 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
             raw_panic = bool(r.get('boton_panico')) or (is_5pin_920_model and bool(r.get('boton_panico_ain1')))
             is_panic_triggered = raw_panic and has_panic_button_enabled
 
+            posicion_valida = (
+                r.get("satellites", 0) > 0
+                and -90 <= r["latitude"] <= 90 and -180 <= r["longitude"] <= 180
+                and (r["latitude"] != 0 or r["longitude"] != 0)
+            )
             lectura = models.LecturaGPS(
                 vehiculo_id=vehiculo_id,
                 latitud=r['latitude'],
@@ -105,8 +88,9 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                 bateria_porcentaje=bateria_pct,
                 timestamp=ts
             )
-            db.add(lectura)
-            inserted_lecturas.append(lectura)
+            if posicion_valida:
+                db.add(lectura)
+            received_lecturas.append((lectura, posicion_valida))
             
             # 1. Panic button check (respeta si el dispositivo tiene habilitado botón de pánico)
             if is_panic_triggered:
@@ -245,30 +229,42 @@ def save_records_to_db(vehiculo_id: int, records: list[dict]):
                         f" | Energía restablecida ({bateria_ext_v}V a las {ts_peru.strftime('%H:%M:%S')} Hora Perú)"
                     ).strip(" | ")
                 
-        db.commit()
-
-        # Check if there is currently an active pending sabotage alert for this vehicle
         has_pending_sab = db.query(models.AlertaPanico.id).filter(
             models.AlertaPanico.vehiculo_id == vehiculo_id,
             models.AlertaPanico.estado == 'pendiente',
             models.AlertaPanico.tipo == 'sabotaje'
         ).first() is not None
-        
-        lecturas_dicts = [{
-            'latitud': l.latitud,
-            'longitud': l.longitud,
-            'velocidad': l.velocidad or 0,
-            'ignicion': bool(l.ignicion),
-            'boton_panico': bool(l.boton_panico),
-            'bateria_ext': l.bateria_ext,
-            'bateria_int': l.bateria_int,
-            'bateria_porcentaje': l.bateria_porcentaje,
-            'sabotaje': has_pending_sab and (l.bateria_ext is None or l.bateria_ext < 7.0),
-            'online': True,
-            'timestamp': (l.timestamp.isoformat() + 'Z') if l.timestamp else None
-        } for l in inserted_lecturas]
-        
-    return lecturas_dicts, panic_alert_id, speed_alert_info, sabotage_alert_info, limite_velocidad
+
+        result = {
+            "empresa_id": vehiculo.empresa_id,
+            "vehiculo_id": vehiculo_id,
+            "placa": vehiculo.placa,
+            "conductor": vehiculo.conductor.nombre if vehiculo.conductor else "Sin conductor asignado",
+            "limite_velocidad": limite_velocidad,
+            "panic_alert_id": panic_alert_id,
+            "speed_alert_info": speed_alert_info,
+            "sabotage_alert_info": sabotage_alert_info,
+            "lectura": None,
+        }
+        if received_lecturas:
+            # Prefer a valid position even if the last record in the batch has no fix.
+            l, posicion_valida = max(received_lecturas, key=lambda item: (item[1], item[0].timestamp))
+            result["lectura"] = {
+                "latitud": l.latitud if posicion_valida else None,
+                "longitud": l.longitud if posicion_valida else None,
+                "velocidad": l.velocidad or 0,
+                "ignicion": bool(l.ignicion),
+                "boton_panico": bool(l.boton_panico),
+                "bateria_ext": l.bateria_ext,
+                "bateria_int": l.bateria_int,
+                "bateria_porcentaje": l.bateria_porcentaje,
+                "sabotaje": has_pending_sab and (l.bateria_ext is None or l.bateria_ext < 7.0),
+                "online": abs((now_utc - l.timestamp).total_seconds()) <= 900,
+                "timestamp": l.timestamp.isoformat() + 'Z',
+            }
+        db.commit()
+        return result
+
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info('peername')
@@ -277,14 +273,13 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     
     try:
         # 1. Read IMEI packet: <2 bytes length> <length bytes ASCII string>
-        imei_header = await reader.read(2)
-        if len(imei_header) < 2:
-            writer.close()
-            await writer.wait_closed()
-            return
-            
+        imei_header = await asyncio.wait_for(reader.readexactly(2), timeout=15)
         imei_len = struct.unpack('>H', imei_header)[0]
-        imei_body = await reader.read(imei_len)
+        if imei_len != 15:
+            writer.write(b'\x00')
+            await writer.drain()
+            return
+        imei_body = await asyncio.wait_for(reader.readexactly(imei_len), timeout=15)
         imei_data = imei_header + imei_body
         
         imei = TeltonikaCodec8Parser.parse_imei(imei_data)
@@ -306,17 +301,13 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             await writer.wait_closed()
             return
             
-        print(f"[TCP] IMEI {imei} autenticado exitosamente ({device_info.get('placa')}). Enviando ACK.", flush=True)
+        logger.info("IMEI %s autenticado", imei)
         writer.write(b'\x01')
         await writer.drain()
         
-        dispositivo_id = device_info.get('dispositivo_id')
-        vehiculo_id = device_info['vehiculo_id']
-        empresa_id = device_info['empresa_id']
-        placa = device_info.get('placa', 'Desconocido')
-        conductor = device_info.get('conductor', 'Sin conductor asignado')
-        manager.notify_sync(empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": dispositivo_id})
-        
+        dispositivo_id, owner_id = device_info
+        manager.notify_sync(owner_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": dispositivo_id})
+
         # 2. Receive AVL Data Loop with Streaming Buffer & Framing
         buffer = bytearray()
         
@@ -356,23 +347,32 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     # Parse packet and verify CRC-16
                     records = TeltonikaCodec8Parser.parse_avl_data(packet_data, verify_crc=True)
                     
-                    if records:
-                        print(f"[TCP] Recibidos {len(records)} registros AVL válidos del IMEI {imei}", flush=True)
-                        if vehiculo_id is None:
-                            # Equipo en banco de pruebas (aún sin vehículo vinculado): actualizar latido y confirmar ACK
-                            await run_in_thread(touch_device_heartbeat, dispositivo_id)
-                            manager.notify_sync(empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": dispositivo_id})
-                            ack = struct.pack('>I', len(records))
-                            writer.write(ack)
-                            await writer.drain()
-                            continue
+                    if not records:
+                        writer.write(TeltonikaCodec8Parser.generate_ack(0))
+                        await writer.drain()
+                        continue
 
-                        lecturas_dicts, panic_alert_id, speed_alert_info, sabotage_alert_info, limite_velocidad = await run_in_thread(save_records_to_db, vehiculo_id, records)
-                        
-                        latest_record = lecturas_dicts[-1]
+                    update = await run_in_thread(save_records_to_db, dispositivo_id, imei, records)
+                    if update is None:
+                        return
+                    writer.write(TeltonikaCodec8Parser.generate_ack(len(records)))
+                    await writer.drain()
+                    empresa_id = update["empresa_id"]
+                    vehiculo_id = update["vehiculo_id"]
+                    latest_record = update["lectura"]
+                    if vehiculo_id is None:
+                        manager.notify_sync(empresa_id, {"type": "entity_updated", "entity": "dispositivos", "dispositivo_id": dispositivo_id})
+                    if latest_record:
+                        placa = update["placa"]
+                        conductor = update["conductor"]
+                        limite_velocidad = update["limite_velocidad"]
+                        panic_alert_id = update["panic_alert_id"]
+                        speed_alert_info = update["speed_alert_info"]
+                        sabotage_alert_info = update["sabotage_alert_info"]
                         broadcast_msg = {
                             "type": "telemetria",
                             "vehiculo_id": vehiculo_id,
+                            "dispositivo_id": dispositivo_id,
                             "placa": placa,
                             "conductor": conductor,
                             "limite_velocidad": limite_velocidad,
@@ -457,11 +457,6 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 )
                             )
                     
-                    # Respond with AVL ACK: 4 bytes big endian count of records
-                    ack_response = TeltonikaCodec8Parser.generate_ack(len(records))
-                    writer.write(ack_response)
-                    await writer.drain()
-                    
                 except ValueError as ve:
                     print(f"[TCP] Error de validación AVL desde {addr}: {ve}", flush=True)
                     # Even if validation fails on a corrupt packet, acknowledge 0 to request retransmit or flush
@@ -473,6 +468,8 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     
     except asyncio.CancelledError:
         pass
+    except (asyncio.IncompleteReadError, asyncio.TimeoutError):
+        logger.debug("Sesión Teltonika sin handshake completo: %s", addr)
     except ConnectionResetError:
         print(f"[TCP] Conexión reiniciada por el dispositivo {addr}", flush=True)
     except Exception as e:

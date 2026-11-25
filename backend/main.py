@@ -52,6 +52,17 @@ def ensure_subscription_columns():
 
 ensure_subscription_columns()
 
+def ensure_vehicle_lifecycle_columns():
+    columns = {column["name"] for column in inspect(engine).get_columns("vehiculos")}
+    datetime_type = "DATETIME(6)" if engine.dialect.name in {"mysql", "mariadb"} else "DATETIME"
+    with engine.begin() as conn:
+        if "gps_asignado_at" not in columns:
+            conn.execute(text(f"ALTER TABLE vehiculos ADD COLUMN gps_asignado_at {datetime_type} NULL"))
+        if "baja_individual_at" not in columns:
+            conn.execute(text("ALTER TABLE vehiculos ADD COLUMN baja_individual_at DATETIME NULL"))
+
+ensure_vehicle_lifecycle_columns()
+
 def purge_old_gps_readings(retention_days: int = 180):
     """Limpia lecturas crudas de GPS con más de 180 días (6 meses) para mantener la base de datos ligera y veloz."""
     try:

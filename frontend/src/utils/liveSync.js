@@ -2,6 +2,14 @@ import { useEffect, useRef } from 'react';
 
 export const LIVE_SYNC_EVENT = 'copai:live-sync';
 
+export function readFlotaMessage(event) {
+  try {
+    return JSON.parse(event.data);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Emite un evento reactivo en toda la aplicación (Web, iPhone PWA y Android APK)
  * cuando llega un cambio en vivo por WebSocket o tras guardar una acción local.
@@ -19,7 +27,7 @@ export function emitLiveSync(detail) {
  *   (ej: ['vehiculos', 'conductores', 'dispositivos', 'empresas', 'alertas', 'particulares'])
  * @param {(detail: any) => void} onSync - Función que refresca o aplica el cambio en vivo
  */
-export function useLiveSync(watchTargets, onSync) {
+export function useLiveSync(watchTargets, onSync, preserveDetails = false) {
   const callbackRef = useRef(onSync);
   const targetsKey = Array.isArray(watchTargets) ? watchTargets.join(',') : String(watchTargets || '');
 
@@ -31,6 +39,7 @@ export function useLiveSync(watchTargets, onSync) {
     if (typeof window === 'undefined') return;
     const targets = targetsKey.split(',').map((s) => s.trim()).filter(Boolean);
     let timerId = null;
+    const pending = new Map();
 
     const handler = (ev) => {
       const detail = ev?.detail || {};
@@ -39,6 +48,7 @@ export function useLiveSync(watchTargets, onSync) {
 
       const matches =
         targets.includes('*') ||
+        eventType === 'connection_restored' ||
         (entity && targets.includes(entity)) ||
         (eventType === 'empresa_updated' && targets.includes('empresas')) ||
         (eventType === 'alert_resolved' && targets.includes('alertas')) ||
@@ -46,11 +56,16 @@ export function useLiveSync(watchTargets, onSync) {
 
       if (!matches) return;
 
-      if (timerId) clearTimeout(timerId);
+      const key = preserveDetails
+        ? `${eventType}:${entity}:${detail.empresa_id}:${detail.alerta_id}`
+        : 'refresh';
+      pending.set(key, detail);
+      if (timerId) return;
       timerId = setTimeout(() => {
-        if (callbackRef.current) {
-          callbackRef.current(detail);
-        }
+        const changes = [...pending.values()];
+        pending.clear();
+        timerId = null;
+        changes.forEach((change) => callbackRef.current?.(change));
       }, 100);
     };
 
@@ -59,6 +74,6 @@ export function useLiveSync(watchTargets, onSync) {
       if (timerId) clearTimeout(timerId);
       window.removeEventListener(LIVE_SYNC_EVENT, handler);
     };
-  }, [targetsKey]);
+  }, [targetsKey, preserveDetails]);
 }
 

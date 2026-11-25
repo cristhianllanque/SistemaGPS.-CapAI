@@ -8,7 +8,8 @@ import Sidebar from './Sidebar';
 import PanicAlert from './PanicAlert';
 import { siren } from '../utils/sound';
 import { API_BASE_URL as API, WS_BASE_URL, isNativeApp } from '../config';
-import { emitLiveSync, useLiveSync } from '../utils/liveSync';
+import { emitLiveSync, readFlotaMessage, useLiveSync } from '../utils/liveSync';
+import { hasValidPosition, useFleetVehicles } from '../utils/fleet';
 
 // Distancia Haversine en metros entre dos coordenadas
 function calcDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -24,7 +25,6 @@ function calcDistanceMeters(lat1, lon1, lat2, lon2) {
 
 export default function MonitoringPage() {
   const [searchParams] = useSearchParams();
-  const [vehiculos, setVehiculos] = useState([]);
   const [alertas, setAlertas] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [emergencyVehicleId, setEmergencyVehicleId] = useState(null);
@@ -47,6 +47,7 @@ export default function MonitoringPage() {
   const [speedToast, setSpeedToast] = useState('');
 
   const token = localStorage.getItem('token');
+  const { vehiculos, setVehiculos, fleetError, refresh: refreshVehiculosSilently, receiveTelemetry } = useFleetVehicles(token);
   const headers = { Authorization: `Bearer ${token}` };
   
   // wsEmpresaId mantiene la misma URL compartida con Layout.jsx (Superadmin recibe todas las empresas en el mismo socket)
@@ -261,6 +262,15 @@ export default function MonitoringPage() {
     share: true,
     shouldReconnect: (closeEvent) => closeEvent.code !== 1008,
     reconnectInterval: 3000,
+    onMessage: (event) => {
+      const message = readFlotaMessage(event);
+      if (message?.type !== 'telemetria') return;
+      if (!isSuperAdmin && (!empresa?.id || Number(message.empresa_id) !== Number(empresa.id))) return;
+      if (message.limite_velocidad && Number(message.empresa_id) === Number(effectiveSpeedEmpresaId)) {
+        setLimiteVelocidad(message.limite_velocidad);
+      }
+      receiveTelemetry(message);
+    },
   });
 
   // Check URL search parameters (e.g., ?vehiculo=12 or ?vehiculo=12&ruta=1)
@@ -283,15 +293,6 @@ export default function MonitoringPage() {
       }
     }
   }, [searchParams, ensureUserLocationWatching]);
-
-  const refreshVehiculosSilently = useCallback(async () => {
-    try {
-      const vehRes = await axios.get(`${API}/api/vehiculos/`, { headers });
-      setVehiculos((vehRes.data || []).filter((v) => v.dispositivo_id != null));
-    } catch (err) {
-      console.error('Error refrescando vehículos en vivo:', err);
-    }
-  }, [token]);
 
   const loadEmpresasCatalog = useCallback(async () => {
     if (!isSuperAdmin) {
@@ -341,32 +342,30 @@ export default function MonitoringPage() {
     }
   }, [isSuperAdmin, empresa?.id, token]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [vehRes, alertRes] = await Promise.all([
-          axios.get(`${API}/api/vehiculos/`, { headers }),
-          axios.get(`${API}/api/alertas/`, { headers }),
-        ]);
-        
-        // Solo vehículos activos Y con dispositivo vinculado
-        setVehiculos((vehRes.data || []).filter((v) => v.dispositivo_id != null));
-        setAlertas(alertRes.data || []);
-
-        // If there are pending panic/sabotage alerts on load, focus on the most recent one
-        const pendingPanics = (alertRes.data || []).filter((a) => a.estado === 'pendiente' && a.tipo !== 'exceso_velocidad');
-        if (pendingPanics.length > 0) {
-          setEmergencyVehicleId(pendingPanics[0].vehiculo_id);
-          setSelectedVehicleId(pendingPanics[0].vehiculo_id);
-          siren.start();
-        }
-      } catch (err) {
-        console.error("Error al cargar datos de monitoreo:", err);
+  const loadPendingAlerts = useCallback(async (focusEmergency = false) => {
+    try {
+      const { data } = await axios.get(`${API}/api/alertas/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAlertas(data || []);
+      const emergency = (data || []).find((a) => a.estado === 'pendiente' && a.tipo !== 'exceso_velocidad');
+      if (emergency) {
+        setEmergencyVehicleId(emergency.vehiculo_id);
+        if (focusEmergency) setSelectedVehicleId(emergency.vehiculo_id);
+        siren.start();
+      } else {
+        setEmergencyVehicleId(null);
+        siren.stop();
       }
-    };
-    fetchData();
+    } catch (err) {
+      console.error('Error cargando alertas de monitoreo:', err);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    loadPendingAlerts(true);
     loadEmpresasCatalog();
-  }, []);
+  }, [loadPendingAlerts, loadEmpresasCatalog]);
 
   const vehiculosFiltrados = useMemo(() => {
     if (!isSuperAdmin || empresaFilter === 'all') return vehiculos;
@@ -496,12 +495,12 @@ export default function MonitoringPage() {
       return;
     }
 
-    // Cambios estructurales (vehículos, conductores, vinculaciones, particulares, nuevas empresas)
     refreshVehiculosSilently();
-    if (isSuperAdmin && (detail.entity === 'empresas' || detail.entity === 'particulares')) {
+    if (detail.type === 'connection_restored') loadPendingAlerts();
+    if (isSuperAdmin && ['empresas', 'particulares'].includes(detail.entity)) {
       loadEmpresasCatalog();
     }
-  });
+  }, true);
 
   // En el mapa, un vehículo en emergencia SIEMPRE se muestra aunque esté fuera del filtro
   const vehiculosMapa = useMemo(() => {
@@ -526,21 +525,7 @@ export default function MonitoringPage() {
       if (!isSuperAdmin && (!lastJsonMessage.empresa_id || !empresa?.id || Number(lastJsonMessage.empresa_id) !== Number(empresa.id))) {
         return;
       }
-      if (lastJsonMessage.type === 'telemetria') {
-        if (lastJsonMessage.limite_velocidad && Number(lastJsonMessage.empresa_id) === Number(effectiveSpeedEmpresaId)) {
-          setLimiteVelocidad(lastJsonMessage.limite_velocidad);
-        }
-        setVehiculos(prev => prev.map(v => {
-          if (v.id === lastJsonMessage.vehiculo_id) {
-            return {
-              ...v,
-              empresa_limite_velocidad: lastJsonMessage.limite_velocidad || v.empresa_limite_velocidad,
-              ultima_lectura: { ...lastJsonMessage.data }
-            };
-          }
-          return v;
-        }));
-      } else if (lastJsonMessage.type === 'alerta_panico' || lastJsonMessage.type === 'panic_alert') {
+      if (lastJsonMessage.type === 'alerta_panico' || lastJsonMessage.type === 'panic_alert') {
         // Start siren and focus directly on the vehicle in emergency
         siren.start();
         setEmergencyVehicleId(lastJsonMessage.vehiculo_id);
@@ -607,7 +592,7 @@ export default function MonitoringPage() {
         });
       }
     }
-  }, [lastJsonMessage, effectiveSpeedEmpresaId, isSuperAdmin, empresa?.id]);
+  }, [lastJsonMessage, isSuperAdmin, empresa?.id, setVehiculos]);
 
   const handleAtenderAlerta = async (alertaId) => {
     try {
@@ -665,8 +650,9 @@ export default function MonitoringPage() {
     () => (routeTargetVehicleId ? vehiculos.find((v) => v.id === routeTargetVehicleId) : null),
     [vehiculos, routeTargetVehicleId]
   );
-  const targetVehLat = routedTargetVeh?.ultima_lectura?.latitud != null ? Number(routedTargetVeh.ultima_lectura.latitud) : null;
-  const targetVehLng = routedTargetVeh?.ultima_lectura?.longitud != null ? Number(routedTargetVeh.ultima_lectura.longitud) : null;
+  const routedPosition = routedTargetVeh?.ultima_lectura;
+  const targetVehLat = hasValidPosition(routedPosition) ? routedPosition.latitud : null;
+  const targetVehLng = hasValidPosition(routedPosition) ? routedPosition.longitud : null;
 
   // Calcular la ruta vial real por calles desde el celular hasta el vehículo objetivo
   useEffect(() => {
@@ -882,6 +868,12 @@ export default function MonitoringPage() {
         </div>
       )}
 
+      {fleetError && (
+        <div role="status" className="absolute inset-x-3 top-14 z-[1001] mx-auto flex w-fit items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow">
+          {fleetError}
+          <button type="button" onClick={refreshVehiculosSilently} className="font-bold underline">Reintentar</button>
+        </div>
+      )}
       {/* Sidebar with fleet list */}
       <Sidebar 
         vehiculos={vehiculosFiltrados} 

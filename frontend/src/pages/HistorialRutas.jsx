@@ -67,6 +67,8 @@ function MapController({ bounds, flyToTarget }) {
 }
 
 export default function HistorialRutas() {
+  const [params] = useSearchParams();
+  const requestedVehicle = params.get('vehiculo');
   const [vehiculos, setVehiculos] = useState([]);
   const [selectedVehiculo, setSelectedVehiculo] = useState('');
   
@@ -103,23 +105,31 @@ export default function HistorialRutas() {
   const playIntervalRef = useRef(null);
 
   useEffect(() => {
-    fetchVehiculos();
-  }, []);
-
-  const fetchVehiculos = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/api/vehiculos`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setVehiculos(res.data);
-      if (res.data.length > 0) {
-        setSelectedVehiculo(String(res.data[0].id));
+    const controller = new AbortController();
+    const fetchVehiculos = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const options = {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        };
+        const { data } = await axios.get(`${API_BASE_URL}/api/vehiculos/`, options);
+        const list = [...data];
+        if (/^\d+$/.test(requestedVehicle || '') && !list.some((v) => String(v.id) === requestedVehicle)) {
+          const { data: archivedVehicle } = await axios.get(`${API_BASE_URL}/api/vehiculos/${requestedVehicle}`, options);
+          list.push(archivedVehicle);
+        }
+        if (!controller.signal.aborted) {
+          setVehiculos(list);
+          setSelectedVehiculo(list.some((v) => String(v.id) === requestedVehicle) ? requestedVehicle : String(list[0]?.id ?? ''));
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) console.error('Error cargando vehículos', error);
       }
-    } catch (error) {
-      console.error("Error cargando vehículos", error);
-    }
-  };
+    };
+    fetchVehiculos();
+    return () => controller.abort();
+  }, [requestedVehicle]);
 
   const setPreset = (type) => {
     setActivePreset(type);
@@ -763,3 +773,4 @@ export default function HistorialRutas() {
     </div>
   );
 }
+import { useSearchParams } from 'react-router-dom';
