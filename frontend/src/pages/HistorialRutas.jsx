@@ -3,7 +3,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { 
   Search, Play, Pause, RotateCcw, Gauge, AlertTriangle,
-  SlidersHorizontal, ChevronUp, ChevronDown, Truck, Sun, Moon, Layers
+  SlidersHorizontal, ChevronUp, ChevronDown, Truck, Sun, Moon, Layers, Calendar, Check, RefreshCw
 } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -78,8 +78,10 @@ export default function HistorialRutas() {
   const [fechaFin, setFechaFin] = useState(initialRange.fin);
   const [activePreset, setActivePreset] = useState('hoy');
   const [loading, setLoading] = useState(false);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [mobileVehiclePickerOpen, setMobileVehiclePickerOpen] = useState(false);
   const [mobileStatsCollapsed, setMobileStatsCollapsed] = useState(false);
+  const initialAutoFetchDone = useRef(false);
   
   const [historialData, setHistorialData] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -131,15 +133,8 @@ export default function HistorialRutas() {
     return () => controller.abort();
   }, [requestedVehicle]);
 
-  const setPreset = (type) => {
-    setActivePreset(type);
-    const range = getPeruPresetRange(type);
-    setFechaInicio(range.inicio);
-    setFechaFin(range.fin);
-  };
-
-  const handleSearch = async () => {
-    if (!selectedVehiculo) return;
+  const fetchHistorialRange = async (vehiculoId, inicioStr, finStr) => {
+    if (!vehiculoId) return;
     setLoading(true);
     setHistorialData(null);
     setCurrentIndex(0);
@@ -148,17 +143,17 @@ export default function HistorialRutas() {
     
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/api/vehiculos/${selectedVehiculo}/historial`, {
+      const res = await axios.get(`${API_BASE_URL}/api/vehiculos/${vehiculoId}/historial`, {
         params: { 
-          fecha_inicio: peruInputToUTCISO(fechaInicio, false), 
-          fecha_fin: peruInputToUTCISO(fechaFin, true) 
+          fecha_inicio: peruInputToUTCISO(inicioStr, false), 
+          fecha_fin: peruInputToUTCISO(finStr, true) 
         },
         headers: { Authorization: `Bearer ${token}` }
       });
       setHistorialData(res.data);
-      // En móvil, contraer automáticamente el panel de filtros para dejar el mapa libre
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         setMobileFiltersOpen(false);
+        setMobileVehiclePickerOpen(false);
       }
     } catch (error) {
       console.error(error);
@@ -167,6 +162,30 @@ export default function HistorialRutas() {
       setLoading(false);
     }
   };
+
+  const setPreset = (type, autoFetchOnMobile = false) => {
+    setActivePreset(type);
+    const range = getPeruPresetRange(type);
+    setFechaInicio(range.inicio);
+    setFechaFin(range.fin);
+    if (autoFetchOnMobile && selectedVehiculo) {
+      setMobileFiltersOpen(false);
+      setMobileVehiclePickerOpen(false);
+      fetchHistorialRange(selectedVehiculo, range.inicio, range.fin);
+    }
+  };
+
+  const handleSearch = async () => {
+    await fetchHistorialRange(selectedVehiculo, fechaInicio, fechaFin);
+  };
+
+  // Cargar automáticamente el recorrido de Hoy al seleccionar vehículo por primera vez
+  useEffect(() => {
+    if (selectedVehiculo && !initialAutoFetchDone.current) {
+      initialAutoFetchDone.current = true;
+      fetchHistorialRange(selectedVehiculo, fechaInicio, fechaFin);
+    }
+  }, [selectedVehiculo]);
 
   useEffect(() => {
     if (isPlaying && historialData && historialData.coordenadas.length > 0) {
@@ -275,141 +294,174 @@ export default function HistorialRutas() {
         </div>
       </div>
 
-      {/* ===================================================================== */}
-      {/* BARRA DE FILTROS MÓVIL COLAPSABLE (md:hidden - Optimizada para iPhone/Android) */}
-      {/* ===================================================================== */}
-      <div className="md:hidden bg-white border-b border-slate-200 shadow-xs z-20 flex-shrink-0">
-        {/* Barra Resumen Compacta de 1 línea */}
-        <div className="flex items-center justify-between px-3 py-2 gap-2">
-          <div
-            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-            className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
-          >
-            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
-              <Truck size={15} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-slate-800 truncate">
-                  {selectedVehObj ? selectedVehObj.placa : 'Seleccionar Unidad'}
-                </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                  {presetLabelMap[activePreset] || 'Rango'}
-                </span>
-                {historialData?.estadisticas && (
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                    {historialData.estadisticas.distancia_km} km
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+      {/* Main Content Area */}
+      <div className="flex-1 relative flex flex-col overflow-hidden">
+        {/* ===================================================================== */}
+        {/* CÁPSULA FLOTANTE MÓVIL TIPO APP NATIVA (iOS / Android - No tapa mapa) */}
+        {/* ===================================================================== */}
+        <div className="md:hidden absolute top-2.5 left-2.5 right-2.5 z-[950] pointer-events-auto">
+          <div className="bg-slate-900/92 backdrop-blur-xl text-white rounded-2xl shadow-2xl border border-white/15 p-2 space-y-1.5">
+            {/* Fila 1: Selector de Unidad tipo App + Resumen Km + Botón Calendario */}
+            <div className="flex items-center justify-between gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileVehiclePickerOpen(!mobileVehiclePickerOpen);
+                  setMobileFiltersOpen(false);
+                }}
+                className="flex items-center gap-2 min-w-0 flex-1 bg-white/10 hover:bg-white/15 active:scale-[0.99] px-2.5 py-1.5 rounded-xl border border-white/10 transition-all cursor-pointer text-left"
+              >
+                <div className="w-6 h-6 rounded-lg bg-indigo-500/30 border border-indigo-400/40 text-indigo-300 flex items-center justify-center flex-shrink-0">
+                  <Truck size={13} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black tracking-tight text-white truncate">
+                      {selectedVehObj ? selectedVehObj.placa : (vehiculos.length === 0 ? 'Cargando unidad...' : 'Elegir Unidad')}
+                    </span>
+                    {selectedVehObj?.marca && (
+                      <span className="text-[10px] font-medium text-slate-300 truncate">
+                        • {selectedVehObj.marca}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown
+                  size={14}
+                  className={`text-slate-300 flex-shrink-0 transition-transform ${mobileVehiclePickerOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {!mobileFiltersOpen && (
+              {historialData?.estadisticas && (
+                <div className="px-2 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-black flex-shrink-0">
+                  {historialData.estadisticas.distancia_km} km
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleSearch}
                 disabled={!selectedVehiculo || loading}
-                className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-sm active:scale-95 transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                title="Actualizar recorrido"
+                aria-label="Actualizar recorrido"
               >
-                <Search size={12} />
-                <span>{loading ? '...' : 'Actualizar'}</span>
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileFiltersOpen(!mobileFiltersOpen);
+                  setMobileVehiclePickerOpen(false);
+                }}
+                className={`px-2.5 h-8 rounded-xl text-[10px] font-extrabold flex items-center gap-1 border transition-all flex-shrink-0 cursor-pointer ${
+                  mobileFiltersOpen || activePreset === 'custom'
+                    ? 'bg-white text-slate-900 border-white shadow-sm'
+                    : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/15'
+                }`}
+                title="Elegir fechas personalizadas"
+              >
+                <Calendar size={12} />
+                <span>Fechas</span>
+              </button>
+            </div>
+
+            {/* Fila 2: Chips Rápidos 1-Toque (Hoy / Ayer / 24h / 7 Días) */}
+            <div className="grid grid-cols-4 gap-1 bg-slate-950/60 p-1 rounded-xl">
+              {[
+                { id: 'hoy', label: 'Hoy' },
+                { id: 'ayer', label: 'Ayer' },
+                { id: '24h', label: '24 Horas' },
+                { id: '7d', label: '7 Días' },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setPreset(item.id, true)}
+                  className={`py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                    activePreset === item.id && !mobileFiltersOpen
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Selector Desplegable Nativo de Vehículos (Solo al tocar la unidad) */}
+            {mobileVehiclePickerOpen && (
+              <div className="pt-1.5 border-t border-white/10 max-h-48 overflow-y-auto space-y-1">
+                {vehiculos.map(v => {
+                  const isSelected = String(v.id) === String(selectedVehiculo);
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVehiculo(String(v.id));
+                        setMobileVehiclePickerOpen(false);
+                        fetchHistorialRange(String(v.id), fechaInicio, fechaFin);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-bold transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white/5 text-slate-200 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="truncate">
+                        <span className="font-black">{v.placa}</span>
+                        <span className="text-[11px] opacity-80 ml-1.5">
+                          {v.marca ? `${v.marca} ${v.modelo || ''}`.trim() : (v.empresa?.nombre || 'Mi Flota')}
+                        </span>
+                      </div>
+                      {isSelected && <Check size={14} className="flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
             )}
-            <button
-              type="button"
-              onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <SlidersHorizontal size={12} />
-              <span>{mobileFiltersOpen ? 'Ocultar' : 'Filtros'}</span>
-              {mobileFiltersOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
+
+            {/* Panel Compacto de Rango de Fecha Personalizado (Solo si el usuario toca "Fechas") */}
+            {mobileFiltersOpen && (
+              <div className="pt-2 border-t border-white/10 space-y-2 animate-in fade-in duration-150">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="bg-white/10 rounded-xl px-2.5 py-1.5 border border-white/10">
+                    <label className="block text-[9px] font-bold text-slate-300 uppercase">Desde (Perú)</label>
+                    <input
+                      type="datetime-local"
+                      className="w-full bg-transparent text-white text-[11px] font-bold outline-none [color-scheme:dark]"
+                      value={fechaInicio}
+                      onChange={(e) => { setActivePreset('custom'); setFechaInicio(e.target.value); }}
+                    />
+                  </div>
+                  <div className="bg-white/10 rounded-xl px-2.5 py-1.5 border border-white/10">
+                    <label className="block text-[9px] font-bold text-slate-300 uppercase">Hasta (Perú)</label>
+                    <input
+                      type="datetime-local"
+                      className="w-full bg-transparent text-white text-[11px] font-bold outline-none [color-scheme:dark]"
+                      value={fechaFin}
+                      onChange={(e) => { setActivePreset('custom'); setFechaFin(e.target.value); }}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={!selectedVehiculo || loading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl font-extrabold text-xs shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Search size={14} />
+                  <span>{loading ? 'Buscando Recorrido...' : 'Ver Recorrido en Mapa'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Panel Desplegable de Filtros en Móvil */}
-        {mobileFiltersOpen && (
-          <div className="px-3 pb-3 pt-1 border-t border-slate-100 space-y-2.5 animate-in fade-in duration-150">
-            {/* Selector de Vehículo y Accesos Rápidos de Fecha */}
-            <div className="grid grid-cols-1 gap-2">
-              <select
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-bold text-slate-800 bg-slate-50"
-                value={selectedVehiculo}
-                onChange={(e) => setSelectedVehiculo(e.target.value)}
-              >
-                {vehiculos.map(v => (
-                  <option key={v.id} value={v.id}>
-                    🚐 {v.placa} — {v.empresa?.nombre || 'Mi Flota'}
-                  </option>
-                ))}
-              </select>
-
-              {/* Chips Rápidos de Tiempo */}
-              <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
-                {[
-                  { id: 'hoy', label: 'Hoy' },
-                  { id: 'ayer', label: 'Ayer' },
-                  { id: '24h', label: '24 Horas' },
-                  { id: '7d', label: '7 Días' },
-                ].map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setPreset(item.id)}
-                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
-                      activePreset === item.id
-                        ? 'bg-white text-indigo-600 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Fechas Desde y Hasta en 2 columnas paralelas */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Desde (Hora Perú)</label>
-                <input
-                  type="datetime-local"
-                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50"
-                  value={fechaInicio}
-                  onChange={(e) => { setActivePreset('custom'); setFechaInicio(e.target.value); }}
-                />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">Hasta (Hora Perú)</label>
-                <input
-                  type="datetime-local"
-                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50"
-                  value={fechaFin}
-                  onChange={(e) => { setActivePreset('custom'); setFechaFin(e.target.value); }}
-                />
-              </div>
-            </div>
-
-            {/* Botón Consultar */}
-            <button
-              type="button"
-              onClick={handleSearch}
-              disabled={!selectedVehiculo || loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-extrabold text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
-            >
-              <Search size={15} />
-              <span>{loading ? 'Buscando Recorrido...' : 'Consultar Recorrido en Mapa'}</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 relative flex flex-col overflow-hidden">
         {/* Selector Flotante Vertical de Capas (Solo Íconos al costado derecho: Sol / Luna / Satélite) */}
-        <div className="absolute top-14 right-3 md:top-16 md:right-4 z-[900] pointer-events-auto">
+        <div className="absolute top-24 right-2.5 md:top-16 md:right-4 z-[900] pointer-events-auto">
           <div className="w-10 bg-slate-900/90 backdrop-blur-md p-1 rounded-2xl shadow-2xl border border-white/15 flex flex-col items-center gap-1">
             <button
               type="button"
@@ -459,7 +511,7 @@ export default function HistorialRutas() {
             center={mapCenter}
             zoom={13}
             maxZoom={20}
-            className="h-full w-full"
+            className="h-full w-full [&_.leaflet-top.leaflet-left]:hidden md:[&_.leaflet-top.leaflet-left]:block"
             style={{
               backgroundColor: mapStyle === 'day' ? '#e2e8f0' : '#0f172a'
             }}
@@ -563,7 +615,7 @@ export default function HistorialRutas() {
         {historialData && historialData.paradas && historialData.paradas.length > 0 && (
           <button
             onClick={() => setShowStopsList(!showStopsList)}
-            className="absolute top-3 right-3 md:top-4 md:right-4 bg-white/95 backdrop-blur shadow-md border border-slate-200 px-3 py-1.5 md:py-2 rounded-lg text-[11px] md:text-xs font-bold text-slate-700 hover:bg-slate-50 z-[1000] flex items-center gap-1.5 transition-all cursor-pointer"
+            className="absolute top-24 left-2.5 md:top-4 md:left-auto md:right-4 bg-slate-900/90 md:bg-white/95 backdrop-blur-md shadow-lg border border-white/15 md:border-slate-200 px-3 py-1.5 md:py-2 rounded-xl text-[11px] md:text-xs font-bold text-white md:text-slate-700 hover:bg-slate-800 md:hover:bg-slate-50 z-[920] flex items-center gap-1.5 transition-all cursor-pointer"
           >
             🛑 {showStopsList ? 'Ocultar Paradas' : `Paradas (${historialData.paradas.length})`}
           </button>
@@ -571,7 +623,7 @@ export default function HistorialRutas() {
 
         {/* Stops Floating List */}
         {showStopsList && historialData?.paradas && (
-          <div className="absolute top-12 right-3 md:top-16 md:right-4 w-64 md:w-72 max-h-64 md:max-h-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200 p-3 z-[1000] overflow-y-auto space-y-2 text-xs">
+          <div className="absolute top-34 left-2.5 md:top-16 md:left-auto md:right-4 w-64 md:w-72 max-h-60 md:max-h-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200 p-3 z-[1000] overflow-y-auto space-y-2 text-xs">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 font-bold text-slate-800">
               <span>Paradas Registradas ({historialData.paradas.length})</span>
               <button onClick={() => setShowStopsList(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">✕</button>
@@ -603,9 +655,9 @@ export default function HistorialRutas() {
 
         {/* Empty State Banner */}
         {historialData && historialData.coordenadas.length === 0 && (
-          <div className="absolute top-4 left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bg-white/95 backdrop-blur shadow-lg border border-slate-200 px-4 py-2.5 md:px-6 md:py-3 rounded-xl z-[1000] text-xs md:text-sm text-slate-600 flex items-center gap-2.5">
-            <AlertTriangle className="text-amber-500 flex-shrink-0" size={18} />
-            <span>No se encontraron recorridos en el rango seleccionado.</span>
+          <div className="absolute top-24 left-2.5 right-14 md:top-4 md:left-1/2 md:right-auto md:-translate-x-1/2 bg-slate-900/90 md:bg-white/95 backdrop-blur-md shadow-xl border border-white/15 md:border-slate-200 px-3.5 py-2 md:px-6 md:py-3 rounded-xl z-[910] text-[11px] md:text-sm text-white md:text-slate-600 flex items-center gap-2">
+            <AlertTriangle className="text-amber-400 md:text-amber-500 flex-shrink-0" size={16} />
+            <span>Sin recorridos registrados en este periodo.</span>
           </div>
         )}
 
