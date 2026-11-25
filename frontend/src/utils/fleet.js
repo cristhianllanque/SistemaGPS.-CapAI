@@ -12,10 +12,16 @@ export function hasValidPosition(reading) {
 
 export function vehicleConnectionLabel(vehicle) {
   if (!vehicle.dispositivo_id) return 'Sin GPS vinculado';
-  const latest = parseServerUTC(vehicle.ultima_lectura?.timestamp);
+  const u = vehicle.ultima_lectura;
+  const latest = parseServerUTC(u?.timestamp);
   const assigned = parseServerUTC(vehicle.gps_asignado_at);
   if (!latest || (assigned && latest.getTime() < Math.floor(assigned.getTime() / 1000) * 1000)) {
     return 'Esperando primera posición';
+  }
+  const diffMinutes = Math.abs(Date.now() - latest.getTime()) / (60 * 1000);
+  const isOnline = Boolean(u?.online === true && diffMinutes < 15);
+  if (!hasValidPosition(u)) {
+    return isOnline ? 'En línea (Buscando satélites GPS)' : 'Esperando primera posición';
   }
   return 'Sin señal reciente';
 }
@@ -27,14 +33,21 @@ export function applyVehicleTelemetry(vehicle, message) {
   const assigned = parseServerUTC(vehicle.gps_asignado_at);
   if (vehicle.id !== message.vehiculo_id || !vehicle.activo || !vehicle.dispositivo_id
     || (message.dispositivo_id != null && message.dispositivo_id !== vehicle.dispositivo_id)
-    || !hasValidPosition(reading) || !timestamp
+    || !reading || !timestamp
     || (assigned && timestamp < assigned) || (previous && timestamp < previous)) {
     return vehicle;
   }
+  const validPos = hasValidPosition(reading);
+  const prevReading = vehicle.ultima_lectura;
   return {
     ...vehicle,
     empresa_limite_velocidad: message.limite_velocidad || vehicle.empresa_limite_velocidad,
-    ultima_lectura: reading,
+    ultima_lectura: {
+      ...prevReading,
+      ...reading,
+      latitud: validPos ? reading.latitud : (prevReading?.latitud ?? null),
+      longitud: validPos ? reading.longitud : (prevReading?.longitud ?? null),
+    },
   };
 }
 
@@ -48,7 +61,7 @@ export function useFleetVehicles(token, empresaId, archived = false) {
   const pendingTelemetry = useRef(new Map());
 
   const receiveTelemetry = useCallback((message) => {
-    if (archived || !hasValidPosition(message.data)) return;
+    if (archived || !message?.data) return;
     const queued = pendingTelemetry.current.get(message.vehiculo_id);
     if (!queued || parseServerUTC(message.data.timestamp) >= parseServerUTC(queued.data.timestamp)) {
       pendingTelemetry.current.set(message.vehiculo_id, message);

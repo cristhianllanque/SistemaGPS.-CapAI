@@ -36,6 +36,7 @@ router = APIRouter()
 
 
 def _vehiculos_con_telemetria(query, db: Session):
+    from app.services.tcp_listener import LATEST_LIVE_TELEMETRY
     lectura = models.LecturaGPS
     vehiculo = models.Vehiculo
     ultima_id = db.query(lectura.id).filter(
@@ -48,12 +49,12 @@ def _vehiculos_con_telemetria(query, db: Session):
     rows = query.options(
         joinedload(vehiculo.dispositivo), joinedload(vehiculo.conductor), joinedload(vehiculo.empresa)
     ).outerjoin(lectura, lectura.id == ultima_id).add_entity(lectura).all()
-    with_readings = [vehicle.id for vehicle, last in rows if last]
+    all_vehicle_ids = [vehicle.id for vehicle, _ in rows]
     pending = set(db.query(models.AlertaPanico.vehiculo_id, models.AlertaPanico.tipo).filter(
-        models.AlertaPanico.vehiculo_id.in_(with_readings),
+        models.AlertaPanico.vehiculo_id.in_(all_vehicle_ids),
         models.AlertaPanico.estado == "pendiente",
         models.AlertaPanico.tipo.in_(["sabotaje", "panico"]),
-    ).all()) if with_readings else set()
+    ).all()) if all_vehicle_ids else set()
 
     now = datetime.utcnow()
     result = []
@@ -62,21 +63,58 @@ def _vehiculos_con_telemetria(query, db: Session):
         if vehicle.empresa:
             data.empresa_nombre = vehicle.empresa.nombre
             data.empresa_limite_velocidad = vehicle.empresa.limite_velocidad or 90
+
+        live_mem = None
+        if vehicle.activo and vehicle.dispositivo_id:
+            candidate = LATEST_LIVE_TELEMETRY.get((vehicle.id, vehicle.dispositivo_id))
+            if candidate and candidate.get("timestamp_dt"):
+                ts_dt = candidate["timestamp_dt"]
+                if vehicle.gps_asignado_at is None or ts_dt >= vehicle.gps_asignado_at.replace(microsecond=0):
+                    live_mem = candidate
+
         if last:
+            use_live = bool(live_mem and live_mem["timestamp_dt"] >= last.timestamp)
+            eff_ts = live_mem["timestamp_dt"] if use_live else last.timestamp
+            eff_vel = live_mem["velocidad"] if use_live else (last.velocidad or 0)
+            eff_ign = live_mem["ignicion"] if use_live else bool(last.ignicion)
+            eff_bat_ext = live_mem["bateria_ext"] if (use_live and live_mem["bateria_ext"] is not None) else last.bateria_ext
+            eff_bat_int = live_mem["bateria_int"] if (use_live and live_mem["bateria_int"] is not None) else last.bateria_int
+            eff_bat_pct = live_mem["bateria_porcentaje"] if (use_live and live_mem["bateria_porcentaje"] is not None) else last.bateria_porcentaje
+
             demo = vehicle.activo and vehicle.placa.startswith("DEMO-")
             online = demo or bool(
                 vehicle.activo and vehicle.dispositivo and vehicle.dispositivo.activo
-                and (vehicle.gps_asignado_at is None or last.timestamp >= vehicle.gps_asignado_at.replace(microsecond=0))
-                and abs((now - last.timestamp).total_seconds()) <= 900
+                and (vehicle.gps_asignado_at is None or eff_ts >= vehicle.gps_asignado_at.replace(microsecond=0))
+                and abs((now - eff_ts).total_seconds()) <= 900
             )
             data.ultima_lectura = schemas.LecturaGPSBase(
-                latitud=last.latitud, longitud=last.longitud, timestamp=now if demo else last.timestamp,
-                velocidad=(last.velocidad or 0) if online else 0,
-                ignicion=online and bool(last.ignicion),
+                latitud=last.latitud, longitud=last.longitud, timestamp=now if demo else eff_ts,
+                velocidad=(eff_vel or 0) if online else 0,
+                ignicion=online and bool(eff_ign),
                 boton_panico=(vehicle.id, "panico") in pending,
-                sabotaje=(vehicle.id, "sabotaje") in pending and (last.bateria_ext is None or last.bateria_ext < 7),
-                bateria_ext=last.bateria_ext, bateria_int=last.bateria_int,
-                bateria_porcentaje=last.bateria_porcentaje, online=online,
+                sabotaje=(vehicle.id, "sabotaje") in pending and (eff_bat_ext is None or eff_bat_ext < 7),
+                bateria_ext=eff_bat_ext, bateria_int=eff_bat_int,
+                bateria_porcentaje=eff_bat_pct, online=online,
+            )
+        elif live_mem:
+            eff_ts = live_mem["timestamp_dt"]
+            eff_bat_ext = live_mem.get("bateria_ext")
+            online = bool(
+                vehicle.activo and vehicle.dispositivo and vehicle.dispositivo.activo
+                and abs((now - eff_ts).total_seconds()) <= 900
+            )
+            data.ultima_lectura = schemas.LecturaGPSBase(
+                latitud=live_mem.get("latitud"),
+                longitud=live_mem.get("longitud"),
+                timestamp=eff_ts,
+                velocidad=(live_mem.get("velocidad") or 0) if online else 0,
+                ignicion=online and bool(live_mem.get("ignicion")),
+                boton_panico=(vehicle.id, "panico") in pending,
+                sabotaje=(vehicle.id, "sabotaje") in pending and (eff_bat_ext is None or eff_bat_ext < 7),
+                bateria_ext=eff_bat_ext,
+                bateria_int=live_mem.get("bateria_int"),
+                bateria_porcentaje=live_mem.get("bateria_porcentaje"),
+                online=online,
             )
         result.append(data)
     return result

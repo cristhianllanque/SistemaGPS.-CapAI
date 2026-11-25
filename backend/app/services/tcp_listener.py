@@ -10,6 +10,11 @@ from app.websockets.manager import manager
 
 logger = logging.getLogger(__name__)
 
+# Caché en memoria de la última telemetría recibida por (vehiculo_id, dispositivo_id),
+# para reflejar ignición (Motor ON/OFF), voltajes, batería interna y alertas en tiempo real
+# incluso cuando el GPS está bajo techo (0 satélites) sin pisar la última coordenada válida.
+LATEST_LIVE_TELEMETRY = {}
+
 async def run_in_thread(func, *args, **kwargs):
     return await asyncio.to_thread(func, *args, **kwargs)
 
@@ -261,6 +266,17 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                 "sabotaje": has_pending_sab and (l.bateria_ext is None or l.bateria_ext < 7.0),
                 "online": abs((now_utc - l.timestamp).total_seconds()) <= 900,
                 "timestamp": l.timestamp.isoformat() + 'Z',
+            }
+            LATEST_LIVE_TELEMETRY[(vehiculo_id, dispositivo_id)] = {
+                "latitud": l.latitud if posicion_valida else None,
+                "longitud": l.longitud if posicion_valida else None,
+                "velocidad": l.velocidad or 0,
+                "ignicion": bool(l.ignicion),
+                "boton_panico": bool(l.boton_panico),
+                "bateria_ext": l.bateria_ext,
+                "bateria_int": l.bateria_int,
+                "bateria_porcentaje": l.bateria_porcentaje,
+                "timestamp_dt": l.timestamp,
             }
         db.commit()
         return result

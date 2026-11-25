@@ -19,6 +19,7 @@ def compile_autoincrement_id(*_args, **_kwargs):
 
 class TestFleetLifecycle(unittest.TestCase):
     def setUp(self):
+        tcp_listener.LATEST_LIVE_TELEMETRY.clear()
         engine = create_engine("sqlite+pysqlite:///:memory:")
         self.addCleanup(engine.dispose)
         models.Base.metadata.create_all(engine)

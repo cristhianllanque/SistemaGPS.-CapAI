@@ -345,8 +345,8 @@ class VehiculoVincular(BaseModel):
     conductor_id: Optional[int] = None
 
 class LecturaGPSBase(BaseModel):
-    latitud: float
-    longitud: float
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
     velocidad: int
     ignicion: bool
     boton_panico: bool
