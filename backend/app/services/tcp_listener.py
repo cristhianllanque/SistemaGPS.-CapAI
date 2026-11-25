@@ -177,14 +177,17 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                 ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
 
                 # Check if normal vehicle power (> 9.0V) was restored after that alert
+                prev_live = LATEST_LIVE_TELEMETRY.get((vehiculo_id, dispositivo_id)) or {}
                 power_restored_since_last_alert = True
                 if ultima_alerta_sab:
+                    has_restored_note = "Energía restablecida" in (ultima_alerta_sab.observaciones_atencion or "")
+                    has_live_restored = bool(prev_live.get("had_normal_power"))
                     reading_with_power = db.query(models.LecturaGPS.id).filter(
                         models.LecturaGPS.vehiculo_id == vehiculo_id,
                         models.LecturaGPS.timestamp > ultima_alerta_sab.fecha_hora,
                         models.LecturaGPS.bateria_ext >= 9.0
                     ).first()
-                    if not reading_with_power:
+                    if not (has_restored_note or has_live_restored or reading_with_power):
                         power_restored_since_last_alert = False
 
                 ext_val = bateria_ext_v if bateria_ext_v is not None else 0.0
@@ -193,6 +196,8 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
 
                 # Only trigger a brand new alert and modal siren if power was restored or this is the first disconnect
                 if power_restored_since_last_alert:
+                    if prev_live:
+                        prev_live["had_normal_power"] = False
                     alerta_sab = models.AlertaPanico(
                         vehiculo_id=vehiculo_id,
                         latitud=r['latitude'],
@@ -221,16 +226,18 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                     # If it was marked as 'falsa_alarma' or 'atendida', respect operator resolution:
                     # do NOT reopen, do NOT re-trigger siren!
             elif bateria_ext_v is not None and bateria_ext_v >= 9.0:
-                # Normal power restored: record note in pending sabotage alert if any
-                alerta_sab_activa = db.query(models.AlertaPanico).filter(
+                # Normal power restored: record note on most recent sabotage alert (even if already attended)
+                prev_live = LATEST_LIVE_TELEMETRY.get((vehiculo_id, dispositivo_id))
+                if prev_live is not None:
+                    prev_live["had_normal_power"] = True
+                ultima_alerta_sab = db.query(models.AlertaPanico).filter(
                     models.AlertaPanico.vehiculo_id == vehiculo_id,
-                    models.AlertaPanico.estado == 'pendiente',
                     models.AlertaPanico.tipo == 'sabotaje'
                 ).order_by(models.AlertaPanico.fecha_hora.desc()).first()
-                if alerta_sab_activa and "Energía restablecida" not in (alerta_sab_activa.observaciones_atencion or ""):
+                if ultima_alerta_sab and "Energía restablecida" not in (ultima_alerta_sab.observaciones_atencion or ""):
                     ts_peru = ts - timedelta(hours=5)
-                    alerta_sab_activa.observaciones_atencion = (
-                        (alerta_sab_activa.observaciones_atencion or "") +
+                    ultima_alerta_sab.observaciones_atencion = (
+                        (ultima_alerta_sab.observaciones_atencion or "") +
                         f" | Energía restablecida ({bateria_ext_v}V a las {ts_peru.strftime('%H:%M:%S')} Hora Perú)"
                     ).strip(" | ")
                 
@@ -252,11 +259,22 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
             "lectura": None,
         }
         if received_lecturas:
-            # Prefer a valid position even if the last record in the batch has no fix.
-            l, posicion_valida = max(received_lecturas, key=lambda item: (item[1], item[0].timestamp))
+            # Always use the chronologically newest record for live telemetry (ignition, voltages, speed),
+            # while taking coordinates from the newest record in the batch that had a valid satellite fix.
+            l = max(received_lecturas, key=lambda item: item[0].timestamp)[0]
+            valid_pos_records = [item[0] for item in received_lecturas if item[1]]
+            pos_lec = max(valid_pos_records, key=lambda item: item.timestamp) if valid_pos_records else None
+            had_power_in_batch = any(
+                (item[0].bateria_ext is not None and item[0].bateria_ext >= 9.0)
+                for item in received_lecturas
+            )
+            prev_had_power = bool((LATEST_LIVE_TELEMETRY.get((vehiculo_id, dispositivo_id)) or {}).get("had_normal_power"))
+            now_has_power = (l.bateria_ext is not None and l.bateria_ext >= 9.0) or (
+                (had_power_in_batch or prev_had_power) and not (l.bateria_ext is not None and l.bateria_ext < 6.0)
+            )
             result["lectura"] = {
-                "latitud": l.latitud if posicion_valida else None,
-                "longitud": l.longitud if posicion_valida else None,
+                "latitud": pos_lec.latitud if pos_lec is not None else None,
+                "longitud": pos_lec.longitud if pos_lec is not None else None,
                 "velocidad": l.velocidad or 0,
                 "ignicion": bool(l.ignicion),
                 "boton_panico": bool(l.boton_panico),
@@ -268,8 +286,8 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                 "timestamp": l.timestamp.isoformat() + 'Z',
             }
             LATEST_LIVE_TELEMETRY[(vehiculo_id, dispositivo_id)] = {
-                "latitud": l.latitud if posicion_valida else None,
-                "longitud": l.longitud if posicion_valida else None,
+                "latitud": pos_lec.latitud if pos_lec is not None else None,
+                "longitud": pos_lec.longitud if pos_lec is not None else None,
                 "velocidad": l.velocidad or 0,
                 "ignicion": bool(l.ignicion),
                 "boton_panico": bool(l.boton_panico),
@@ -277,6 +295,7 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                 "bateria_int": l.bateria_int,
                 "bateria_porcentaje": l.bateria_porcentaje,
                 "timestamp_dt": l.timestamp,
+                "had_normal_power": now_has_power,
             }
         db.commit()
         return result
