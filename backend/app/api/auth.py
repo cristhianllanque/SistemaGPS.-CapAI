@@ -104,7 +104,19 @@ def get_current_user_profile(
         empresa_data.estado_suscripcion = sub_info["estado_suscripcion"]
         user_out.empresa_nombre = current_user.empresa.nombre
 
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    fresh_token = security.create_access_token(
+        data={
+            "sub": current_user.email,
+            "user_id": current_user.id,
+            "empresa_id": current_user.empresa_id,
+            "rol": current_user.rol,
+        },
+        expires_delta=access_token_expires,
+    )
+
     return {
+        "access_token": fresh_token,
         "usuario": user_out,
         "empresa": empresa_data
     }

@@ -141,10 +141,20 @@ async def websocket_endpoint(websocket: WebSocket, empresa_id: int, token: str =
             return
         user_empresa_id = payload.get("empresa_id")
         user_email = payload.get("sub")
+        user_id = payload.get("user_id")
         user_rol = payload.get("rol")
         if not user_email:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
+        with SessionLocal() as db:
+            db_user = None
+            if user_id is not None:
+                db_user = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
+            if db_user is None and user_email:
+                db_user = db.query(models.Usuario).filter(models.Usuario.email == user_email).first()
+            if db_user is not None:
+                user_empresa_id = db_user.empresa_id
+                user_rol = db_user.rol
         if user_rol != 'superadmin':
             if user_empresa_id is None or int(user_empresa_id) != empresa_id:
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)

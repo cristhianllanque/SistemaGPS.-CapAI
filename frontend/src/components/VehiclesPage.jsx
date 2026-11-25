@@ -101,7 +101,7 @@ export default function VehiclesPage() {
 
   const token = localStorage.getItem('token');
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const empresaLocal = JSON.parse(localStorage.getItem('empresa') || '{}');
+  const [empresaLocal, setEmpresaLocal] = useState(() => JSON.parse(localStorage.getItem('empresa') || '{}'));
   const isSuperAdmin = usuario.rol === 'superadmin';
   const isParticular = empresaLocal?.tipo === 'particular';
   const canEdit = isSuperAdmin || (usuario.rol === 'admin' && !isParticular);
@@ -109,7 +109,15 @@ export default function VehiclesPage() {
   const { vehiculos: fleet, loading, fleetError, refresh: fetchData, receiveTelemetry } = useFleetVehicles(
     token, isSuperAdmin ? selectedEmpresaFilter : '', archived,
   );
-  const vehiculos = useMemo(() => fleet.filter((vehicle) => vehicle.activo !== archived), [fleet, archived]);
+  const vehiculos = useMemo(() => {
+    return fleet.filter((vehicle) => {
+      if (vehicle.activo === archived) return false;
+      if (!isSuperAdmin && empresaLocal?.id && Number(vehicle.empresa_id) !== Number(empresaLocal.id)) {
+        return false;
+      }
+      return true;
+    });
+  }, [fleet, archived, isSuperAdmin, empresaLocal?.id]);
   const headers = { Authorization: `Bearer ${token}` };
   const primaryColor = empresaLocal?.color_primario || '#16A34A';
 
@@ -168,7 +176,11 @@ export default function VehiclesPage() {
     fetchEmpresas();
   }, []);
 
-  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'empresas', 'particulares'], (detail) => {
+  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'empresas', 'particulares', 'usuarios'], (detail) => {
+    const rawEmp = localStorage.getItem('empresa');
+    if (rawEmp && rawEmp !== 'null' && rawEmp !== 'undefined') {
+      try { setEmpresaLocal(JSON.parse(rawEmp) || {}); } catch {}
+    }
     fetchData();
     if (detail.entity === 'empresas' || detail.type === 'connection_restored') fetchEmpresas();
   });

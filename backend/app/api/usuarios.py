@@ -380,6 +380,7 @@ def update_usuario(
 
     update_data = payload.model_dump(exclude_unset=True)
     old_email = usuario.email
+    old_empresa_id = usuario.empresa_id
     new_plain_password = None
 
     # Proteger las cuentas principales de Superadministrador contra conversión accidental en gerente de empresa
@@ -456,12 +457,17 @@ def update_usuario(
             empresa_slug=empresa_slug
         )
     
-    manager.notify_sync(usuario.empresa_id, {
+    sync_payload = {
         "type": "entity_updated",
         "entity": "usuarios",
         "action": "updated",
         "id": usuario.id,
-    })
+        "old_empresa_id": old_empresa_id,
+        "new_empresa_id": usuario.empresa_id,
+    }
+    manager.notify_sync(usuario.empresa_id, sync_payload)
+    if old_empresa_id and old_empresa_id != usuario.empresa_id:
+        manager.notify_sync(old_empresa_id, sync_payload)
     return _enrich_usuario_out(usuario)
 
 

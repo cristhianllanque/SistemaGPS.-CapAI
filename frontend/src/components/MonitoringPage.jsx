@@ -368,12 +368,16 @@ export default function MonitoringPage() {
   }, [loadPendingAlerts, loadEmpresasCatalog]);
 
   const vehiculosFiltrados = useMemo(() => {
-    if (!isSuperAdmin || empresaFilter === 'all') return vehiculos;
+    if (!isSuperAdmin) {
+      if (!empresa?.id) return vehiculos;
+      return vehiculos.filter(v => Number(v.empresa_id) === Number(empresa.id));
+    }
+    if (empresaFilter === 'all') return vehiculos;
     if (empresaFilter === 'particulares') {
       return vehiculos.filter(v => particularIds.includes(Number(v.empresa_id)));
     }
     return vehiculos.filter(v => Number(v.empresa_id) === Number(empresaFilter));
-  }, [vehiculos, empresaFilter, particularIds, isSuperAdmin]);
+  }, [vehiculos, empresaFilter, particularIds, isSuperAdmin, empresa?.id]);
 
   // Empresa efectiva para mostrar/ajustar el límite de velocidad sin mezclar empresas en Superadmin
   const effectiveSpeedEmpresaId = useMemo(() => {
@@ -419,8 +423,18 @@ export default function MonitoringPage() {
   }, [effectiveSpeedEmpresaId, allEmpresasMap, vehiculos]);
 
   // Sincronización 100% autónoma en vivo (sin F5 ni cambiar de menú)
-  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'particulares', 'empresas', 'alertas'], (detail) => {
+  useLiveSync(['vehiculos', 'conductores', 'dispositivos', 'particulares', 'empresas', 'alertas', 'usuarios'], (detail) => {
     if (!detail) return;
+
+    if (detail.company_switched && detail.empresa) {
+      setEmpresa(detail.empresa);
+      if (detail.empresa.limite_velocidad) setLimiteVelocidad(detail.empresa.limite_velocidad);
+      setSelectedVehicleId(null);
+      setEmergencyVehicleId(null);
+      refreshVehiculosSilently();
+      loadPendingAlerts();
+      return;
+    }
 
     if (detail.type === 'alert_resolved') {
       const resolvedId = Number(detail.alerta_id);

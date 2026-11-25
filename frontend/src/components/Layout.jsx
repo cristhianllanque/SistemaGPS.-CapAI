@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import {
   LayoutDashboard, Radio, Truck, Users, Link2, Map, AlertTriangle, Route,
   LogOut, ChevronLeft, ChevronRight, Activity, Menu, Shield, Building2, Car, Smartphone, User, Bell, BellRing
@@ -7,7 +8,7 @@ import {
 import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import AlertaPanicoModal from './AlertaPanicoModal';
 import { siren } from '../utils/sound';
-import { WS_BASE_URL, getAssetUrl, isNativeApp, checkIsNativeApp } from '../config';
+import { API_BASE_URL, WS_BASE_URL, getAssetUrl, isNativeApp, checkIsNativeApp } from '../config';
 import { usePWA } from '../pwa/usePWA';
 import InstallPwaModal from '../pwa/InstallPwaModal';
 import MobileBottomNav from './MobileBottomNav';
@@ -42,9 +43,51 @@ export default function Layout() {
     const raw = localStorage.getItem('empresa');
     return (raw && raw !== 'null' && raw !== 'undefined') ? (JSON.parse(raw) || {}) : {};
   });
-  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
-  const token = localStorage.getItem('token');
+  const [usuario, setUsuario] = useState(() => JSON.parse(localStorage.getItem('usuario') || '{}') || {});
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const primaryColor = empresa?.color_primario || '#4F46E5';
+
+  // Sincronizar perfil y empresa activa desde el servidor (detecta en caliente si Superadmin cambió al usuario de Empresa A a Empresa B)
+  const syncUserProfile = useCallback(async () => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) return;
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      const { access_token, usuario: freshUser, empresa: freshEmp } = res.data || {};
+      if (access_token) {
+        localStorage.setItem('token', access_token);
+        setToken(access_token);
+      }
+      if (freshUser) {
+        localStorage.setItem('usuario', JSON.stringify(freshUser));
+        setUsuario(freshUser);
+      }
+      if (freshEmp) {
+        const prevEmpRaw = localStorage.getItem('empresa');
+        const prevEmp = (prevEmpRaw && prevEmpRaw !== 'null' && prevEmpRaw !== 'undefined') ? (JSON.parse(prevEmpRaw) || {}) : {};
+        const companyChanged = Number(prevEmp?.id || 0) !== Number(freshEmp?.id || 0);
+        localStorage.setItem('empresa', JSON.stringify(freshEmp));
+        setEmpresa(freshEmp);
+        if (companyChanged) {
+          emitLiveSync({
+            type: 'empresa_updated',
+            empresa_id: freshEmp.id,
+            empresa: freshEmp,
+            company_switched: true
+          });
+          emitLiveSync({ type: 'connection_restored' });
+        }
+      }
+    } catch {
+      // Silencioso si no hay red temporalmente
+    }
+  }, []);
+
+  useEffect(() => {
+    syncUserProfile();
+  }, [syncUserProfile]);
 
   const [activeAlert, setActiveAlert] = useState(null);
   const [pushPermission, setPushPermission] = useState(() => getNotificationPermissionState());
@@ -91,12 +134,15 @@ export default function Layout() {
     }
   };
 
-  // Sincronizar cabecera/colores/logo en caliente si se actualiza la empresa localmente
-  useLiveSync(['empresas'], (detail) => {
+  // Sincronizar cabecera/colores/logo y empresa asignada en caliente si se actualiza la empresa o el usuario
+  useLiveSync(['empresas', 'usuarios'], (detail) => {
+    if (detail?.entity === 'usuarios' || detail?.type === 'connection_restored') {
+      syncUserProfile();
+    }
     const updatedEmp = detail?.empresa;
-    if (updatedEmp && empresa?.id && Number(updatedEmp.id) === Number(empresa.id)) {
+    if (updatedEmp && (detail?.company_switched || (empresa?.id && Number(updatedEmp.id) === Number(empresa.id)))) {
       setEmpresa((prev) => {
-        const merged = { ...prev, ...updatedEmp };
+        const merged = detail?.company_switched ? { ...updatedEmp } : { ...prev, ...updatedEmp };
         localStorage.setItem('empresa', JSON.stringify(merged));
         return merged;
       });
