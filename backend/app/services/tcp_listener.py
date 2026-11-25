@@ -161,10 +161,16 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
 
             # 3. Sabotage / Main battery disconnect check
             # Vehicle battery is 12V / 24V. When thieves disconnect the battery (or switch off),
-            # external voltage drops to 0V (or < 6.0V), while the Teltonika internal backup battery powers the GPS.
+            # external voltage drops to 0V (or < 6.0V), or Teltonika Unplug Detection (AVL ID 252) fires.
             ext_mv = io_dict.get(66)
+            unplug_flag = bool(r.get('unplug_sabotaje')) or bool(io_dict.get(252))
             is_sabotaje = False
-            if ext_mv is not None and ext_mv < 6000:
+            if unplug_flag:
+                is_sabotaje = True
+                if bateria_ext_v is not None and bateria_ext_v >= 6.0:
+                    bateria_ext_v = 0.0
+                    lectura.bateria_ext = 0.0
+            elif ext_mv is not None and ext_mv < 6000:
                 is_sabotaje = True
             elif bateria_ext_v is not None and bateria_ext_v < 6.0:
                 is_sabotaje = True
