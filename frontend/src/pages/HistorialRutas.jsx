@@ -297,22 +297,22 @@ export default function HistorialRutas() {
       {/* Main Content Area */}
       <div className="flex-1 relative flex flex-col overflow-hidden">
         {/* ===================================================================== */}
-        {/* CÁPSULA FLOTANTE MÓVIL TIPO APP NATIVA (iOS / Android - No tapa mapa) */}
+        {/* BARRA SUPERIOR FLOTANTE MÓVIL (Altura fija compacta, nunca tapa botones) */}
         {/* ===================================================================== */}
-        <div className="md:hidden absolute top-2.5 left-2.5 right-2.5 z-[950] pointer-events-none flex flex-col gap-2.5">
+        <div className="md:hidden absolute top-2.5 left-2.5 right-2.5 z-[950] pointer-events-none">
           <div
-            className="pointer-events-auto bg-slate-900/95 backdrop-blur-xl text-white rounded-2xl shadow-2xl border border-slate-700/80 p-2.5 space-y-2"
-            style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}
+            className="pointer-events-auto bg-slate-900/95 backdrop-blur-xl text-white rounded-2xl shadow-2xl border border-slate-700/80 p-2 space-y-1.5"
+            style={{ backgroundColor: 'rgba(15, 23, 42, 0.95)' }}
           >
-            {/* Fila 1: Selector de Unidad tipo App + Resumen Km + Botón Calendario */}
+            {/* Fila 1: Selector de Vehículo + Estado/Km integrado en la misma cápsula */}
             <div className="flex items-center justify-between gap-1.5">
               <button
                 type="button"
                 onClick={() => {
-                  setMobileVehiclePickerOpen(!mobileVehiclePickerOpen);
+                  setMobileVehiclePickerOpen(true);
                   setMobileFiltersOpen(false);
                 }}
-                className="flex items-center gap-2 min-w-0 flex-1 bg-slate-800/90 hover:bg-slate-800 active:scale-[0.99] px-2.5 py-1.5 rounded-xl border border-slate-700/90 transition-all cursor-pointer text-left shadow-inner"
+                className="flex items-center gap-2 min-w-0 flex-1 bg-slate-800/90 hover:bg-slate-800 active:scale-[0.99] px-2.5 py-1.5 rounded-xl border border-slate-700/90 transition-all cursor-pointer text-left"
               >
                 <div className="w-6 h-6 rounded-lg bg-indigo-500/25 border border-indigo-400/40 text-indigo-300 flex items-center justify-center flex-shrink-0">
                   <Truck size={13} />
@@ -320,7 +320,7 @@ export default function HistorialRutas() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-black tracking-tight text-white truncate">
-                      {selectedVehObj ? selectedVehObj.placa : (vehiculos.length === 0 ? 'Cargando unidad...' : 'Elegir Unidad')}
+                      {selectedVehObj ? selectedVehObj.placa : (vehiculos.length === 0 ? 'Cargando...' : 'Elegir Unidad')}
                     </span>
                     {selectedVehObj?.marca && (
                       <span className="text-[10px] font-semibold text-slate-300 truncate">
@@ -329,53 +329,43 @@ export default function HistorialRutas() {
                     )}
                   </div>
                 </div>
-                <ChevronDown
-                  size={14}
-                  className={`text-slate-300 flex-shrink-0 transition-transform ${mobileVehiclePickerOpen ? 'rotate-180' : ''}`}
-                />
+                <ChevronDown size={14} className="text-slate-300 flex-shrink-0" />
               </button>
 
-              {historialData?.estadisticas && (
+              {/* Estado integrado (Km recorridos o aviso compacto "Sin ruta" para no poner otro cartel abajo) */}
+              {loading ? (
+                <div className="px-2.5 py-1.5 rounded-xl bg-indigo-950/90 border border-indigo-500/40 text-indigo-200 text-[10px] font-extrabold flex items-center gap-1.5 flex-shrink-0">
+                  <RefreshCw size={11} className="animate-spin" />
+                  <span>Cargando</span>
+                </div>
+              ) : historialData && historialData.coordenadas.length === 0 ? (
+                <div className="px-2.5 py-1.5 rounded-xl bg-amber-950/90 border border-amber-500/40 text-amber-300 text-[10px] font-extrabold flex items-center gap-1 flex-shrink-0">
+                  <AlertTriangle size={11} className="text-amber-400" />
+                  <span>Sin ruta</span>
+                </div>
+              ) : historialData?.estadisticas ? (
                 <div className="px-2.5 py-1.5 rounded-xl bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 text-[10px] font-black flex-shrink-0">
                   {historialData.estadisticas.distancia_km} km
                 </div>
+              ) : null}
+
+              {historialData?.paradas?.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowStopsList(!showStopsList)}
+                  className="px-2 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-extrabold flex items-center gap-1 flex-shrink-0 cursor-pointer"
+                >
+                  <span>🛑 {historialData.paradas.length}</span>
+                </button>
               )}
-
-              <button
-                type="button"
-                onClick={handleSearch}
-                disabled={!selectedVehiculo || loading}
-                className="w-8 h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-sm active:scale-95 transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
-                title="Actualizar recorrido"
-                aria-label="Actualizar recorrido"
-              >
-                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileFiltersOpen(!mobileFiltersOpen);
-                  setMobileVehiclePickerOpen(false);
-                }}
-                className={`px-2.5 h-8 rounded-xl text-[10px] font-extrabold flex items-center gap-1 border transition-all flex-shrink-0 cursor-pointer ${
-                  mobileFiltersOpen || activePreset === 'custom'
-                    ? 'bg-white text-slate-900 border-white shadow-sm'
-                    : 'bg-slate-800/90 text-slate-100 border-slate-700/90 hover:bg-slate-800'
-                }`}
-                title="Elegir fechas personalizadas"
-              >
-                <Calendar size={12} />
-                <span>Fechas</span>
-              </button>
             </div>
 
-            {/* Fila 2: Chips Rápidos 1-Toque (Hoy / Ayer / 24h / 7 Días) */}
-            <div className="grid grid-cols-4 gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+            {/* Fila 2: Barra Segmentada Nativa (Hoy | Ayer | 24h | 7 Días | 📅) */}
+            <div className="grid grid-cols-5 gap-1 bg-slate-950/85 p-1 rounded-xl border border-slate-800">
               {[
                 { id: 'hoy', label: 'Hoy' },
                 { id: 'ayer', label: 'Ayer' },
-                { id: '24h', label: '24 Horas' },
+                { id: '24h', label: '24h' },
                 { id: '7d', label: '7 Días' },
               ].map(item => (
                 <button
@@ -391,11 +381,49 @@ export default function HistorialRutas() {
                   {item.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileFiltersOpen(true);
+                  setMobileVehiclePickerOpen(false);
+                }}
+                className={`py-1.5 rounded-lg text-[11px] font-extrabold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  activePreset === 'custom' || mobileFiltersOpen
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Calendar size={11} />
+                <span>Otro</span>
+              </button>
             </div>
+          </div>
+        </div>
 
-            {/* Selector Desplegable Nativo de Vehículos (Solo al tocar la unidad) */}
-            {mobileVehiclePickerOpen && (
-              <div className="pt-1.5 border-t border-slate-700/80 max-h-48 overflow-y-auto space-y-1">
+        {/* ===================================================================== */}
+        {/* BOTTOM SHEET NATIVO DE SELECCIÓN DE VEHÍCULO (Estilo iOS / Android)    */}
+        {/* ===================================================================== */}
+        {mobileVehiclePickerOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-[9995] bg-slate-950/60 backdrop-blur-xs flex items-end justify-center"
+            onClick={() => setMobileVehiclePickerOpen(false)}
+          >
+            <div
+              className="w-full bg-slate-900 text-white rounded-t-3xl border-t border-slate-700/80 p-4 pb-7 shadow-2xl space-y-3 max-h-[70vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1.5 bg-slate-700 rounded-full mx-auto" />
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-white">Seleccionar Vehículo</h3>
+                <button
+                  type="button"
+                  onClick={() => setMobileVehiclePickerOpen(false)}
+                  className="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="overflow-y-auto space-y-1.5 pr-0.5">
                 {vehiculos.map(v => {
                   const isSelected = String(v.id) === String(selectedVehiculo);
                   return (
@@ -407,89 +435,95 @@ export default function HistorialRutas() {
                         setMobileVehiclePickerOpen(false);
                         fetchHistorialRange(String(v.id), fechaInicio, fechaFin);
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-bold transition-colors cursor-pointer ${
+                      className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-left transition-all cursor-pointer border ${
                         isSelected
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-800/80 text-slate-200 hover:bg-slate-800'
+                          ? 'bg-indigo-600 text-white border-indigo-400 shadow-md'
+                          : 'bg-slate-800/80 text-slate-200 border-slate-700/70 hover:bg-slate-800'
                       }`}
                     >
-                      <div className="truncate">
-                        <span className="font-black">{v.placa}</span>
-                        <span className="text-[11px] opacity-80 ml-1.5">
-                          {v.marca ? `${v.marca} ${v.modelo || ''}`.trim() : (v.empresa?.nombre || 'Mi Flota')}
-                        </span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-700 text-indigo-300'}`}>
+                          <Truck size={15} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-black truncate">{v.placa}</div>
+                          <div className={`text-[11px] truncate ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                            {v.marca ? `${v.marca} ${v.modelo || ''}`.trim() : (v.empresa?.nombre || 'Mi Flota')}
+                          </div>
+                        </div>
                       </div>
-                      {isSelected && <Check size={14} className="flex-shrink-0" />}
+                      {isSelected && <Check size={16} className="flex-shrink-0" />}
                     </button>
                   );
                 })}
               </div>
-            )}
+            </div>
+          </div>
+        )}
 
-            {/* Panel Compacto de Rango de Fecha Personalizado (Solo si el usuario toca "Fechas") */}
-            {mobileFiltersOpen && (
-              <div className="pt-2 border-t border-slate-700/80 space-y-2 animate-in fade-in duration-150">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div className="bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
-                    <label className="block text-[9px] font-bold text-slate-300 uppercase">Desde (Perú)</label>
-                    <input
-                      type="datetime-local"
-                      className="w-full bg-transparent text-white text-[11px] font-bold outline-none [color-scheme:dark]"
-                      value={fechaInicio}
-                      onChange={(e) => { setActivePreset('custom'); setFechaInicio(e.target.value); }}
-                    />
-                  </div>
-                  <div className="bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
-                    <label className="block text-[9px] font-bold text-slate-300 uppercase">Hasta (Perú)</label>
-                    <input
-                      type="datetime-local"
-                      className="w-full bg-transparent text-white text-[11px] font-bold outline-none [color-scheme:dark]"
-                      value={fechaFin}
-                      onChange={(e) => { setActivePreset('custom'); setFechaFin(e.target.value); }}
-                    />
-                  </div>
-                </div>
+        {/* ===================================================================== */}
+        {/* BOTTOM SHEET NATIVO DE FECHAS PERSONALIZADAS (No tapa el mapa arriba)  */}
+        {/* ===================================================================== */}
+        {mobileFiltersOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-[9995] bg-slate-950/60 backdrop-blur-xs flex items-end justify-center"
+            onClick={() => setMobileFiltersOpen(false)}
+          >
+            <div
+              className="w-full bg-slate-900 text-white rounded-t-3xl border-t border-slate-700/80 p-4 pb-7 shadow-2xl space-y-3.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1.5 bg-slate-700 rounded-full mx-auto" />
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <Calendar size={15} className="text-indigo-400" />
+                  <span>Elegir Periodo de Recorrido</span>
+                </h3>
                 <button
                   type="button"
-                  onClick={handleSearch}
-                  disabled={!selectedVehiculo || loading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl font-extrabold text-xs shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                  onClick={() => setMobileFiltersOpen(false)}
+                  className="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
                 >
-                  <Search size={14} />
-                  <span>{loading ? 'Buscando Recorrido...' : 'Ver Recorrido en Mapa'}</span>
+                  ✕
                 </button>
               </div>
-            )}
-          </div>
 
-          {/* Aviso Móvil "Sin recorridos" integrado debajo de la cápsula con separación limpia */}
-          {historialData && historialData.coordenadas.length === 0 && (
-            <div
-              className="pointer-events-auto mr-12 bg-slate-900/95 backdrop-blur-md shadow-xl border border-slate-700/80 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-2"
-              style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}
-            >
-              <AlertTriangle className="text-amber-400 flex-shrink-0" size={16} />
-              <span>Sin recorridos registrados en este periodo.</span>
-            </div>
-          )}
+              <div className="space-y-2">
+                <div className="bg-slate-800/90 rounded-2xl px-3.5 py-2.5 border border-slate-700">
+                  <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-0.5">Inicio del recorrido</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full bg-transparent text-white text-xs font-bold outline-none [color-scheme:dark]"
+                    value={fechaInicio}
+                    onChange={(e) => { setActivePreset('custom'); setFechaInicio(e.target.value); }}
+                  />
+                </div>
+                <div className="bg-slate-800/90 rounded-2xl px-3.5 py-2.5 border border-slate-700">
+                  <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-0.5">Fin del recorrido</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full bg-transparent text-white text-xs font-bold outline-none [color-scheme:dark]"
+                    value={fechaFin}
+                    onChange={(e) => { setActivePreset('custom'); setFechaFin(e.target.value); }}
+                  />
+                </div>
+              </div>
 
-          {/* Botón Móvil de Paradas integrado debajo de la cápsula */}
-          {historialData && historialData.paradas && historialData.paradas.length > 0 && (
-            <div className="pointer-events-auto flex flex-col items-start gap-1.5">
               <button
                 type="button"
-                onClick={() => setShowStopsList(!showStopsList)}
-                className="bg-slate-900/95 backdrop-blur-md shadow-lg border border-slate-700/80 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all cursor-pointer"
-                style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}
+                onClick={handleSearch}
+                disabled={!selectedVehiculo || loading}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-2xl font-black text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
               >
-                🛑 {showStopsList ? 'Ocultar Paradas' : `Paradas (${historialData.paradas.length})`}
+                <Search size={15} />
+                <span>{loading ? 'Cargando Recorrido...' : 'Aplicar y Ver en Mapa'}</span>
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Selector Flotante Vertical de Capas (Solo Íconos al costado derecho: Sol / Luna / Satélite) */}
-        <div className="absolute top-28 right-2.5 md:top-16 md:right-4 z-[900] pointer-events-auto">
+        {/* Selector Flotante Vertical de Capas (Ubicado más abajo al costado derecho para que nunca se cruce con la barra superior) */}
+        <div className="absolute top-36 right-2.5 md:top-16 md:right-4 z-[900] pointer-events-auto">
           <div
             className="w-10 bg-slate-900/95 backdrop-blur-md p-1 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-col items-center gap-1"
             style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}

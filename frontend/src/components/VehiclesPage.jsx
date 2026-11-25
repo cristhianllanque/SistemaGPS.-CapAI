@@ -342,9 +342,9 @@ export default function VehiclesPage() {
 
   return (
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto">
-      {/* Cabecera Principal + Conmutador de Vista (Activos en Vivo vs Padrón Técnico) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div>
+      {/* Cabecera Principal + Conmutador de Vista (En móvil oculta textos descriptivos de relleno para experiencia App) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
+        <div className="hidden md:block">
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 flex items-center gap-2">
             {isParticular ? <Car size={23} className="text-teal-600" /> : <Truck size={23} className="text-emerald-600" />}
             <span>
