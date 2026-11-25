@@ -43,6 +43,8 @@ export function useFleetVehicles(token, empresaId, archived = false) {
   const [loading, setLoading] = useState(true);
   const [fleetError, setFleetError] = useState('');
   const request = useRef(null);
+  const inFlightKeyRef = useRef(null);
+  const queuedRefreshRef = useRef(false);
   const pendingTelemetry = useRef(new Map());
 
   const receiveTelemetry = useCallback((message) => {
@@ -55,14 +57,27 @@ export function useFleetVehicles(token, empresaId, archived = false) {
   }, [archived]);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    const activeToken = localStorage.getItem('token') || token;
+    if (!activeToken) return;
+    const reqKey = `${empresaId || ''}:${archived ? '1' : '0'}`;
+
+    // En conexiones 4G móviles, si ya hay una petición idéntica en curso, no abortarla a mitad de camino;
+    // dejar que entregue los vehículos de inmediato y encolar un refresco silencioso al terminar.
+    if (request.current && inFlightKeyRef.current === reqKey) {
+      queuedRefreshRef.current = true;
+      return;
+    }
+
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
+    inFlightKeyRef.current = reqKey;
+    queuedRefreshRef.current = false;
+
     try {
       const { data } = await axios.get(`${API_BASE_URL}/api/vehiculos/`, {
         signal: controller.signal,
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${activeToken}` },
         params: { empresa_id: empresaId || undefined, archivados: archived || undefined },
       });
       if (controller.signal.aborted) return;
@@ -95,7 +110,17 @@ export function useFleetVehicles(token, empresaId, archived = false) {
         setFleetError(typeof detail === 'string' ? detail : 'No se pudo actualizar la flota.');
       }
     } finally {
-      if (!controller.signal.aborted) setLoading(false);
+      if (request.current === controller) {
+        request.current = null;
+        inFlightKeyRef.current = null;
+      }
+      if (!controller.signal.aborted) {
+        setLoading(false);
+        if (queuedRefreshRef.current) {
+          queuedRefreshRef.current = false;
+          setTimeout(() => { refresh(); }, 150);
+        }
+      }
     }
   }, [token, empresaId, archived]);
 

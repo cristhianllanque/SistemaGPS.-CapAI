@@ -296,11 +296,13 @@ export default function MonitoringPage() {
 
   const loadEmpresasCatalog = useCallback(async () => {
     if (!isSuperAdmin) {
-      if (!empresa?.id) return;
       try {
-        const empRes = await axios.get(`${API}/api/empresas/${empresa.id}`, { headers });
-        if (empRes?.data) {
-          const emp = empRes.data;
+        const meRes = await axios.get(`${API}/api/auth/me`, { headers });
+        const emp = meRes?.data?.empresa;
+        if (meRes?.data?.usuario) {
+          localStorage.setItem('usuario', JSON.stringify(meRes.data.usuario));
+        }
+        if (emp && emp.id) {
           setAllEmpresasMap((prev) => ({ ...prev, [emp.id]: emp }));
           if (emp.limite_velocidad) {
             setLimiteVelocidad(emp.limite_velocidad);
@@ -368,16 +370,12 @@ export default function MonitoringPage() {
   }, [loadPendingAlerts, loadEmpresasCatalog]);
 
   const vehiculosFiltrados = useMemo(() => {
-    if (!isSuperAdmin) {
-      if (!empresa?.id) return vehiculos;
-      return vehiculos.filter(v => Number(v.empresa_id) === Number(empresa.id));
-    }
-    if (empresaFilter === 'all') return vehiculos;
+    if (!isSuperAdmin || empresaFilter === 'all') return vehiculos;
     if (empresaFilter === 'particulares') {
       return vehiculos.filter(v => particularIds.includes(Number(v.empresa_id)));
     }
     return vehiculos.filter(v => Number(v.empresa_id) === Number(empresaFilter));
-  }, [vehiculos, empresaFilter, particularIds, isSuperAdmin, empresa?.id]);
+  }, [vehiculos, empresaFilter, particularIds, isSuperAdmin]);
 
   // Empresa efectiva para mostrar/ajustar el límite de velocidad sin mezclar empresas en Superadmin
   const effectiveSpeedEmpresaId = useMemo(() => {

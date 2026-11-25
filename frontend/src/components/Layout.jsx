@@ -56,20 +56,28 @@ export default function Layout() {
         headers: { Authorization: `Bearer ${currentToken}` }
       });
       const { access_token, usuario: freshUser, empresa: freshEmp } = res.data || {};
-      if (access_token) {
+      const prevEmpRaw = localStorage.getItem('empresa');
+      const prevEmp = (prevEmpRaw && prevEmpRaw !== 'null' && prevEmpRaw !== 'undefined') ? (JSON.parse(prevEmpRaw) || {}) : {};
+      const prevUserRaw = localStorage.getItem('usuario');
+      const prevUser = (prevUserRaw && prevUserRaw !== 'null' && prevUserRaw !== 'undefined') ? (JSON.parse(prevUserRaw) || {}) : {};
+      const companyChanged = Boolean(freshEmp && Number(prevEmp?.id || 0) !== Number(freshEmp?.id || 0));
+      const roleChanged = Boolean(freshUser && prevUser?.rol && prevUser.rol !== freshUser.rol);
+
+      if (access_token && (companyChanged || roleChanged)) {
         localStorage.setItem('token', access_token);
         setToken(access_token);
       }
       if (freshUser) {
         localStorage.setItem('usuario', JSON.stringify(freshUser));
-        setUsuario(freshUser);
+        if (companyChanged || roleChanged || prevUser?.nombre !== freshUser.nombre || prevUser?.email !== freshUser.email) {
+          setUsuario(freshUser);
+        }
       }
       if (freshEmp) {
-        const prevEmpRaw = localStorage.getItem('empresa');
-        const prevEmp = (prevEmpRaw && prevEmpRaw !== 'null' && prevEmpRaw !== 'undefined') ? (JSON.parse(prevEmpRaw) || {}) : {};
-        const companyChanged = Number(prevEmp?.id || 0) !== Number(freshEmp?.id || 0);
         localStorage.setItem('empresa', JSON.stringify(freshEmp));
-        setEmpresa(freshEmp);
+        if (companyChanged || prevEmp?.nombre !== freshEmp.nombre || prevEmp?.logo_url !== freshEmp.logo_url || prevEmp?.color_primario !== freshEmp.color_primario) {
+          setEmpresa(freshEmp);
+        }
         if (companyChanged) {
           emitLiveSync({
             type: 'empresa_updated',
@@ -136,7 +144,7 @@ export default function Layout() {
 
   // Sincronizar cabecera/colores/logo y empresa asignada en caliente si se actualiza la empresa o el usuario
   useLiveSync(['empresas', 'usuarios'], (detail) => {
-    if (detail?.entity === 'usuarios' || detail?.type === 'connection_restored') {
+    if (detail?.entity === 'usuarios') {
       syncUserProfile();
     }
     const updatedEmp = detail?.empresa;
@@ -186,7 +194,10 @@ export default function Layout() {
 
   useEffect(() => {
     const refreshVisible = () => {
-      if (document.visibilityState === 'visible') emitLiveSync({ type: 'connection_restored' });
+      if (document.visibilityState === 'visible') {
+        syncUserProfile();
+        emitLiveSync({ type: 'connection_restored' });
+      }
     };
     document.addEventListener('visibilitychange', refreshVisible);
     window.addEventListener('online', refreshVisible);
