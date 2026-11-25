@@ -11,18 +11,29 @@ class ConnectionManager:
         self.active_connections: Dict[int, List[WebSocket]] = {}
         # Conexiones exclusivas de Superadmin (pueden ver eventos de toda la plataforma)
         self.superadmin_connections: Set[WebSocket] = set()
+        # Mapeo de cada conexión WebSocket a su usuario y empresa para revocación inmediata
+        self.connection_users: Dict[WebSocket, Optional[int]] = {}
+        self.connection_empresas: Dict[WebSocket, int] = {}
         self.loop: Optional[asyncio.AbstractEventLoop] = None
 
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         self.loop = loop
 
-    async def connect(self, websocket: WebSocket, empresa_id: int, is_superadmin: bool = False):
+    async def connect(
+        self,
+        websocket: WebSocket,
+        empresa_id: int,
+        is_superadmin: bool = False,
+        user_id: Optional[int] = None,
+    ):
         if self.loop is None:
             try:
                 self.loop = asyncio.get_running_loop()
             except RuntimeError:
                 pass
         await websocket.accept()
+        self.connection_users[websocket] = user_id
+        self.connection_empresas[websocket] = empresa_id
         if is_superadmin:
             self.superadmin_connections.add(websocket)
         else:
@@ -30,13 +41,65 @@ class ConnectionManager:
                 self.active_connections[empresa_id] = []
             self.active_connections[empresa_id].append(websocket)
 
-    def disconnect(self, websocket: WebSocket, empresa_id: int):
+    def disconnect(self, websocket: WebSocket, empresa_id: int = 0):
         self.superadmin_connections.discard(websocket)
-        if empresa_id in self.active_connections:
-            if websocket in self.active_connections[empresa_id]:
-                self.active_connections[empresa_id].remove(websocket)
-            if not self.active_connections[empresa_id]:
-                del self.active_connections[empresa_id]
+        tracked_emp = self.connection_empresas.pop(websocket, empresa_id)
+        self.connection_users.pop(websocket, None)
+        for emp_key in {empresa_id, tracked_emp}:
+            if emp_key in self.active_connections:
+                if websocket in self.active_connections[emp_key]:
+                    self.active_connections[emp_key].remove(websocket)
+                if not self.active_connections[emp_key]:
+                    del self.active_connections[emp_key]
+
+    async def close_user_connections(self, user_id: int):
+        """Cierra de inmediato todas las conexiones WebSocket abiertas de un usuario dado de baja o reasignado."""
+        targets = [ws for ws, uid in list(self.connection_users.items()) if uid == user_id]
+        for ws in targets:
+            emp_id = self.connection_empresas.get(ws, 0)
+            self.disconnect(ws, emp_id)
+            try:
+                await ws.close(code=1008)
+            except Exception:
+                pass
+
+    async def close_empresa_connections(self, empresa_id: int):
+        """Cierra de inmediato todas las conexiones WebSocket abiertas de una empresa suspendida o dada de baja."""
+        targets = list(self.active_connections.get(empresa_id, []))
+        for ws in targets:
+            self.disconnect(ws, empresa_id)
+            try:
+                await ws.close(code=1008)
+            except Exception:
+                pass
+
+    def _schedule_coro(self, coro):
+        if not self.loop or self.loop.is_closed():
+            coro.close()
+            return
+        try:
+            running_loop = None
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                running_loop = None
+
+            if running_loop is self.loop:
+                self.loop.create_task(coro)
+            else:
+                asyncio.run_coroutine_threadsafe(coro, self.loop)
+        except Exception as exc:
+            try:
+                coro.close()
+            except Exception:
+                pass
+            logger.warning(f"No se pudo ejecutar tarea WS en vivo: {exc}")
+
+    def revoke_user_sync(self, user_id: int):
+        self._schedule_coro(self.close_user_connections(user_id))
+
+    def revoke_empresa_sync(self, empresa_id: int):
+        self._schedule_coro(self.close_empresa_connections(empresa_id))
 
     async def broadcast_flota(self, empresa_id: Optional[int], message: dict):
         """

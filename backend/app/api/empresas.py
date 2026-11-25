@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Backgrou
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.api.deps import get_db, get_current_user, require_role
+from app.api.deps import get_db, get_current_user, require_role, is_company_subscription_active
 from app.db import models, schemas
 from app.core import security
 from app.services.email_service import send_welcome_email
@@ -476,6 +476,9 @@ def update_empresa(
     db.commit()
     db.refresh(emp)
 
+    if not is_company_subscription_active(emp):
+        manager.revoke_empresa_sync(emp.id)
+
     # Asegurar SSL HTTPS si el subdominio fue modificado o aún no tenía certificado
     ensure_subdomain_ssl(emp.slug, db)
 
@@ -576,6 +579,9 @@ def gestionar_suscripcion_empresa(
 
     db.commit()
     db.refresh(emp)
+
+    if not is_company_subscription_active(emp):
+        manager.revoke_empresa_sync(emp.id)
 
     sub_info = calcular_info_suscripcion(emp)
     manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "empresas"})

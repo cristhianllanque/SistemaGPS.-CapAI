@@ -527,10 +527,10 @@ def get_historial(
             dist = haversine(prev_lec.latitud, prev_lec.longitud, lec.latitud, lec.longitud)
             distancia_total += dist
             
-            # Time difference in minutes
+            # Time difference in minutes (cap telemetry gaps > 15 min so signal loss doesn't inflate engine hours)
             dt_mins = (lec.timestamp - prev_lec.timestamp).total_seconds() / 60.0
             
-            if prev_lec.ignicion:
+            if 0 < dt_mins <= 15.0 and prev_lec.ignicion:
                 tiempo_encendido_minutos += dt_mins
                 
         # Stop logic: If speed is 0 or ignition is false

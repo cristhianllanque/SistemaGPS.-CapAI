@@ -77,14 +77,23 @@ def get_reporte_consolidado(
                 distancia_total += dist
                 
                 dt_mins = (lec.timestamp - prev_lec.timestamp).total_seconds() / 60.0
-                if prev_lec.ignicion:
+                if 0 < dt_mins <= 15.0 and prev_lec.ignicion:
                     tiempo_encendido_min += dt_mins
 
-        # Get Panic alerts
-        alertas_count = db.query(models.AlertaPanico).filter(
+        # Get alerts breakdown by type (strictly separating Panic from Sabotage and Overspeed)
+        alertas_query = db.query(models.AlertaPanico).filter(
             models.AlertaPanico.vehiculo_id == v.id,
             models.AlertaPanico.fecha_hora >= inicio,
             models.AlertaPanico.fecha_hora <= fin
+        )
+        alertas_panico_count = alertas_query.filter(
+            (models.AlertaPanico.tipo == 'panico') | (models.AlertaPanico.tipo.is_(None))
+        ).count()
+        alertas_sabotaje_count = alertas_query.filter(
+            models.AlertaPanico.tipo == 'sabotaje'
+        ).count()
+        alertas_velocidad_count = alertas_query.filter(
+            models.AlertaPanico.tipo == 'exceso_velocidad'
         ).count()
 
         conductor_nombre = v.conductor.nombre if v.conductor else "Sin asignar"
@@ -95,7 +104,10 @@ def get_reporte_consolidado(
             "Km Totales": round(distancia_total, 2),
             "Horas Motor": round(tiempo_encendido_min / 60.0, 2),
             "Velocidad Max (km/h)": velocidad_maxima,
-            "Alertas Pánico": alertas_count
+            "Alertas Pánico": alertas_panico_count,
+            "Alertas Sabotaje": alertas_sabotaje_count,
+            "Alertas Velocidad": alertas_velocidad_count,
+            "Total Alertas": alertas_panico_count + alertas_sabotaje_count + alertas_velocidad_count,
         })
 
     if formato == 'excel':

@@ -85,6 +85,8 @@ async def maintenance_cleanup_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     manager.set_loop(asyncio.get_running_loop())
+    from app.services.push_service import get_or_create_vapid_keys
+    get_or_create_vapid_keys()
     # Start the Teltonika TCP Server in the background
     tcp_task = asyncio.create_task(start_tcp_server(host='0.0.0.0', port=5000))
     cleanup_task = asyncio.create_task(maintenance_cleanup_loop())
@@ -129,21 +131,20 @@ app.include_router(pwa.router, prefix="/api/pwa", tags=["pwa"])
 
 @app.websocket("/ws/flota/{empresa_id}")
 async def websocket_endpoint(websocket: WebSocket, empresa_id: int, token: str = None):
-    # Verify JWT Token before accepting connection
+    # Verify JWT Token and live account/company status before accepting connection
     if not token:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
         
     try:
+        from app.api.deps import is_user_access_allowed
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         if payload.get("type") == "password_reset":
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
-        user_empresa_id = payload.get("empresa_id")
         user_email = payload.get("sub")
         user_id = payload.get("user_id")
-        user_rol = payload.get("rol")
-        if not user_email:
+        if not user_email and user_id is None:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
         with SessionLocal() as db:
@@ -152,9 +153,12 @@ async def websocket_endpoint(websocket: WebSocket, empresa_id: int, token: str =
                 db_user = db.query(models.Usuario).filter(models.Usuario.id == int(user_id)).first()
             if db_user is None and user_email:
                 db_user = db.query(models.Usuario).filter(models.Usuario.email == user_email).first()
-            if db_user is not None:
-                user_empresa_id = db_user.empresa_id
-                user_rol = db_user.rol
+            if not is_user_access_allowed(db_user):
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
+            live_user_id = db_user.id
+            user_empresa_id = db_user.empresa_id
+            user_rol = db_user.rol
         if user_rol != 'superadmin':
             if user_empresa_id is None or int(user_empresa_id) != empresa_id:
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -164,7 +168,7 @@ async def websocket_endpoint(websocket: WebSocket, empresa_id: int, token: str =
         return
 
     is_superadmin = (user_rol == 'superadmin')
-    await manager.connect(websocket, empresa_id, is_superadmin=is_superadmin)
+    await manager.connect(websocket, empresa_id, is_superadmin=is_superadmin, user_id=live_user_id)
     try:
         while True:
             data = await websocket.receive_text()

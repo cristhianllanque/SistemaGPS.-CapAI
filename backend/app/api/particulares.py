@@ -412,15 +412,28 @@ def delete_cliente_particular(
         if not v.placa.endswith(f"-B{v.id}"):
             v.placa = f"{v.placa[:14]}-B{v.id}"
 
-    # Desactivar usuarios y liberar su email (unique)
+    # Desactivar usuarios y liberar su email (unique), y revocar sus suscripciones Push
     usuarios = db.query(models.Usuario).filter(models.Usuario.empresa_id == emp.id).all()
+    user_ids = []
     for u in usuarios:
         u.activo = False
+        user_ids.append(u.id)
         if not u.email.startswith("baja"):
             u.email = f"baja{u.id}_{u.email}"
 
+    db.query(models.PushSubscription).filter(
+        models.PushSubscription.empresa_id == emp.id
+    ).delete(synchronize_session=False)
+    if user_ids:
+        db.query(models.PushSubscription).filter(
+            models.PushSubscription.usuario_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+
     emp.activo = False
     db.commit()
+    manager.revoke_empresa_sync(emp.id)
+    for uid in user_ids:
+        manager.revoke_user_sync(uid)
     manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
 
     manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "vehiculos"})

@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Generator, Optional
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -16,6 +16,28 @@ def get_db() -> Generator:
         yield db
     finally:
         db.close()
+
+def is_company_subscription_active(empresa: Optional[models.Empresa]) -> bool:
+    if empresa is None or not empresa.activo:
+        return False
+    plan = (getattr(empresa, "plan_servicio", None) or "mensual").lower().strip()
+    corte_auto = getattr(empresa, "corte_automatico", True)
+    if corte_auto is None:
+        corte_auto = True
+    fecha_venc = getattr(empresa, "fecha_vencimiento", None)
+    if corte_auto and plan != "ilimitado" and fecha_venc is not None:
+        hoy = datetime.now(timezone(timedelta(hours=-5))).date()
+        if hoy > fecha_venc:
+            return False
+    return True
+
+def is_user_access_allowed(user: Optional[models.Usuario]) -> bool:
+    if user is None or not user.activo:
+        return False
+    if user.rol != "superadmin":
+        if user.empresa is None or not is_company_subscription_active(user.empresa):
+            return False
+    return True
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -42,22 +64,17 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         raise credentials_exception
 
     # Verificar que la empresa/cuenta del usuario no esté suspendida ni vencida con corte automático
-    if user.rol != "superadmin" and user.empresa:
-        if not user.empresa.activo:
+    if user.rol != "superadmin":
+        if user.empresa is None or not user.empresa.activo:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="SERVICIO_SUSPENDIDO: El servicio GPS de tu cuenta se encuentra en pausa por renovación."
             )
-        plan = (getattr(user.empresa, "plan_servicio", None) or "mensual").lower().strip()
-        corte_auto = getattr(user.empresa, "corte_automatico", True)
-        fecha_venc = getattr(user.empresa, "fecha_vencimiento", None)
-        if corte_auto and plan != "ilimitado" and fecha_venc is not None:
-            hoy = datetime.now(timezone(timedelta(hours=-5))).date()
-            if hoy > fecha_venc:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="SERVICIO_VENCIDO: Tu suscripción GPS ha vencido. Comunícate con soporte para renovarla."
-                )
+        if not is_company_subscription_active(user.empresa):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="SERVICIO_VENCIDO: Tu suscripción GPS ha vencido. Comunícate con soporte para renovarla."
+            )
 
     return user
 

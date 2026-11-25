@@ -2,13 +2,14 @@ import base64
 import json
 import logging
 import os
-from sqlalchemy import or_
+from app.api.deps import is_company_subscription_active
 from app.db.database import SessionLocal
 from app.db import models
 
 logger = logging.getLogger(__name__)
 
-VAPID_KEYS_FILE = os.path.join("uploads", "vapid_keys.json")
+VAPID_KEYS_FILE = os.path.join(".secrets", "vapid_keys.json")
+LEGACY_PUBLIC_VAPID_KEYS_FILE = os.path.join("uploads", "vapid_keys.json")
 VAPID_CLAIMS = {"sub": "mailto:industriascopai@gmail.com"}
 
 
@@ -16,12 +17,39 @@ def _b64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+def _purge_legacy_public_vapid_keys() -> bool:
+    """
+    Si existía un archivo de claves VAPID en el directorio público 'uploads/',
+    lo elimina de inmediato y fuerza la rotación del par de claves.
+    """
+    had_legacy = False
+    if os.path.exists(LEGACY_PUBLIC_VAPID_KEYS_FILE):
+        had_legacy = True
+        try:
+            os.remove(LEGACY_PUBLIC_VAPID_KEYS_FILE)
+            logger.warning("[PUSH] Archivo VAPID legado eliminado del directorio público uploads/.")
+        except Exception as e:
+            logger.error(f"[PUSH] No se pudo eliminar {LEGACY_PUBLIC_VAPID_KEYS_FILE}: {e}")
+    return had_legacy
+
+
 def get_or_create_vapid_keys() -> dict:
     """
     Obtiene o genera automáticamente el par de llaves VAPID ECDSA P-256
-    para notificaciones Web Push (compatible con iOS 16.4+ PWA y Android Chrome/APK).
+    fuera del directorio público para notificaciones Web Push.
+    Si detecta una clave legada en 'uploads/vapid_keys.json', la elimina y rota las llaves.
     """
-    os.makedirs("uploads", exist_ok=True)
+    had_legacy = _purge_legacy_public_vapid_keys()
+    secret_dir = os.path.dirname(VAPID_KEYS_FILE)
+    if secret_dir:
+        os.makedirs(secret_dir, exist_ok=True)
+
+    if had_legacy and os.path.exists(VAPID_KEYS_FILE):
+        try:
+            os.remove(VAPID_KEYS_FILE)
+        except Exception:
+            pass
+
     if os.path.exists(VAPID_KEYS_FILE):
         try:
             with open(VAPID_KEYS_FILE, "r", encoding="utf-8") as fh:
@@ -53,10 +81,23 @@ def get_or_create_vapid_keys() -> dict:
         }
         with open(VAPID_KEYS_FILE, "w", encoding="utf-8") as fh:
             json.dump(keys, fh, indent=2)
+        try:
+            os.chmod(VAPID_KEYS_FILE, 0o600)
+        except Exception:
+            pass
         return keys
     except Exception as e:
         logger.error(f"[PUSH] Error generando llaves VAPID: {e}")
         return {"public_key": "", "private_key": ""}
+
+
+def _get_webpush_client():
+    try:
+        from pywebpush import webpush, WebPushException
+        return webpush, WebPushException
+    except ImportError:
+        logger.warning("[PUSH] pywebpush no está instalado en el entorno.")
+        return None, Exception
 
 
 def send_web_push_sync(
@@ -67,13 +108,12 @@ def send_web_push_sync(
     tag: str = "copai-alert",
 ) -> int:
     """
-    Envía notificación Web Push en segundo plano a todos los dispositivos suscritos
-    de la empresa correspondiente y a los superadministradores.
+    Envía notificación Web Push en segundo plano exclusivamente a los dispositivos suscritos
+    cuyos usuarios siguen activos, pertenecen actualmente a la empresa correspondiente
+    (con suscripción activa) o son superadministradores activos.
     """
-    try:
-        from pywebpush import webpush, WebPushException
-    except ImportError:
-        logger.warning("[PUSH] pywebpush no está instalado en el entorno.")
+    webpush, WebPushException = _get_webpush_client()
+    if webpush is None:
         return 0
 
     keys = get_or_create_vapid_keys()
@@ -94,19 +134,36 @@ def send_web_push_sync(
 
     sent_count = 0
     with SessionLocal() as db:
-        subs = (
-            db.query(models.PushSubscription)
-            .filter(
-                or_(
-                    models.PushSubscription.empresa_id == empresa_id,
-                    models.PushSubscription.rol == "superadmin",
-                )
+        rows = (
+            db.query(models.PushSubscription, models.Usuario)
+            .outerjoin(
+                models.Usuario,
+                models.PushSubscription.usuario_id == models.Usuario.id,
             )
             .all()
         )
 
         stale_ids = []
-        for sub in subs:
+        dirty_subs = False
+        for sub, user in rows:
+            # Si el usuario fue eliminado o desactivado, revocar la suscripción push
+            if user is None or not user.activo:
+                stale_ids.append(sub.id)
+                continue
+
+            # Sincronizar rol y empresa_id de la suscripción con el estado real del usuario
+            if sub.rol != user.rol or sub.empresa_id != user.empresa_id:
+                sub.rol = user.rol
+                sub.empresa_id = user.empresa_id
+                dirty_subs = True
+
+            # Verificar autorización real de la cuenta antes de enviar
+            if user.rol != "superadmin":
+                if user.empresa_id is None or int(user.empresa_id) != int(empresa_id):
+                    continue
+                if not is_company_subscription_active(user.empresa):
+                    continue
+
             subscription_info = {
                 "endpoint": sub.endpoint,
                 "keys": {
@@ -136,6 +193,10 @@ def send_web_push_sync(
             db.query(models.PushSubscription).filter(
                 models.PushSubscription.id.in_(stale_ids)
             ).delete(synchronize_session=False)
+            dirty_subs = True
+
+        if dirty_subs:
             db.commit()
 
     return sent_count
+

@@ -430,11 +430,28 @@ def update_usuario(
             new_plain_password = raw_pwd
             usuario.password_hash = security.get_password_hash(raw_pwd)
         
+    old_rol = usuario.rol
     for key, value in update_data.items():
         setattr(usuario, key, value)
 
+    # Sincronizar o revocar suscripciones Web Push cuando cambia estado, empresa o rol
+    if not usuario.activo:
+        db.query(models.PushSubscription).filter(
+            models.PushSubscription.usuario_id == usuario.id
+        ).delete(synchronize_session=False)
+    elif old_empresa_id != usuario.empresa_id or old_rol != usuario.rol:
+        db.query(models.PushSubscription).filter(
+            models.PushSubscription.usuario_id == usuario.id
+        ).update(
+            {"empresa_id": usuario.empresa_id, "rol": usuario.rol},
+            synchronize_session=False,
+        )
+
     db.commit()
     db.refresh(usuario)
+
+    if not usuario.activo or old_empresa_id != usuario.empresa_id or old_rol != usuario.rol:
+        manager.revoke_user_sync(usuario.id)
 
     # Si se cambió el correo o se asignó una nueva contraseña, enviar notificación por correo
     email_changed = (usuario.email != old_email)
@@ -488,8 +505,15 @@ def toggle_estado_usuario(
         raise HTTPException(status_code=400, detail="No se puede desactivar la cuenta del Administrador Principal")
 
     usuario.activo = not usuario.activo
+    if not usuario.activo:
+        db.query(models.PushSubscription).filter(
+            models.PushSubscription.usuario_id == usuario.id
+        ).delete(synchronize_session=False)
     db.commit()
     db.refresh(usuario)
+
+    if not usuario.activo:
+        manager.revoke_user_sync(usuario.id)
     
     manager.notify_sync(usuario.empresa_id, {
         "type": "entity_updated",

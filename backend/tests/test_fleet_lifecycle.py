@@ -151,3 +151,104 @@ class TestFleetLifecycle(unittest.TestCase):
         self.db.commit()
         result = tcp_listener.save_records_to_db(self.device_id, self.imei, [data])
         self.assertIsNotNone(result["panic_alert_id"])
+
+    def test_vapid_keys_stored_outside_public_uploads_and_rotated_if_legacy_present(self):
+        import json
+        import os
+        import tempfile
+        from app.services import push_service
+
+        self.assertFalse(push_service.VAPID_KEYS_FILE.replace("\\", "/").startswith("uploads/"))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            legacy_file = os.path.join(tmpdir, "uploads", "vapid_keys.json")
+            secret_file = os.path.join(tmpdir, ".secrets", "vapid_keys.json")
+            os.makedirs(os.path.dirname(legacy_file), exist_ok=True)
+            with open(legacy_file, "w", encoding="utf-8") as fh:
+                json.dump({"public_key": "LEGACY_PUB", "private_key": "LEGACY_PRIV"}, fh)
+
+            with patch.object(push_service, "LEGACY_PUBLIC_VAPID_KEYS_FILE", legacy_file), \
+                 patch.object(push_service, "VAPID_KEYS_FILE", secret_file):
+                keys = push_service.get_or_create_vapid_keys()
+                self.assertFalse(os.path.exists(legacy_file))
+                self.assertTrue(os.path.exists(secret_file))
+                self.assertNotEqual(keys["private_key"], "LEGACY_PRIV")
+                self.assertTrue(len(keys["public_key"]) > 20)
+
+    def test_push_and_access_checks_enforce_live_account_and_company_isolation(self):
+        from app.api.deps import is_user_access_allowed
+        from app.services import push_service
+
+        op_user = models.Usuario(
+            nombre="Operador",
+            email="op@flota.com",
+            rol="operador",
+            empresa=self.origin,
+            password_hash="x",
+            activo=True,
+        )
+        self.db.add(op_user)
+        self.db.flush()
+        sub = models.PushSubscription(
+            usuario_id=op_user.id,
+            empresa_id=self.origin.id,
+            rol="operador",
+            endpoint="https://push.example/1",
+            p256dh="k1",
+            auth="a1",
+        )
+        self.db.add(sub)
+        self.db.commit()
+
+        # Reasignar usuario de origin a destination mientras su PushSubscription aún apuntaba a origin
+        op_user.empresa_id = self.destination.id
+        self.db.commit()
+
+        from unittest.mock import MagicMock
+        mocked_webpush = MagicMock()
+        session_factory = sessionmaker(bind=self.db.get_bind())
+        with patch.object(push_service, "SessionLocal", session_factory), \
+             patch.object(push_service, "get_or_create_vapid_keys", return_value={"public_key": "P", "private_key": "K"}), \
+             patch.object(push_service, "_get_webpush_client", return_value=(mocked_webpush, Exception)):
+            # No debe recibir alertas de la empresa anterior (origin)
+            sent_old = push_service.send_web_push_sync(self.origin.id, "Alerta", "Test")
+            self.assertEqual(sent_old, 0)
+            mocked_webpush.assert_not_called()
+
+            # Sí debe recibir alertas de su nueva empresa activa (destination)
+            sent_new = push_service.send_web_push_sync(self.destination.id, "Alerta", "Test")
+            self.assertEqual(sent_new, 1)
+
+            # Si la empresa se suspende, se bloquea tanto el acceso como el envío de push
+            self.destination.activo = False
+            self.db.commit()
+            self.db.refresh(op_user)
+            self.assertFalse(is_user_access_allowed(op_user))
+            sent_suspended = push_service.send_web_push_sync(self.destination.id, "Alerta", "Test")
+            self.assertEqual(sent_suspended, 0)
+
+    def test_engine_hours_caps_telemetry_gaps_and_separates_alert_types(self):
+        now = datetime(2026, 11, 25, 10, 0, 0)
+        # 5 min encendido continuo + un corte de señal de 10 horas + 5 min encendido continuo = 10 min (0.17 h)
+        self.db.add_all([
+            models.LecturaGPS(vehiculo_id=self.first.id, latitud=-15.8, longitud=-70.0, velocidad=20, ignicion=True, timestamp=now),
+            models.LecturaGPS(vehiculo_id=self.first.id, latitud=-15.8, longitud=-70.0, velocidad=25, ignicion=True, timestamp=now + timedelta(minutes=5)),
+            models.LecturaGPS(vehiculo_id=self.first.id, latitud=-15.8, longitud=-70.0, velocidad=20, ignicion=True, timestamp=now + timedelta(hours=10, minutes=5)),
+            models.LecturaGPS(vehiculo_id=self.first.id, latitud=-15.8, longitud=-70.0, velocidad=0, ignicion=False, timestamp=now + timedelta(hours=10, minutes=10)),
+            models.AlertaPanico(vehiculo_id=self.first.id, latitud=-15.8, longitud=-70.0, tipo="panico", fecha_hora=now + timedelta(minutes=1)),
+            models.AlertaPanico(vehiculo_id=self.first.id, latitud=-15.8, longitud=-70.0, tipo="sabotaje", fecha_hora=now + timedelta(minutes=2)),
+            models.AlertaPanico(vehiculo_id=self.first.id, latitud=-15.8, longitud=-70.0, tipo="exceso_velocidad", fecha_hora=now + timedelta(minutes=3)),
+        ])
+        self.db.commit()
+
+        start = (now - timedelta(hours=1)).isoformat() + "Z"
+        end = (now + timedelta(hours=12)).isoformat() + "Z"
+        hist = vehiculos.get_historial(self.first.id, start, end, self.db, self.admin)
+        self.assertEqual(hist["estadisticas"]["tiempo_encendido_minutos"], 10.0)
+
+        rep = reportes.get_reporte_consolidado(start, end, "json", self.origin.id, self.db, self.admin)
+        row = next(r for r in rep["data"] if r["Placa"] == self.first.placa)
+        self.assertEqual(row["Horas Motor"], round(10.0 / 60.0, 2))
+        self.assertEqual(row["Alertas Pánico"], 1)
+        self.assertEqual(row["Alertas Sabotaje"], 1)
+        self.assertEqual(row["Alertas Velocidad"], 1)
+        self.assertEqual(row["Total Alertas"], 3)
