@@ -299,8 +299,11 @@ export default function HistorialRutas() {
         {/* ===================================================================== */}
         {/* CÁPSULA FLOTANTE MÓVIL TIPO APP NATIVA (iOS / Android - No tapa mapa) */}
         {/* ===================================================================== */}
-        <div className="md:hidden absolute top-2.5 left-2.5 right-2.5 z-[950] pointer-events-auto">
-          <div className="bg-slate-900/92 backdrop-blur-xl text-white rounded-2xl shadow-2xl border border-white/15 p-2 space-y-1.5">
+        <div className="md:hidden absolute top-2.5 left-2.5 right-2.5 z-[950] pointer-events-none flex flex-col gap-2.5">
+          <div
+            className="pointer-events-auto bg-slate-900/95 backdrop-blur-xl text-white rounded-2xl shadow-2xl border border-slate-700/80 p-2.5 space-y-2"
+            style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}
+          >
             {/* Fila 1: Selector de Unidad tipo App + Resumen Km + Botón Calendario */}
             <div className="flex items-center justify-between gap-1.5">
               <button
@@ -309,9 +312,9 @@ export default function HistorialRutas() {
                   setMobileVehiclePickerOpen(!mobileVehiclePickerOpen);
                   setMobileFiltersOpen(false);
                 }}
-                className="flex items-center gap-2 min-w-0 flex-1 bg-white/10 hover:bg-white/15 active:scale-[0.99] px-2.5 py-1.5 rounded-xl border border-white/10 transition-all cursor-pointer text-left"
+                className="flex items-center gap-2 min-w-0 flex-1 bg-slate-800/90 hover:bg-slate-800 active:scale-[0.99] px-2.5 py-1.5 rounded-xl border border-slate-700/90 transition-all cursor-pointer text-left shadow-inner"
               >
-                <div className="w-6 h-6 rounded-lg bg-indigo-500/30 border border-indigo-400/40 text-indigo-300 flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 rounded-lg bg-indigo-500/25 border border-indigo-400/40 text-indigo-300 flex items-center justify-center flex-shrink-0">
                   <Truck size={13} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -320,7 +323,7 @@ export default function HistorialRutas() {
                       {selectedVehObj ? selectedVehObj.placa : (vehiculos.length === 0 ? 'Cargando unidad...' : 'Elegir Unidad')}
                     </span>
                     {selectedVehObj?.marca && (
-                      <span className="text-[10px] font-medium text-slate-300 truncate">
+                      <span className="text-[10px] font-semibold text-slate-300 truncate">
                         • {selectedVehObj.marca}
                       </span>
                     )}
@@ -333,7 +336,7 @@ export default function HistorialRutas() {
               </button>
 
               {historialData?.estadisticas && (
-                <div className="px-2 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-black flex-shrink-0">
+                <div className="px-2.5 py-1.5 rounded-xl bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 text-[10px] font-black flex-shrink-0">
                   {historialData.estadisticas.distancia_km} km
                 </div>
               )}
@@ -358,7 +361,7 @@ export default function HistorialRutas() {
                 className={`px-2.5 h-8 rounded-xl text-[10px] font-extrabold flex items-center gap-1 border transition-all flex-shrink-0 cursor-pointer ${
                   mobileFiltersOpen || activePreset === 'custom'
                     ? 'bg-white text-slate-900 border-white shadow-sm'
-                    : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/15'
+                    : 'bg-slate-800/90 text-slate-100 border-slate-700/90 hover:bg-slate-800'
                 }`}
                 title="Elegir fechas personalizadas"
               >
@@ -368,7 +371,7 @@ export default function HistorialRutas() {
             </div>
 
             {/* Fila 2: Chips Rápidos 1-Toque (Hoy / Ayer / 24h / 7 Días) */}
-            <div className="grid grid-cols-4 gap-1 bg-slate-950/60 p-1 rounded-xl">
+            <div className="grid grid-cols-4 gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
               {[
                 { id: 'hoy', label: 'Hoy' },
                 { id: 'ayer', label: 'Ayer' },
@@ -379,7 +382,7 @@ export default function HistorialRutas() {
                   key={item.id}
                   type="button"
                   onClick={() => setPreset(item.id, true)}
-                  className={`py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                  className={`py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
                     activePreset === item.id && !mobileFiltersOpen
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-300 hover:text-white'
@@ -392,7 +395,7 @@ export default function HistorialRutas() {
 
             {/* Selector Desplegable Nativo de Vehículos (Solo al tocar la unidad) */}
             {mobileVehiclePickerOpen && (
-              <div className="pt-1.5 border-t border-white/10 max-h-48 overflow-y-auto space-y-1">
+              <div className="pt-1.5 border-t border-slate-700/80 max-h-48 overflow-y-auto space-y-1">
                 {vehiculos.map(v => {
                   const isSelected = String(v.id) === String(selectedVehiculo);
                   return (
@@ -407,7 +410,7 @@ export default function HistorialRutas() {
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-bold transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-indigo-600 text-white'
-                          : 'bg-white/5 text-slate-200 hover:bg-white/10'
+                          : 'bg-slate-800/80 text-slate-200 hover:bg-slate-800'
                       }`}
                     >
                       <div className="truncate">
@@ -425,9 +428,9 @@ export default function HistorialRutas() {
 
             {/* Panel Compacto de Rango de Fecha Personalizado (Solo si el usuario toca "Fechas") */}
             {mobileFiltersOpen && (
-              <div className="pt-2 border-t border-white/10 space-y-2 animate-in fade-in duration-150">
+              <div className="pt-2 border-t border-slate-700/80 space-y-2 animate-in fade-in duration-150">
                 <div className="grid grid-cols-2 gap-1.5">
-                  <div className="bg-white/10 rounded-xl px-2.5 py-1.5 border border-white/10">
+                  <div className="bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
                     <label className="block text-[9px] font-bold text-slate-300 uppercase">Desde (Perú)</label>
                     <input
                       type="datetime-local"
@@ -436,7 +439,7 @@ export default function HistorialRutas() {
                       onChange={(e) => { setActivePreset('custom'); setFechaInicio(e.target.value); }}
                     />
                   </div>
-                  <div className="bg-white/10 rounded-xl px-2.5 py-1.5 border border-white/10">
+                  <div className="bg-slate-800/90 rounded-xl px-2.5 py-1.5 border border-slate-700">
                     <label className="block text-[9px] font-bold text-slate-300 uppercase">Hasta (Perú)</label>
                     <input
                       type="datetime-local"
@@ -458,11 +461,39 @@ export default function HistorialRutas() {
               </div>
             )}
           </div>
+
+          {/* Aviso Móvil "Sin recorridos" integrado debajo de la cápsula con separación limpia */}
+          {historialData && historialData.coordenadas.length === 0 && (
+            <div
+              className="pointer-events-auto mr-12 bg-slate-900/95 backdrop-blur-md shadow-xl border border-slate-700/80 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-2"
+              style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}
+            >
+              <AlertTriangle className="text-amber-400 flex-shrink-0" size={16} />
+              <span>Sin recorridos registrados en este periodo.</span>
+            </div>
+          )}
+
+          {/* Botón Móvil de Paradas integrado debajo de la cápsula */}
+          {historialData && historialData.paradas && historialData.paradas.length > 0 && (
+            <div className="pointer-events-auto flex flex-col items-start gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowStopsList(!showStopsList)}
+                className="bg-slate-900/95 backdrop-blur-md shadow-lg border border-slate-700/80 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all cursor-pointer"
+                style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}
+              >
+                🛑 {showStopsList ? 'Ocultar Paradas' : `Paradas (${historialData.paradas.length})`}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Selector Flotante Vertical de Capas (Solo Íconos al costado derecho: Sol / Luna / Satélite) */}
-        <div className="absolute top-24 right-2.5 md:top-16 md:right-4 z-[900] pointer-events-auto">
-          <div className="w-10 bg-slate-900/90 backdrop-blur-md p-1 rounded-2xl shadow-2xl border border-white/15 flex flex-col items-center gap-1">
+        <div className="absolute top-28 right-2.5 md:top-16 md:right-4 z-[900] pointer-events-auto">
+          <div
+            className="w-10 bg-slate-900/95 backdrop-blur-md p-1 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-col items-center gap-1"
+            style={{ backgroundColor: 'rgba(15, 23, 42, 0.94)' }}
+          >
             <button
               type="button"
               onClick={() => handleSelectMapStyle('day')}
@@ -611,11 +642,11 @@ export default function HistorialRutas() {
           </MapContainer>
         </div>
 
-        {/* Stops Floating Drawer Toggle Button */}
+        {/* Stops Floating Drawer Toggle Button (Escritorio) */}
         {historialData && historialData.paradas && historialData.paradas.length > 0 && (
           <button
             onClick={() => setShowStopsList(!showStopsList)}
-            className="absolute top-24 left-2.5 md:top-4 md:left-auto md:right-4 bg-slate-900/90 md:bg-white/95 backdrop-blur-md shadow-lg border border-white/15 md:border-slate-200 px-3 py-1.5 md:py-2 rounded-xl text-[11px] md:text-xs font-bold text-white md:text-slate-700 hover:bg-slate-800 md:hover:bg-slate-50 z-[920] flex items-center gap-1.5 transition-all cursor-pointer"
+            className="hidden md:flex absolute top-4 right-4 bg-white/95 backdrop-blur-md shadow-lg border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 z-[920] items-center gap-1.5 transition-all cursor-pointer"
           >
             🛑 {showStopsList ? 'Ocultar Paradas' : `Paradas (${historialData.paradas.length})`}
           </button>
@@ -623,7 +654,7 @@ export default function HistorialRutas() {
 
         {/* Stops Floating List */}
         {showStopsList && historialData?.paradas && (
-          <div className="absolute top-34 left-2.5 md:top-16 md:left-auto md:right-4 w-64 md:w-72 max-h-60 md:max-h-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200 p-3 z-[1000] overflow-y-auto space-y-2 text-xs">
+          <div className="absolute top-36 left-2.5 md:top-16 md:left-auto md:right-4 w-64 md:w-72 max-h-60 md:max-h-80 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200 p-3 z-[1000] overflow-y-auto space-y-2 text-xs">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 font-bold text-slate-800">
               <span>Paradas Registradas ({historialData.paradas.length})</span>
               <button onClick={() => setShowStopsList(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">✕</button>
@@ -653,10 +684,10 @@ export default function HistorialRutas() {
           </div>
         )}
 
-        {/* Empty State Banner */}
+        {/* Empty State Banner (Escritorio) */}
         {historialData && historialData.coordenadas.length === 0 && (
-          <div className="absolute top-24 left-2.5 right-14 md:top-4 md:left-1/2 md:right-auto md:-translate-x-1/2 bg-slate-900/90 md:bg-white/95 backdrop-blur-md shadow-xl border border-white/15 md:border-slate-200 px-3.5 py-2 md:px-6 md:py-3 rounded-xl z-[910] text-[11px] md:text-sm text-white md:text-slate-600 flex items-center gap-2">
-            <AlertTriangle className="text-amber-400 md:text-amber-500 flex-shrink-0" size={16} />
+          <div className="hidden md:flex absolute top-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200 px-6 py-3 rounded-xl z-[910] text-sm text-slate-600 items-center gap-2">
+            <AlertTriangle className="text-amber-500 flex-shrink-0" size={16} />
             <span>Sin recorridos registrados en este periodo.</span>
           </div>
         )}
