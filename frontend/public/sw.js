@@ -44,11 +44,14 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/copai-symbol.png',
     badge: data.badge || '/copai-symbol.png',
     silent: false, // Garantiza reproducción del sonido de notificación nativo del teléfono (iOS y Android)
-    vibrate: [300, 100, 300, 100, 500],
+    vibrate: [500, 120, 500, 120, 700, 120, 900],
     // En iOS Safari WebKit, usar un tag único por evento garantiza que cada alerta nueva suene y encienda la pantalla bloqueada
     tag: `${data.tag || 'copai-vehicle-alert'}-${Date.now()}`,
     renotify: true,
     requireInteraction: true,
+    actions: [
+      { action: 'open', title: '🚨 Abrir y Atender Ahora' }
+    ],
     data: {
       url: data.url || '/monitoreo'
     }
@@ -59,26 +62,30 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// 4. Clic en la Notificación (Lleva al usuario directo a la unidad en el mapa)
+// 4. Clic en la Notificación (Lleva al usuario directo a la unidad en el mapa y activa la sirena)
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = event.notification.data?.url || '/monitoreo';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Si la ventana ya está abierta, la enfocamos y navegamos
+      // Si la ventana ya está abierta, le avisamos para que active sirena + modal central y la enfocamos
       for (let client of windowClients) {
         if ('focus' in client) {
           if (client.url.includes(self.location.origin)) {
+            try {
+              client.postMessage({ type: 'COPAI_NOTIFICATION_CLICK', url: targetUrl });
+            } catch (e) {}
             client.navigate(targetUrl);
             return client.focus();
           }
         }
       }
-      // Si está cerrada, abrimos la app en pantalla completa
+      // Si está cerrada, abrimos la app con parámetro alerta=1 para disparar el modal y la sirena al entrar
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        const sep = targetUrl.includes('?') ? '&' : '?';
+        return clients.openWindow(`${targetUrl}${sep}alerta=1`);
       }
     })
   );

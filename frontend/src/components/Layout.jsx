@@ -98,8 +98,70 @@ export default function Layout() {
   }, [syncUserProfile]);
 
   const [activeAlert, setActiveAlert] = useState(null);
+  const dismissedAlertIdRef = React.useRef(null);
   const [pushPermission, setPushPermission] = useState(() => getNotificationPermissionState());
   const [pushToast, setPushToast] = useState('');
+
+  // Verificar si hay alertas críticas pendientes al abrir la app o al entrar tocando una notificación Push
+  const checkPendingAlertsModal = useCallback(async (forceReopen = false) => {
+    const activeTok = localStorage.getItem('token');
+    if (!activeTok) return;
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/api/alertas/`, {
+        headers: { Authorization: `Bearer ${activeTok}` }
+      });
+      const pendingList = Array.isArray(data) ? data.filter((a) => !a.estado || a.estado === 'pendiente') : [];
+      const critical = pendingList.find((a) => a.tipo !== 'exceso_velocidad') || pendingList[0];
+      if (critical) {
+        const critId = Number(critical.id || critical.alerta_id);
+        if (!forceReopen && dismissedAlertIdRef.current === critId) {
+          return;
+        }
+        setActiveAlert((curr) => {
+          if (curr && Number(curr.id) === critId) return curr;
+          return {
+            id: critId,
+            vehiculo_id: critical.vehiculo_id,
+            placa: critical.placa,
+            conductor_nombre: critical.conductor_nombre || critical.conductor,
+            latitud: critical.latitud,
+            longitud: critical.longitud,
+            bateria_ext: critical.bateria_ext,
+            bateria_int: critical.bateria_int,
+            bateria_porcentaje: critical.bateria_porcentaje,
+            velocidad: critical.velocidad,
+            limite: critical.limite,
+            tipo: critical.tipo || 'panico',
+            fecha_hora: critical.fecha_hora || new Date().toISOString()
+          };
+        });
+        if (critical.tipo !== 'exceso_velocidad') {
+          siren.start();
+        } else {
+          siren.playSpeedBeep();
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const forceFromUrl = typeof window !== 'undefined' && window.location.search.includes('alerta=1');
+    checkPendingAlertsModal(forceFromUrl);
+  }, [checkPendingAlertsModal]);
+
+  // Escuchar clic en notificación Push del Service Worker para abrir el modal grande central y sonar la sirena
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const onSwMessage = (event) => {
+      if (event.data?.type === 'COPAI_NOTIFICATION_CLICK') {
+        dismissedAlertIdRef.current = null;
+        siren.start();
+        checkPendingAlertsModal(true);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onSwMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onSwMessage);
+  }, [checkPendingAlertsModal]);
 
   // Sincronizar automáticamente suscripción Web Push si el usuario ya concedió permiso previamente
   useEffect(() => {
@@ -196,6 +258,7 @@ export default function Layout() {
     const refreshVisible = () => {
       if (document.visibilityState === 'visible') {
         syncUserProfile();
+        checkPendingAlertsModal();
         emitLiveSync({ type: 'connection_restored' });
         const activeTok = localStorage.getItem('token');
         if (activeTok && getNotificationPermissionState() === 'granted') {
@@ -337,6 +400,9 @@ export default function Layout() {
   };
 
   const handleAlertClosed = () => {
+    if (activeAlert?.id) {
+      dismissedAlertIdRef.current = Number(activeAlert.id);
+    }
     siren.stop();
     setActiveAlert(null);
   };

@@ -438,8 +438,8 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 run_in_thread(
                                     send_web_push_sync,
                                     empresa_id,
-                                    f"🚨 ¡BOTÓN DE PÁNICO! ({placa})",
-                                    f"Unidad {placa} ({conductor}) activó emergencia SOS en tiempo real.",
+                                    f"🆘 ¡EMERGENCIA: BOTÓN DE PÁNICO! ({placa})",
+                                    f"🚨 SOS activado en unidad {placa} ({conductor}). ¡Toque para abrir y activar sirena!",
                                     "/monitoreo",
                                     f"copai-panic-{vehiculo_id}",
                                 )
@@ -464,8 +464,8 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 run_in_thread(
                                     send_web_push_sync,
                                     empresa_id,
-                                    f"⚡ EXCESO DE VELOCIDAD ({placa})",
-                                    f"Unidad {placa} circula a {speed_alert_info['velocidad']} km/h (Límite: {speed_alert_info['limite']} km/h).",
+                                    f"⚡ ¡EXCESO DE VELOCIDAD! ({placa})",
+                                    f"⚠️ Unidad {placa} circula a {speed_alert_info['velocidad']} km/h (Límite: {speed_alert_info['limite']} km/h).",
                                     "/monitoreo",
                                     f"copai-speed-{vehiculo_id}",
                                 )
@@ -491,8 +491,8 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                                 run_in_thread(
                                     send_web_push_sync,
                                     empresa_id,
-                                    f"🛡️ ¡SABOTAJE DE BATERÍA! ({placa})",
-                                    f"Corte de energía detectado en unidad {placa} ({sabotage_alert_info['bateria_ext']}V).",
+                                    f"🚨 ¡ALERTA DE SABOTAJE! ({placa})",
+                                    f"⚠️ CORTE DE BATERÍA ({sabotage_alert_info['bateria_ext']}V) en unidad {placa}. ¡Toque para abrir y activar sirena!",
                                     "/monitoreo",
                                     f"copai-sabotage-{vehiculo_id}",
                                 )

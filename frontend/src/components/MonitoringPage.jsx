@@ -1009,17 +1009,6 @@ export default function MonitoringPage() {
           onStopRoute={handleStopRoute}
           onFitRouteBounds={() => setFitRouteTrigger((t) => t + 1)}
         />
-        
-        {/* Alerts Overlay (Panic, Sabotage & Speed alerts) */}
-        <div className="absolute top-14 left-2.5 right-2.5 sm:top-4 sm:left-auto sm:right-4 z-[1000] space-y-2.5 sm:space-y-4 sm:max-w-sm">
-          {alertas.filter((a) => !a.estado || a.estado === 'pendiente').map((alerta, idx) => (
-            <PanicAlert 
-              key={alerta.alerta_id || alerta.id || idx} 
-              alerta={alerta} 
-              onAtender={() => handleAtenderAlerta(alerta.alerta_id || alerta.id)} 
-            />
-          ))}
-        </div>
       </div>
 
       {/* Modal Compacto y Armónico: Ajustar Límite de Velocidad */}
