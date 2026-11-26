@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "mysql+pymysql://root:@localhost:3306/teltonika"
     SECRET_KEY: str = "super_secret_jwt_key_for_telemetry_app_12345"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 1 week
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 365 # 1 year mobile app session
 
     # SMTP Configuration (Brevo) - Las credenciales se cargan desde .env
     SMTP_HOST: str = "smtp-relay.brevo.com"

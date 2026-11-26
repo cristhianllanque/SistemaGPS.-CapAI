@@ -63,9 +63,11 @@ export default function Layout() {
       const companyChanged = Boolean(freshEmp && Number(prevEmp?.id || 0) !== Number(freshEmp?.id || 0));
       const roleChanged = Boolean(freshUser && prevUser?.rol && prevUser.rol !== freshUser.rol);
 
-      if (access_token && (companyChanged || roleChanged)) {
+      if (access_token) {
         localStorage.setItem('token', access_token);
-        setToken(access_token);
+        if (companyChanged || roleChanged) {
+          setToken(access_token);
+        }
       }
       if (freshUser) {
         localStorage.setItem('usuario', JSON.stringify(freshUser));
@@ -88,10 +90,15 @@ export default function Layout() {
           emitLiveSync({ type: 'connection_restored' });
         }
       }
-    } catch {
-      // Silencioso si no hay red temporalmente
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        localStorage.removeItem('empresa');
+        navigate('/login', { replace: true });
+      }
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     syncUserProfile();

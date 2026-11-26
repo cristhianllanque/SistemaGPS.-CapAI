@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X, Compass, MapPin } from 'lucide-react';
+import { Search, Navigation, AlertCircle, Power, PowerOff, Building2, ChevronDown, ChevronLeft, X, Compass, MapPin, RefreshCw } from 'lucide-react';
 import { hasValidPosition, vehicleConnectionLabel } from '../utils/fleet';
 import { parseServerUTC } from '../utils/peruTime';
 import { useVehicleAddresses } from '../utils/reverseGeocode';
 
 export default function Sidebar({
-  vehiculos, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90,
+  vehiculos, loading = false, onRefresh, color, selectedVehicleId, onSelectVehicle, limiteVelocidad = 90,
   showEmpresaFilter = false, empresas = [], empresaFilter = 'all', onEmpresaFilterChange,
   filterCounts = {}, hasParticulares = false,
   collapsed = false, onToggleCollapse,
@@ -281,8 +281,27 @@ export default function Sidebar({
           );
         })}
         {filtered.length === 0 && (
-          <div className="text-center p-6 text-slate-400 text-sm">
-            No se encontraron vehículos.
+          <div className="text-center p-6 text-slate-400 text-sm space-y-2.5">
+            {loading ? (
+              <div className="flex flex-col items-center gap-2 text-slate-500">
+                <RefreshCw size={20} className="animate-spin text-indigo-600" />
+                <span className="text-xs font-semibold">Sincronizando unidades de la flota...</span>
+              </div>
+            ) : (
+              <>
+                <p>No se encontraron vehículos.</p>
+                {onRefresh && (
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Actualizar flota</span>
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

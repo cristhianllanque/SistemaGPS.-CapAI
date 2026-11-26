@@ -47,7 +47,7 @@ export default function MonitoringPage() {
   const [speedToast, setSpeedToast] = useState('');
 
   const token = localStorage.getItem('token');
-  const { vehiculos, setVehiculos, fleetError, refresh: refreshVehiculosSilently, receiveTelemetry } = useFleetVehicles(token);
+  const { vehiculos, setVehiculos, loading: fleetLoading, fleetError, refresh: refreshVehiculosSilently, receiveTelemetry } = useFleetVehicles(token);
   const headers = { Authorization: `Bearer ${token}` };
   
   // wsEmpresaId mantiene la misma URL compartida con Layout.jsx (Superadmin recibe todas las empresas en el mismo socket)
@@ -889,6 +889,8 @@ export default function MonitoringPage() {
       {/* Sidebar with fleet list */}
       <Sidebar 
         vehiculos={vehiculosFiltrados} 
+        loading={fleetLoading}
+        onRefresh={() => refreshVehiculosSilently(true)}
         color={primaryColor} 
         selectedVehicleId={selectedVehicleId}
         onSelectVehicle={(id) => setSelectedVehicleId(id)}

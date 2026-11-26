@@ -51,13 +51,49 @@ export function applyVehicleTelemetry(vehicle, message) {
   };
 }
 
+function getFleetCacheKey(empresaId, archived) {
+  try {
+    const rawUser = localStorage.getItem('usuario');
+    const rawEmp = localStorage.getItem('empresa');
+    const user = (rawUser && rawUser !== 'null' && rawUser !== 'undefined') ? JSON.parse(rawUser) : {};
+    const emp = (rawEmp && rawEmp !== 'null' && rawEmp !== 'undefined') ? JSON.parse(rawEmp) : {};
+    const uid = user?.id || 'anon';
+    const eid = empresaId || user?.empresa_id || emp?.id || 'all';
+    return `copai_fleet_v3:${uid}:${eid}:${archived ? '1' : '0'}`;
+  } catch {
+    return `copai_fleet_v3:default:${empresaId || 'all'}:${archived ? '1' : '0'}`;
+  }
+}
+
+function readCachedFleet(empresaId, archived) {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(getFleetCacheKey(empresaId, archived));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedFleet(empresaId, archived, list) {
+  if (typeof window === 'undefined' || !Array.isArray(list)) return;
+  try {
+    localStorage.setItem(getFleetCacheKey(empresaId, archived), JSON.stringify(list));
+  } catch {}
+}
+
 export function useFleetVehicles(token, empresaId, archived = false) {
-  const [vehiculos, setVehiculos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [vehiculos, setVehiculos] = useState(() => readCachedFleet(empresaId, archived));
+  const [loading, setLoading] = useState(() => readCachedFleet(empresaId, archived).length === 0);
   const [fleetError, setFleetError] = useState('');
   const request = useRef(null);
   const inFlightKeyRef = useRef(null);
+  const inFlightStartedAtRef = useRef(0);
   const queuedRefreshRef = useRef(false);
+  const retryTimerRef = useRef(null);
+  const retryCountRef = useRef(0);
   const pendingTelemetry = useRef(new Map());
 
   const receiveTelemetry = useCallback((message) => {
@@ -66,39 +102,57 @@ export function useFleetVehicles(token, empresaId, archived = false) {
     if (!queued || parseServerUTC(message.data.timestamp) >= parseServerUTC(queued.data.timestamp)) {
       pendingTelemetry.current.set(message.vehiculo_id, message);
     }
-    setVehiculos((current) => current.map((vehicle) => applyVehicleTelemetry(vehicle, message)));
-  }, [archived]);
+    setVehiculos((current) => {
+      const next = current.map((vehicle) => applyVehicleTelemetry(vehicle, message));
+      writeCachedFleet(empresaId, archived, next);
+      return next;
+    });
+  }, [archived, empresaId]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (forceAbort = false) => {
     const activeToken = localStorage.getItem('token') || token;
     if (!activeToken) return;
     const reqKey = `${empresaId || ''}:${archived ? '1' : '0'}`;
 
-    // En conexiones 4G móviles, si ya hay una petición idéntica en curso, no abortarla a mitad de camino;
-    // dejar que entregue los vehículos de inmediato y encolar un refresco silencioso al terminar.
-    if (request.current && inFlightKeyRef.current === reqKey) {
+    // Si hay una petición idéntica en vuelo hace menos de 5 segundos y no es forzada, encolar refresco.
+    // Si lleva más de 5 segundos en 4G (socket colgado), abortarla y lanzar una nueva de inmediato.
+    const elapsedInFlight = Date.now() - inFlightStartedAtRef.current;
+    if (!forceAbort && request.current && inFlightKeyRef.current === reqKey && elapsedInFlight < 5000) {
       queuedRefreshRef.current = true;
       return;
+    }
+
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
     }
 
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
     inFlightKeyRef.current = reqKey;
+    inFlightStartedAtRef.current = Date.now();
     queuedRefreshRef.current = false;
 
     try {
       const { data } = await axios.get(`${API_BASE_URL}/api/vehiculos/`, {
         signal: controller.signal,
+        timeout: 7000,
         headers: { Authorization: `Bearer ${activeToken}` },
-        params: { empresa_id: empresaId || undefined, archivados: archived || undefined },
+        params: {
+          empresa_id: empresaId || undefined,
+          archivados: archived || undefined,
+          _t: Date.now(),
+        },
       });
       if (controller.signal.aborted) return;
+      retryCountRef.current = 0;
+      const safeData = Array.isArray(data) ? data : [];
       const pending = pendingTelemetry.current;
       pendingTelemetry.current = new Map();
       setVehiculos((current) => {
         const previous = new Map(current.map((vehicle) => [vehicle.id, vehicle]));
-        return data.map((vehicle) => {
+        const nextList = safeData.map((vehicle) => {
           const cached = previous.get(vehicle.id);
           if (vehicle.activo && vehicle.dispositivo_id && cached?.dispositivo_id === vehicle.dispositivo_id
             && cached.gps_asignado_at === vehicle.gps_asignado_at) {
@@ -115,17 +169,27 @@ export function useFleetVehicles(token, empresaId, archived = false) {
           }
           return vehicle;
         });
+        writeCachedFleet(empresaId, archived, nextList);
+        return nextList;
       });
       setFleetError('');
     } catch (error) {
       if (!controller.signal.aborted) {
         const detail = error.response?.data?.detail;
-        setFleetError(typeof detail === 'string' ? detail : 'No se pudo actualizar la flota.');
+        setFleetError(typeof detail === 'string' ? detail : 'Reintentando conexión con la flota...');
+        // Auto-reintento rápido en redes móviles 4G/4.5G (1.5s, 3s, 6s)
+        const attempt = retryCountRef.current;
+        retryCountRef.current = attempt + 1;
+        const delayMs = attempt === 0 ? 1500 : (attempt === 1 ? 3000 : 6000);
+        retryTimerRef.current = setTimeout(() => {
+          refresh(true);
+        }, delayMs);
       }
     } finally {
       if (request.current === controller) {
         request.current = null;
         inFlightKeyRef.current = null;
+        inFlightStartedAtRef.current = 0;
       }
       if (!controller.signal.aborted) {
         setLoading(false);
@@ -138,9 +202,24 @@ export function useFleetVehicles(token, empresaId, archived = false) {
   }, [token, empresaId, archived]);
 
   useEffect(() => {
-    refresh();
-    return () => request.current?.abort();
-  }, [refresh]);
+    const cached = readCachedFleet(empresaId, archived);
+    if (cached.length > 0) {
+      setVehiculos(cached);
+      setLoading(false);
+    }
+    refresh(true);
+    // Respaldo periódico cada 15s por si la red móvil 4G/4.5G cambia de antena
+    const intervalId = setInterval(() => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        refresh(false);
+      }
+    }, 15000);
+    return () => {
+      clearInterval(intervalId);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      request.current?.abort();
+    };
+  }, [refresh, empresaId, archived]);
 
   return { vehiculos, setVehiculos, loading, fleetError, refresh, receiveTelemetry };
 }
