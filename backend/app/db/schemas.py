@@ -108,6 +108,11 @@ class ParticularVehiculoUpdate(BaseModel):
     modelo_gps: Optional[str] = Field(None, max_length=50)
     desvincular_gps: Optional[bool] = False
 
+class ParticularUsuarioCreate(BaseModel):
+    nombre: str
+    email: EmailStr
+    password: str
+
 class EmpresaUpdate(BaseModel):
     nombre: Optional[str] = None
     slug: Optional[str] = None

@@ -15,6 +15,8 @@ from app.services.gps_assignments import notify_vehicle_change, set_vehicle_devi
 
 router = APIRouter()
 
+MAX_USUARIOS_POR_PARTICULAR = 3
+
 def slugify(text: str) -> str:
     text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
@@ -72,7 +74,8 @@ def list_clientes_particulares(
         todos_vehiculos = vq.order_by(models.Vehiculo.id.asc()).all()
         elegibles = todos_vehiculos if inactivos else [v for v in todos_vehiculos if v.activo]
         vehiculo = elegibles[0] if elegibles else None
-        usuario = uq.first()
+        todos_usuarios = uq.order_by(models.Usuario.id.asc()).all()
+        usuario = todos_usuarios[0] if todos_usuarios else None
 
         # Determinar si es una baja definitiva (con GPS liberado y correo prefijado 'baja')
         es_baja_definitiva = bool(
@@ -118,6 +121,18 @@ def list_clientes_particulares(
 
         sub_info = calcular_info_suscripcion(p)
 
+        usuarios_lista = []
+        for idx_u, u_item in enumerate(todos_usuarios):
+            if not inactivos and not u_item.activo:
+                continue
+            usuarios_lista.append({
+                "id": u_item.id,
+                "nombre": u_item.nombre,
+                "email": _limpiar_email_baja(u_item.email),
+                "rol": u_item.rol,
+                "es_titular": idx_u == 0,
+            })
+
         resultado.append({
             "id": p.id,
             "nombre": p.nombre,
@@ -125,6 +140,9 @@ def list_clientes_particulares(
             "telefono": p.telefono,
             "email": _limpiar_email_baja(usuario.email) if usuario else None,
             "usuario_id": usuario.id if usuario else None,
+            "total_usuarios": len(usuarios_lista),
+            "max_usuarios": MAX_USUARIOS_POR_PARTICULAR,
+            "usuarios": usuarios_lista,
             "limite_velocidad": p.limite_velocidad or 90,
             "color_primario": p.color_primario or "#0D9488",
             "activo": p.activo,
@@ -267,6 +285,139 @@ def update_vehiculo_particular(
         "vehiculo_id": veh.id,
         "placa": veh.placa,
         "message": f"Vehículo {veh.placa} actualizado correctamente."
+    }
+
+
+@router.post("/{particular_id}/usuarios", status_code=201)
+def add_usuario_particular(
+    particular_id: int,
+    payload: schemas.ParticularUsuarioCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
+):
+    """Agrega un usuario adicional/familiar (hasta un máximo de 3 usuarios en total) a la cuenta de un Cliente Particular."""
+    emp = db.query(models.Empresa).filter(
+        models.Empresa.id == particular_id,
+        models.Empresa.tipo == 'particular'
+    ).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Cliente particular no encontrado.")
+
+    usuarios_activos = db.query(models.Usuario).filter(
+        models.Usuario.empresa_id == emp.id,
+        models.Usuario.activo.is_(True)
+    ).count()
+    if usuarios_activos >= MAX_USUARIOS_POR_PARTICULAR:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Esta cuenta particular ya alcanzó el límite máximo de {MAX_USUARIOS_POR_PARTICULAR} usuarios con acceso."
+        )
+
+    email_clean = payload.email.strip().lower()
+    if db.query(models.Usuario).filter(models.Usuario.email == email_clean).first():
+        raise HTTPException(
+            status_code=400,
+            detail=f"El correo {email_clean} ya está registrado en otra cuenta del sistema."
+        )
+
+    nombre_clean = payload.nombre.strip()
+    if not nombre_clean:
+        raise HTTPException(status_code=400, detail="El nombre del usuario es obligatorio.")
+
+    if not payload.password or len(payload.password.strip()) < 4:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 4 caracteres.")
+
+    nuevo_usr = models.Usuario(
+        empresa_id=emp.id,
+        nombre=nombre_clean,
+        email=email_clean,
+        password_hash=get_password_hash(payload.password),
+        rol="operador",
+        activo=True
+    )
+    db.add(nuevo_usr)
+    db.commit()
+    db.refresh(nuevo_usr)
+
+    veh = db.query(models.Vehiculo).filter(
+        models.Vehiculo.empresa_id == emp.id,
+        models.Vehiculo.activo.is_(True)
+    ).first()
+    desc_veh = f"{veh.placa} ({veh.marca or 'Vehículo'})" if veh else emp.nombre
+
+    background_tasks.add_task(
+        send_welcome_email,
+        to_email=email_clean,
+        nombre=nombre_clean,
+        password_temp=payload.password,
+        entidad_o_placa=desc_veh,
+        tipo="particular"
+    )
+
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "usuarios"})
+
+    return {
+        "status": "ok",
+        "usuario": {
+            "id": nuevo_usr.id,
+            "nombre": nuevo_usr.nombre,
+            "email": nuevo_usr.email,
+            "rol": nuevo_usr.rol,
+            "es_titular": False,
+        },
+        "message": f"Acceso creado para {nuevo_usr.nombre} ({nuevo_usr.email})."
+    }
+
+
+@router.delete("/{particular_id}/usuarios/{usuario_id}", status_code=200)
+def delete_usuario_particular(
+    particular_id: int,
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_role(['superadmin']))
+):
+    """Elimina un usuario adicional (2do o 3er usuario) de la cuenta de un Cliente Particular, protegiendo al Titular."""
+    emp = db.query(models.Empresa).filter(
+        models.Empresa.id == particular_id,
+        models.Empresa.tipo == 'particular'
+    ).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Cliente particular no encontrado.")
+
+    todos_usuarios = db.query(models.Usuario).filter(
+        models.Usuario.empresa_id == emp.id
+    ).order_by(models.Usuario.id.asc()).all()
+
+    if not todos_usuarios:
+        raise HTTPException(status_code=404, detail="No se encontraron usuarios en esta cuenta.")
+
+    titular = todos_usuarios[0]
+    if titular.id == usuario_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede eliminar al usuario Titular principal de la cuenta particular."
+        )
+
+    target = next((u for u in todos_usuarios if u.id == usuario_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en este cliente particular.")
+
+    nombre_eliminado = target.nombre
+    db.query(models.PushSubscription).filter(
+        models.PushSubscription.usuario_id == target.id
+    ).delete(synchronize_session=False)
+    db.delete(target)
+    db.commit()
+
+    manager.revoke_user_sync(usuario_id)
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "particulares"})
+    manager.notify_sync(emp.id, {"type": "entity_updated", "entity": "usuarios"})
+
+    return {
+        "status": "ok",
+        "message": f"Acceso de {nombre_eliminado} eliminado correctamente."
     }
 
 @router.post("/", status_code=201)

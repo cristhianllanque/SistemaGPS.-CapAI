@@ -253,3 +253,59 @@ class TestFleetLifecycle(unittest.TestCase):
         self.assertEqual(row["Alertas Sabotaje"], 1)
         self.assertEqual(row["Alertas Velocidad"], 1)
         self.assertEqual(row["Total Alertas"], 3)
+
+    def test_particular_client_supports_up_to_three_family_users(self):
+        from fastapi import BackgroundTasks
+
+        titular = models.Usuario(
+            nombre="Titular Particular",
+            email="titular@particular.com",
+            rol="admin",
+            empresa=self.destination,
+            password_hash="x",
+            activo=True,
+        )
+        self.db.add(titular)
+        self.db.commit()
+
+        bg = BackgroundTasks()
+        res2 = particulares.add_usuario_particular(
+            self.destination.id,
+            schemas.ParticularUsuarioCreate(nombre="Hijo", email="hijo@particular.com", password="1234"),
+            bg,
+            self.db,
+            self.admin,
+        )
+        res3 = particulares.add_usuario_particular(
+            self.destination.id,
+            schemas.ParticularUsuarioCreate(nombre="Esposo", email="esposo@particular.com", password="1234"),
+            bg,
+            self.db,
+            self.admin,
+        )
+        self.assertEqual(res2["usuario"]["email"], "hijo@particular.com")
+        self.assertEqual(res3["usuario"]["email"], "esposo@particular.com")
+
+        # Un 4to usuario debe ser rechazado (máximo 3 por cuenta particular)
+        with self.assertRaises(HTTPException) as limit_err:
+            particulares.add_usuario_particular(
+                self.destination.id,
+                schemas.ParticularUsuarioCreate(nombre="Cuarto", email="cuarto@particular.com", password="1234"),
+                bg,
+                self.db,
+                self.admin,
+            )
+        self.assertEqual(limit_err.exception.status_code, 400)
+
+        # El titular no puede ser eliminado como usuario adicional
+        with self.assertRaises(HTTPException) as titular_err:
+            particulares.delete_usuario_particular(self.destination.id, titular.id, self.db, self.admin)
+        self.assertEqual(titular_err.exception.status_code, 400)
+
+        # Eliminar a un usuario adicional (Esposo) libera 1 cupo quedando 2/3
+        particulares.delete_usuario_particular(self.destination.id, res3["usuario"]["id"], self.db, self.admin)
+        card = particulares.list_clientes_particulares(inactivos=False, db=self.db, current_user=self.admin)[0]
+        self.assertEqual(card["total_usuarios"], 2)
+        self.assertEqual(card["max_usuarios"], 3)
+        self.assertTrue(card["usuarios"][0]["es_titular"])
+        self.assertFalse(card["usuarios"][1]["es_titular"])

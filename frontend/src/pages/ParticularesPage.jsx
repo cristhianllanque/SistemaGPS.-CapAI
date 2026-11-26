@@ -101,6 +101,20 @@ export default function ParticularesPage() {
   const [savingEditVeh, setSavingEditVeh] = useState(false);
   const [editVehError, setEditVehError] = useState('');
 
+  // Modal para agregar 2do o 3er usuario familiar a un Cliente Particular (máx. 3)
+  const [addUserClient, setAddUserClient] = useState(null);
+  const [addUserForm, setAddUserForm] = useState({
+    nombre: '',
+    email: '',
+    password: ''
+  });
+  const [savingAddUser, setSavingAddUser] = useState(false);
+  const [addUserError, setAddUserError] = useState('');
+  const [addUserEmailCheck, setAddUserEmailCheck] = useState(null);
+  const [checkingAddUserEmail, setCheckingAddUserEmail] = useState(false);
+  const [addUserEmailConfirmed, setAddUserEmailConfirmed] = useState(false);
+  const addUserEmailDebounceRef = useRef(null);
+
   // Verificación de correo para Cliente Particular
   const [emailCheck, setEmailCheck] = useState(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
@@ -356,8 +370,99 @@ export default function ParticularesPage() {
     const vehs = c.vehiculos ?? (c.vehiculo ? [c.vehiculo] : []);
     const matchPlaca = vehs.some(v => v?.placa?.toLowerCase().includes(q));
     const matchImei = vehs.some(v => v?.dispositivo?.imei?.toLowerCase().includes(q)) || c.dispositivo?.imei?.toLowerCase().includes(q);
-    return matchNombre || matchPlaca || matchDni || matchImei;
+    const usrs = c.usuarios ?? [];
+    const matchUsr = usrs.some(u => u?.email?.toLowerCase().includes(q) || u?.nombre?.toLowerCase().includes(q));
+    return matchNombre || matchPlaca || matchDni || matchImei || matchUsr;
   });
+
+  const verifyAddUserEmail = async (rawEmail) => {
+    const clean = (rawEmail || '').trim().toLowerCase();
+    if (!clean || !clean.includes('@') || clean.split('@')[1]?.indexOf('.') === -1) {
+      setAddUserEmailCheck(null);
+      setAddUserEmailConfirmed(false);
+      return null;
+    }
+    try {
+      setCheckingAddUserEmail(true);
+      const res = await axios.get(`${API_BASE_URL}/api/usuarios/verificar-email`, {
+        headers,
+        params: { email: clean }
+      });
+      setAddUserEmailCheck(res.data);
+      setAddUserEmailConfirmed(res.data.estado === 'disponible_verificado');
+      return res.data;
+    } catch {
+      return null;
+    } finally {
+      setCheckingAddUserEmail(false);
+    }
+  };
+
+  const handleAddUserEmailChange = (val) => {
+    setAddUserForm(prev => ({ ...prev, email: val }));
+    setAddUserEmailConfirmed(false);
+    setAddUserError('');
+    if (addUserEmailDebounceRef.current) clearTimeout(addUserEmailDebounceRef.current);
+    const clean = (val || '').trim().toLowerCase();
+    if (!clean || !clean.includes('@')) {
+      setAddUserEmailCheck(null);
+      return;
+    }
+    addUserEmailDebounceRef.current = setTimeout(() => {
+      verifyAddUserEmail(clean);
+    }, 500);
+  };
+
+  const handleAddUserSubmit = async (e) => {
+    e.preventDefault();
+    if (!addUserClient) return;
+    setAddUserError('');
+    const cleanEmail = (addUserForm.email || '').trim().toLowerCase();
+    let currentCheck = addUserEmailCheck;
+    if (!currentCheck || currentCheck.email !== cleanEmail) {
+      currentCheck = await verifyAddUserEmail(cleanEmail);
+    }
+    if (currentCheck && !currentCheck.puede_usar) {
+      setAddUserError(currentCheck.mensaje || 'Este correo ya está registrado en otra cuenta.');
+      return;
+    }
+    if (currentCheck && currentCheck.requiere_confirmacion && !addUserEmailConfirmed) {
+      setAddUserError('Confirma en el recuadro inferior si deseas usar este correo.');
+      return;
+    }
+
+    setSavingAddUser(true);
+    try {
+      const payload = {
+        nombre: addUserForm.nombre.trim(),
+        email: cleanEmail,
+        password: addUserForm.password
+      };
+      const res = await axios.post(`${API_BASE_URL}/api/particulares/${addUserClient.id}/usuarios`, payload, { headers });
+      setToastMsg(res.data?.message || `Usuario ${payload.nombre} agregado con éxito.`);
+      setTimeout(() => setToastMsg(''), 4000);
+      setAddUserClient(null);
+      fetchData(true);
+    } catch (err) {
+      setAddUserError(err.response?.data?.detail || 'Error al agregar usuario familiar');
+    } finally {
+      setSavingAddUser(false);
+    }
+  };
+
+  const handleDeleteUserParticular = async (cliente, uItem) => {
+    if (!window.confirm(`¿Quitar el acceso a "${uItem.nombre}" (${uItem.email}) de la cuenta de ${cliente.nombre}?`)) {
+      return;
+    }
+    try {
+      const res = await axios.delete(`${API_BASE_URL}/api/particulares/${cliente.id}/usuarios/${uItem.id}`, { headers });
+      setToastMsg(res.data?.message || `Acceso de ${uItem.nombre} eliminado.`);
+      setTimeout(() => setToastMsg(''), 4000);
+      fetchData(true);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar el usuario.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -615,11 +720,91 @@ export default function ParticularesPage() {
                   );
                 })()}
 
-                {/* Account credentials info */}
-                <div className="text-xs text-slate-500 flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="truncate">{c.email || 'Sin correo asignado'}</span>
-                </div>
+                {/* Usuarios con Acceso (Hasta 3 usuarios: 1 Titular + hasta 2 Familiares/Conductores) */}
+                {(() => {
+                  const maxUsrs = c.max_usuarios || 3;
+                  const listaUsrs = (c.usuarios && c.usuarios.length > 0)
+                    ? c.usuarios
+                    : (c.email ? [{ id: c.usuario_id || 0, nombre: c.nombre, email: c.email, es_titular: true }] : []);
+                  const canAddMoreUsers = !verBajas && listaUsrs.length < maxUsrs;
+                  return (
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Usuarios con Acceso ({listaUsrs.length}/{maxUsrs})</span>
+                        </span>
+                        {!verBajas && (
+                          canAddMoreUsers ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddUserClient(c);
+                                setAddUserForm({ nombre: '', email: '', password: '' });
+                                setAddUserError('');
+                                setAddUserEmailCheck(null);
+                                setAddUserEmailConfirmed(false);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                              title="Agregar familiar o usuario adicional (máx. 3 por cuenta)"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>+ Usuario</span>
+                            </button>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-slate-200/80 text-slate-600 text-[10px] font-bold">
+                              Máx. {maxUsrs}/{maxUsrs}
+                            </span>
+                          )
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {listaUsrs.map((uItem, uIdx) => {
+                          const isTitular = uItem.es_titular || uIdx === 0;
+                          return (
+                            <div
+                              key={uItem.id || uIdx}
+                              className="px-2.5 py-2 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-slate-800 truncate">
+                                    {uItem.nombre || c.nombre}
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase shrink-0 ${
+                                      isTitular
+                                        ? 'bg-teal-100 text-teal-800'
+                                        : 'bg-indigo-100 text-indigo-700'
+                                    }`}
+                                  >
+                                    {isTitular ? 'Titular' : `Familiar #${uIdx + 1}`}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+                                  <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span className="truncate">{uItem.email}</span>
+                                </div>
+                              </div>
+
+                              {!verBajas && !isTitular && uItem.id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUserParticular(c, uItem)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
+                                  title="Quitar acceso a este usuario familiar"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Marcador de Suscripción y Botón Renovar / Tiempo */}
                 {!verBajas && (
@@ -1308,6 +1493,150 @@ export default function ParticularesPage() {
                   className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
                 >
                   {savingEditVeh ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Agregar Usuario Familiar / Adicional (Hasta 3 por Cliente Particular) */}
+      {addUserClient && (
+        <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Agregar Usuario · {addUserClient.nombre}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Acceso familiar ({(addUserClient.usuarios?.length || 1) + 1} de {addUserClient.max_usuarios || 3}) para ver vehículos y alertas en vivo
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddUserClient(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddUserSubmit} className="space-y-4 mt-4">
+              {addUserError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{addUserError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nombre y Parentesco *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addUserForm.nombre}
+                  onChange={(e) => setAddUserForm({ ...addUserForm, nombre: e.target.value })}
+                  placeholder="Ej: Carlos Huayapa (Hijo)"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Correo de Acceso *</span>
+                  {checkingAddUserEmail && (
+                    <span className="text-[10px] text-teal-600 flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin" /> Verificando...
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={addUserForm.email}
+                  onChange={(e) => handleAddUserEmailChange(e.target.value)}
+                  onBlur={() => verifyAddUserEmail(addUserForm.email)}
+                  placeholder="hijo.familiar@gmail.com"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                />
+              </div>
+
+              {addUserForm.email && addUserEmailCheck && (
+                <div>
+                  {!addUserEmailCheck.puede_usar && (
+                    <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 space-y-1">
+                      <p className="font-bold flex items-center gap-1 text-red-700">
+                        <AlertCircle className="w-3.5 h-3.5" /> Correo ya vinculado
+                      </p>
+                      <p>{addUserEmailCheck.mensaje}</p>
+                    </div>
+                  )}
+                  {addUserEmailCheck.puede_usar && addUserEmailCheck.requiere_confirmacion && !addUserEmailConfirmed && (
+                    <div className={`p-2.5 rounded-xl border text-xs space-y-2 ${
+                      addUserEmailCheck.estado === 'no_existe_buzon'
+                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                        : 'bg-teal-50/80 border-teal-200 text-teal-950'
+                    }`}>
+                      <div className="flex items-start gap-1.5">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                        <p>{addUserEmailCheck.mensaje}</p>
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setAddUserEmailConfirmed(true)}
+                          className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg flex items-center gap-1 cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Sí, usar este correo
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {addUserEmailCheck.puede_usar && (addUserEmailConfirmed || !addUserEmailCheck.requiere_confirmacion) && (
+                    <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-1.5 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Correo disponible para este usuario familiar.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Contraseña de Acceso *
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={addUserForm.password}
+                  onChange={(e) => setAddUserForm({ ...addUserForm, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAddUserClient(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-semibold rounded-xl hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingAddUser}
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                >
+                  {savingAddUser ? 'Creando...' : 'Crear Acceso'}
                 </button>
               </div>
             </form>
