@@ -197,6 +197,10 @@ export default function Layout() {
       if (document.visibilityState === 'visible') {
         syncUserProfile();
         emitLiveSync({ type: 'connection_restored' });
+        const activeTok = localStorage.getItem('token');
+        if (activeTok && getNotificationPermissionState() === 'granted') {
+          subscribeUserToPush(activeTok, false).catch(() => {});
+        }
       }
     };
     document.addEventListener('visibilitychange', refreshVisible);

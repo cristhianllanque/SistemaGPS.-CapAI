@@ -177,12 +177,13 @@ def send_web_push_sync(
                     data=payload_str,
                     vapid_private_key=priv_key,
                     vapid_claims=dict(VAPID_CLAIMS),
-                    ttl=120,
+                    ttl=300,
+                    headers={"Urgency": "high"},
                 )
                 sent_count += 1
             except WebPushException as ex:
                 status_code = getattr(getattr(ex, "response", None), "status_code", None)
-                if status_code in (404, 410):
+                if status_code in (400, 401, 403, 404, 410):
                     stale_ids.append(sub.id)
                 else:
                     logger.warning(f"[PUSH] Fallo enviando a endpoint ({status_code}): {ex}")

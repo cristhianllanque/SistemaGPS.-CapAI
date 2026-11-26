@@ -12,6 +12,21 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+function doesSubscriptionMatchVapidKey(sub, expectedKeyBytes) {
+  try {
+    const currentBuffer = sub?.options?.applicationServerKey;
+    if (!currentBuffer) return false;
+    const currentBytes = new Uint8Array(currentBuffer);
+    if (currentBytes.length !== expectedKeyBytes.length) return false;
+    for (let i = 0; i < currentBytes.length; i += 1) {
+      if (currentBytes[i] !== expectedKeyBytes[i]) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isAndroidEnvironment() {
   if (typeof window === 'undefined') return false;
   if (checkIsNativeApp()) return true;
@@ -93,13 +108,30 @@ export async function subscribeUserToPush(token, requestPermissionIfNeeded = tru
       return { ok: true, mode: checkIsNativeApp() ? 'native-android' : 'local-only' };
     }
 
+    const expectedKeyBytes = urlBase64ToUint8Array(publicKey);
+    const savedVapidKey = localStorage.getItem('copai_vapid_public_key');
     let sub = await reg.pushManager.getSubscription();
+
+    // Si la llave VAPID del servidor rotó o el usuario tocó la campanita para forzar re-vinculación,
+    // desuscribir la llave antigua del navegador y crear una nueva firmada con la llave actual.
+    if (
+      sub &&
+      (savedVapidKey !== publicKey || !doesSubscriptionMatchVapidKey(sub, expectedKeyBytes))
+    ) {
+      try {
+        await sub.unsubscribe();
+      } catch {}
+      sub = null;
+    }
+
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey)
+        applicationServerKey: expectedKeyBytes
       });
     }
+
+    localStorage.setItem('copai_vapid_public_key', publicKey);
 
     if (sub && token) {
       const subJson = sub.toJSON();

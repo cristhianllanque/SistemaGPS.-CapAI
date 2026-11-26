@@ -44,10 +44,11 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/copai-symbol.png',
     badge: data.badge || '/copai-symbol.png',
     silent: false, // Garantiza reproducción del sonido de notificación nativo del teléfono (iOS y Android)
-    vibrate: [250, 100, 250, 100, 400],
-    tag: data.tag || 'copai-vehicle-alert',
+    vibrate: [300, 100, 300, 100, 500],
+    // En iOS Safari WebKit, usar un tag único por evento garantiza que cada alerta nueva suene y encienda la pantalla bloqueada
+    tag: `${data.tag || 'copai-vehicle-alert'}-${Date.now()}`,
     renotify: true,
-    requireInteraction: true, // Se mantiene visible en pantalla hasta que el usuario interactúe
+    requireInteraction: true,
     data: {
       url: data.url || '/monitoreo'
     }
