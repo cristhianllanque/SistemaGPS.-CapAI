@@ -33,7 +33,7 @@ export function usePWA(companyData = null) {
       }
     };
 
-    if ('serviceWorker' in navigator && !isNativeApp && process.env.NODE_ENV !== 'development') {
+    if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'development') {
       navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
         .then((reg) => {
           swReg = reg;
@@ -43,11 +43,6 @@ export function usePWA(companyData = null) {
           console.warn('SW register error:', err);
         });
       document.addEventListener('visibilitychange', handleSwVisibilityUpdate);
-    } else if ('serviceWorker' in navigator && isNativeApp) {
-      // En el APK Nativo Android (WebView), desregistrar cualquier Service Worker previo para que nunca intercepte ni bloquee rutas
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.unregister().catch(() => {}));
-      }).catch(() => {});
     }
 
     // 4. Capturar evento de instalación nativo (Android / Chrome)

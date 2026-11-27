@@ -112,32 +112,48 @@ export default function Layout() {
   const [pushPermission, setPushPermission] = useState(() => getNotificationPermissionState());
   const [pushToast, setPushToast] = useState('');
 
-  // Verificar si hay alertas críticas pendientes (en primer y segundo plano, incluso con celular en el bolsillo)
+  // Verificar si hay alertas críticas pendientes (en primer y segundo plano, incluso con celular en el bolsillo o en otra App)
   const checkPendingAlertsModal = useCallback(async (forceReopen = false) => {
     const activeTok = localStorage.getItem('token');
     if (!activeTok) return;
     try {
       const { data } = await axios.get(`${API_BASE_URL}/api/alertas/`, {
         headers: { Authorization: `Bearer ${activeTok}` },
-        timeout: 7000
+        timeout: 6000
       });
       const pendingList = Array.isArray(data) ? data.filter((a) => !a.estado || a.estado === 'pendiente') : [];
       if (pendingList.length === 0) return;
 
-      // Priorizar alertas no descartadas manualmente (primero pánico/sabotaje, luego exceso de velocidad)
+      // Ordenar siempre de la más reciente a la más antigua
+      const sortedPending = [...pendingList].sort((a, b) => {
+        const idA = Number(a.id || a.alerta_id || 0);
+        const idB = Number(b.id || b.alerta_id || 0);
+        return idB - idA;
+      });
+
+      const makeDismissKey = (item) =>
+        `${Number(item.id || item.alerta_id)}:${item.fecha_hora || ''}`;
+
+      // Priorizar alertas no descartadas manualmente (primero la más reciente de pánico/sabotaje, luego velocidad)
       const candidates = forceReopen
-        ? pendingList
-        : pendingList.filter((a) => !dismissedAlertIdsRef.current.has(Number(a.id || a.alerta_id)));
+        ? sortedPending
+        : sortedPending.filter((a) => !dismissedAlertIdsRef.current.has(makeDismissKey(a)));
       const critical = candidates.find((a) => a.tipo !== 'exceso_velocidad') || candidates[0];
       if (!critical) return;
 
       const critId = Number(critical.id || critical.alerta_id);
-      const alertKey = `${critId}-${critical.tipo || 'panico'}-${critical.velocidad || ''}`;
+      const alertKey = `${critId}:${critical.tipo || 'panico'}:${critical.fecha_hora || ''}:${critical.velocidad || ''}`;
       const isNewDetection = !notifiedAlertKeysRef.current.has(alertKey);
       notifiedAlertKeysRef.current.add(alertKey);
 
       setActiveAlert((curr) => {
-        if (curr && Number(curr.id) === critId) return curr;
+        if (
+          curr &&
+          Number(curr.id) === critId &&
+          curr.fecha_hora === critical.fecha_hora
+        ) {
+          return curr;
+        }
         return {
           id: critId,
           vehiculo_id: critical.vehiculo_id,
@@ -187,10 +203,10 @@ export default function Layout() {
   useEffect(() => {
     const forceFromUrl = typeof window !== 'undefined' && window.location.search.includes('alerta=1');
     checkPendingAlertsModal(forceFromUrl);
-    // Vigilancia continua cada 5 segundos (funciona también en segundo plano / bolsillo en Android)
+    // Vigilancia continua cada 3 segundos (mantenida viva en segundo plano por el canal de 18 Hz)
     const pollInterval = setInterval(() => {
       checkPendingAlertsModal(false);
-    }, 5000);
+    }, 3000);
     return () => clearInterval(pollInterval);
   }, [checkPendingAlertsModal]);
 
@@ -492,7 +508,7 @@ export default function Layout() {
 
   const handleAlertClosed = () => {
     if (activeAlert?.id) {
-      dismissedAlertIdsRef.current.add(Number(activeAlert.id));
+      dismissedAlertIdsRef.current.add(`${Number(activeAlert.id)}:${activeAlert.fecha_hora || ''}`);
     }
     siren.stop();
     setActiveAlert(null);
@@ -501,7 +517,7 @@ export default function Layout() {
   const handleAlertAttended = () => {
     const resolved = activeAlert;
     if (resolved?.id) {
-      dismissedAlertIdsRef.current.add(Number(resolved.id));
+      dismissedAlertIdsRef.current.add(`${Number(resolved.id)}:${resolved.fecha_hora || ''}`);
     }
     siren.stop();
     setActiveAlert(null);

@@ -122,6 +122,7 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                 else:
                     alerta_existente.latitud = r['latitude']
                     alerta_existente.longitud = r['longitude']
+                    alerta_existente.fecha_hora = ts
                     panic_alert_id = alerta_existente.id
 
             # 2. Speed limit excess check (> limite_velocidad km/h)
@@ -154,6 +155,7 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                     alerta_speed_existente.latitud = r['latitude']
                     alerta_speed_existente.longitud = r['longitude']
                     alerta_speed_existente.velocidad = curr_speed
+                    alerta_speed_existente.fecha_hora = ts
                     speed_alert_info = {
                         "alerta_id": alerta_speed_existente.id,
                         "velocidad": curr_speed,
@@ -226,13 +228,20 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                         "bateria_porcentaje": bateria_pct
                     }
                 else:
-                    # Ongoing power cut: update location quietly if alert is still pending
+                    # Ongoing power cut: if alert is still pending (unattended), update timestamp and re-notify
                     if ultima_alerta_sab and ultima_alerta_sab.estado == 'pendiente':
                         ultima_alerta_sab.latitud = r['latitude']
                         ultima_alerta_sab.longitud = r['longitude']
                         ultima_alerta_sab.velocidad = curr_speed
+                        ultima_alerta_sab.fecha_hora = ts
+                        sabotage_alert_info = {
+                            "alerta_id": ultima_alerta_sab.id,
+                            "bateria_ext": ext_val,
+                            "bateria_int": int_val,
+                            "bateria_porcentaje": bateria_pct
+                        }
                     # If it was marked as 'falsa_alarma' or 'atendida', respect operator resolution:
-                    # do NOT reopen, do NOT re-trigger siren!
+                    # do NOT reopen, do NOT re-trigger siren until power (>= 9V) is restored and cut again!
             elif bateria_ext_v is not None and bateria_ext_v >= 9.0:
                 # Normal power restored: record note on most recent sabotage alert (even if already attended)
                 batch_had_normal_power = True

@@ -32,10 +32,6 @@ async function getReadyServiceWorkerRegistration(timeoutMs = 2500) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
   }
-  // En el APK nativo Android (Capacitor WebView), evitar registrar Service Worker para no interceptar WebViewLocalServer
-  if (checkIsNativeApp()) {
-    return null;
-  }
   try {
     let reg = await navigator.serviceWorker.getRegistration('/');
     if (!reg) {
