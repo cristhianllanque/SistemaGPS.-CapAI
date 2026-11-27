@@ -56,6 +56,7 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
         limite_velocidad = (vehiculo.empresa.limite_velocidad if vehiculo.empresa else None) or 90
         has_panic_button_enabled = device.tiene_boton_panico is not False
         is_5pin_920_model = (device.modelo or "").strip().upper() in {"FMC920", "FMB920"}
+        batch_had_normal_power = bool((LATEST_LIVE_TELEMETRY.get((vehiculo_id, dispositivo_id)) or {}).get("had_normal_power"))
         for r in records:
             ts = r["timestamp"]
             if ts is not None and ts.tzinfo is not None:
@@ -187,7 +188,7 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                 power_restored_since_last_alert = True
                 if ultima_alerta_sab:
                     has_restored_note = "Energía restablecida" in (ultima_alerta_sab.observaciones_atencion or "")
-                    has_live_restored = bool(prev_live.get("had_normal_power"))
+                    has_live_restored = batch_had_normal_power or bool(prev_live.get("had_normal_power"))
                     reading_with_power = db.query(models.LecturaGPS.id).filter(
                         models.LecturaGPS.vehiculo_id == vehiculo_id,
                         models.LecturaGPS.timestamp > ultima_alerta_sab.fecha_hora,
@@ -202,6 +203,7 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
 
                 # Only trigger a brand new alert and modal siren if power was restored or this is the first disconnect
                 if power_restored_since_last_alert:
+                    batch_had_normal_power = False
                     if prev_live:
                         prev_live["had_normal_power"] = False
                     alerta_sab = models.AlertaPanico(
@@ -233,6 +235,7 @@ def save_records_to_db(dispositivo_id: int, imei: str, records: list[dict]):
                     # do NOT reopen, do NOT re-trigger siren!
             elif bateria_ext_v is not None and bateria_ext_v >= 9.0:
                 # Normal power restored: record note on most recent sabotage alert (even if already attended)
+                batch_had_normal_power = True
                 prev_live = LATEST_LIVE_TELEMETRY.get((vehiculo_id, dispositivo_id))
                 if prev_live is not None:
                     prev_live["had_normal_power"] = True

@@ -16,6 +16,7 @@ import { emitLiveSync, readFlotaMessage, useLiveSync } from '../utils/liveSync';
 import {
   getNotificationPermissionState,
   subscribeUserToPush,
+  unsubscribeUserFromPush,
   sendTestPushNotification,
   showSystemNotification
 } from '../utils/pushNotifications';
@@ -105,11 +106,12 @@ export default function Layout() {
   }, [syncUserProfile]);
 
   const [activeAlert, setActiveAlert] = useState(null);
-  const dismissedAlertIdRef = React.useRef(null);
+  const dismissedAlertIdsRef = React.useRef(new Set());
+  const notifiedAlertKeysRef = React.useRef(new Set());
   const [pushPermission, setPushPermission] = useState(() => getNotificationPermissionState());
   const [pushToast, setPushToast] = useState('');
 
-  // Verificar si hay alertas críticas pendientes al abrir la app o al entrar tocando una notificación Push
+  // Verificar si hay alertas críticas pendientes (en primer y segundo plano, incluso con celular en el bolsillo)
   const checkPendingAlertsModal = useCallback(async (forceReopen = false) => {
     const activeTok = localStorage.getItem('token');
     if (!activeTok) return;
@@ -118,34 +120,63 @@ export default function Layout() {
         headers: { Authorization: `Bearer ${activeTok}` }
       });
       const pendingList = Array.isArray(data) ? data.filter((a) => !a.estado || a.estado === 'pendiente') : [];
-      const critical = pendingList.find((a) => a.tipo !== 'exceso_velocidad') || pendingList[0];
-      if (critical) {
-        const critId = Number(critical.id || critical.alerta_id);
-        if (!forceReopen && dismissedAlertIdRef.current === critId) {
-          return;
-        }
-        setActiveAlert((curr) => {
-          if (curr && Number(curr.id) === critId) return curr;
-          return {
-            id: critId,
-            vehiculo_id: critical.vehiculo_id,
-            placa: critical.placa,
-            conductor_nombre: critical.conductor_nombre || critical.conductor,
-            latitud: critical.latitud,
-            longitud: critical.longitud,
-            bateria_ext: critical.bateria_ext,
-            bateria_int: critical.bateria_int,
-            bateria_porcentaje: critical.bateria_porcentaje,
-            velocidad: critical.velocidad,
-            limite: critical.limite,
-            tipo: critical.tipo || 'panico',
-            fecha_hora: critical.fecha_hora || new Date().toISOString()
-          };
-        });
+      if (pendingList.length === 0) return;
+
+      // Priorizar alertas no descartadas manualmente (primero pánico/sabotaje, luego exceso de velocidad)
+      const candidates = forceReopen
+        ? pendingList
+        : pendingList.filter((a) => !dismissedAlertIdsRef.current.has(Number(a.id || a.alerta_id)));
+      const critical = candidates.find((a) => a.tipo !== 'exceso_velocidad') || candidates[0];
+      if (!critical) return;
+
+      const critId = Number(critical.id || critical.alerta_id);
+      const alertKey = `${critId}-${critical.tipo || 'panico'}-${critical.velocidad || ''}`;
+      const isNewDetection = !notifiedAlertKeysRef.current.has(alertKey);
+      notifiedAlertKeysRef.current.add(alertKey);
+
+      setActiveAlert((curr) => {
+        if (curr && Number(curr.id) === critId) return curr;
+        return {
+          id: critId,
+          vehiculo_id: critical.vehiculo_id,
+          placa: critical.placa,
+          conductor_nombre: critical.conductor_nombre || critical.conductor,
+          latitud: critical.latitud,
+          longitud: critical.longitud,
+          bateria_ext: critical.bateria_ext,
+          bateria_int: critical.bateria_int,
+          bateria_porcentaje: critical.bateria_porcentaje,
+          velocidad: critical.velocidad,
+          limite: critical.limite,
+          tipo: critical.tipo || 'panico',
+          fecha_hora: critical.fecha_hora || new Date().toISOString()
+        };
+      });
+
+      const bellEnabled = getNotificationPermissionState() === 'granted';
+      if ((isNewDetection || forceReopen) && bellEnabled) {
         if (critical.tipo !== 'exceso_velocidad') {
           siren.start();
         } else {
           siren.playSpeedBeep();
+        }
+        if (
+          isNewDetection &&
+          (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible'))
+        ) {
+          const title =
+            critical.tipo === 'sabotaje'
+              ? `🛡️ ¡SABOTAJE DE BATERÍA! (${critical.placa || 'UNIDAD'})`
+              : critical.tipo === 'exceso_velocidad'
+              ? `⚡ ¡EXCESO DE VELOCIDAD! (${critical.placa || 'UNIDAD'})`
+              : `🚨 ¡BOTÓN DE PÁNICO! (${critical.placa || 'UNIDAD'})`;
+          const body =
+            critical.tipo === 'sabotaje'
+              ? `Corte de batería principal detectado (${critical.bateria_ext ?? 0}V).`
+              : critical.tipo === 'exceso_velocidad'
+              ? `Circula a ${critical.velocidad || 0} km/h (Límite: ${critical.limite || 90} km/h).`
+              : `Emergencia SOS activada en unidad ${critical.placa || ''}.`;
+          showSystemNotification(title, body, `copai-bg-${critical.tipo}-${critical.vehiculo_id}`);
         }
       }
     } catch {}
@@ -154,60 +185,91 @@ export default function Layout() {
   useEffect(() => {
     const forceFromUrl = typeof window !== 'undefined' && window.location.search.includes('alerta=1');
     checkPendingAlertsModal(forceFromUrl);
+    // Vigilancia continua cada 5 segundos (funciona también en segundo plano / bolsillo en Android)
+    const pollInterval = setInterval(() => {
+      checkPendingAlertsModal(false);
+    }, 5000);
+    return () => clearInterval(pollInterval);
   }, [checkPendingAlertsModal]);
 
-  // Escuchar clic en notificación Push del Service Worker para abrir el modal grande central y sonar la sirena
+  // Escuchar eventos Push del Service Worker (tanto al recibir push en el bolsillo como al tocar la notificación)
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
     const onSwMessage = (event) => {
       if (event.data?.type === 'COPAI_NOTIFICATION_CLICK') {
-        dismissedAlertIdRef.current = null;
-        siren.start();
+        dismissedAlertIdsRef.current.clear();
+        if (getNotificationPermissionState() === 'granted') {
+          siren.start();
+        }
         checkPendingAlertsModal(true);
+      } else if (event.data?.type === 'COPAI_PUSH_RECEIVED') {
+        if (event.data?.tag === 'copai-test-alert') return;
+        if (getNotificationPermissionState() === 'granted') {
+          if (String(event.data?.tag || '').includes('speed')) {
+            siren.playSpeedBeep();
+          } else {
+            siren.start();
+          }
+          checkPendingAlertsModal(false);
+        }
       }
     };
     navigator.serviceWorker.addEventListener('message', onSwMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onSwMessage);
   }, [checkPendingAlertsModal]);
 
-  // Sincronizar automáticamente suscripción Web Push si el usuario ya concedió permiso previamente
+  // Si el usuario dejó la campana activa (Verde), mantenerla siempre activa al entrar
   useEffect(() => {
     if (!token) return;
-    if (getNotificationPermissionState() === 'granted') {
+    const state = getNotificationPermissionState();
+    setPushPermission(state);
+    if (state === 'granted') {
+      siren.setKeepAlive(true);
       subscribeUserToPush(token, false).then(() => {
         setPushPermission(getNotificationPermissionState());
       });
+    } else {
+      siren.setKeepAlive(false);
     }
   }, [token]);
 
   const handleTogglePushNotifications = async () => {
-    siren.playSpeedBeep();
-    if (getNotificationPermissionState() === 'unsupported' && !checkIsNativeApp()) {
+    const currentState = getNotificationPermissionState();
+
+    // Si la campana está VERDE (activa), el usuario puede desactivarla (pasa a PLOMO)
+    if (currentState === 'granted') {
+      await unsubscribeUserFromPush(token);
+      setPushPermission('default');
+      setPushToast('🔕 Alertas desactivadas (en silencio). Toca la campana cuando quieras activarlas.');
+      setTimeout(() => setPushToast(''), 3000);
+      return;
+    }
+
+    // Si la campana está PLOMO (desactivada), activarla (pasa a VERDE y queda siempre activa)
+    if (currentState === 'unsupported' && !checkIsNativeApp()) {
       if (isIOS && !isStandalone) {
         setShowPrompt(true);
-        setPushToast('En iPhone: primero agrega la App a Inicio para recibir alertas en el bolsillo.');
-        setTimeout(() => setPushToast(''), 4500);
+        setPushToast('En iPhone: agrega la App a Inicio para recibir alertas en el bolsillo.');
+        setTimeout(() => setPushToast(''), 3500);
         return;
       }
-      setPushToast('Activa los permisos de notificación en los ajustes de tu equipo.');
-      setTimeout(() => setPushToast(''), 4000);
+      setPushToast('Activa los permisos de notificación en los ajustes de tu teléfono.');
+      setTimeout(() => setPushToast(''), 3500);
       return;
     }
 
     const result = await subscribeUserToPush(token, true);
-    setPushPermission(getNotificationPermissionState());
+    const nextState = getNotificationPermissionState();
+    setPushPermission(nextState);
 
-    if (result.ok) {
+    if (result.ok && nextState === 'granted') {
+      siren.playSpeedBeep();
       await sendTestPushNotification(token);
-      if (checkIsNativeApp() || result.mode === 'native-android') {
-        setPushToast('🔔 ¡Alertas de tu App Oficial activadas! Sirena sonora y vibración listas ante Pánico, Sabotaje o Velocidad.');
-      } else {
-        setPushToast('🔔 ¡Alertas de bolsillo activadas! Recibirás sonido ante Pánico, Sabotaje o Velocidad.');
-      }
-      setTimeout(() => setPushToast(''), 4500);
-    } else if (result.reason === 'denied') {
-      setPushToast('Permiso de notificaciones bloqueado en los ajustes de tu teléfono.');
-      setTimeout(() => setPushToast(''), 4500);
+      setPushToast('🔔 Alertas activadas (sonido y vibración listos ante Pánico, Sabotaje o Velocidad).');
+      setTimeout(() => setPushToast(''), 3200);
+    } else {
+      setPushToast('Activa el permiso de notificaciones en tu teléfono para encender la campana.');
+      setTimeout(() => setPushToast(''), 3500);
     }
   };
 
@@ -294,16 +356,20 @@ export default function Layout() {
       }
     }
 
+    const bellEnabled = getNotificationPermissionState() === 'granted';
+
     if (lastJsonMessage.type === 'panic_alert') {
-      // Trigger emergency siren sound in the browser / native app
-      siren.start();
-      try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([400, 120, 400, 120, 600]); } catch {}
-      if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
-        showSystemNotification(
-          `🚨 ¡BOTÓN DE PÁNICO! (${lastJsonMessage.placa || 'UNIDAD'})`,
-          `Emergencia SOS activada por ${lastJsonMessage.conductor || 'conductor'}.`,
-          `copai-panic-${lastJsonMessage.vehiculo_id}`
-        );
+      dismissedAlertIdsRef.current.delete(Number(lastJsonMessage.alerta_id));
+      if (bellEnabled) {
+        siren.start();
+        try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([600, 140, 600, 140, 850]); } catch {}
+        if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
+          showSystemNotification(
+            `🚨 ¡BOTÓN DE PÁNICO! (${lastJsonMessage.placa || 'UNIDAD'})`,
+            `Emergencia SOS activada por ${lastJsonMessage.conductor || 'conductor'}.`,
+            `copai-panic-${lastJsonMessage.vehiculo_id}`
+          );
+        }
       }
       
       // Show modal when panic alert comes via websocket
@@ -319,15 +385,17 @@ export default function Layout() {
       });
       emitLiveSync({ type: 'entity_updated', entity: 'alertas', empresa_id: lastJsonMessage.empresa_id });
     } else if (lastJsonMessage.type === 'speed_alert') {
-      // Play notification tone for speed excess alert
-      siren.playSpeedBeep();
-      try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([250, 100, 250]); } catch {}
-      if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
-        showSystemNotification(
-          `⚡ EXCESO DE VELOCIDAD (${lastJsonMessage.placa || 'UNIDAD'})`,
-          `Circula a ${lastJsonMessage.velocidad} km/h (Límite: ${lastJsonMessage.limite} km/h).`,
-          `copai-speed-${lastJsonMessage.vehiculo_id}`
-        );
+      dismissedAlertIdsRef.current.delete(Number(lastJsonMessage.alerta_id));
+      if (bellEnabled) {
+        siren.playSpeedBeep();
+        try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([450, 120, 450, 120, 650]); } catch {}
+        if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
+          showSystemNotification(
+            `⚡ EXCESO DE VELOCIDAD (${lastJsonMessage.placa || 'UNIDAD'})`,
+            `Circula a ${lastJsonMessage.velocidad} km/h (Límite: ${lastJsonMessage.limite} km/h).`,
+            `copai-speed-${lastJsonMessage.vehiculo_id}`
+          );
+        }
       }
 
       // Show modal for speed excess alert
@@ -345,15 +413,17 @@ export default function Layout() {
       });
       emitLiveSync({ type: 'entity_updated', entity: 'alertas', empresa_id: lastJsonMessage.empresa_id });
     } else if (lastJsonMessage.type === 'sabotage_alert') {
-      // Trigger emergency siren sound for battery sabotage
-      siren.start();
-      try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([400, 120, 400, 120, 600]); } catch {}
-      if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
-        showSystemNotification(
-          `🛡️ ¡SABOTAJE DE BATERÍA! (${lastJsonMessage.placa || 'UNIDAD'})`,
-          `Corte de energía detectado (${lastJsonMessage.bateria_ext ?? 0}V).`,
-          `copai-sabotage-${lastJsonMessage.vehiculo_id}`
-        );
+      dismissedAlertIdsRef.current.delete(Number(lastJsonMessage.alerta_id));
+      if (bellEnabled) {
+        siren.start();
+        try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([600, 140, 600, 140, 850]); } catch {}
+        if (checkIsNativeApp() || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
+          showSystemNotification(
+            `🛡️ ¡SABOTAJE DE BATERÍA! (${lastJsonMessage.placa || 'UNIDAD'})`,
+            `Corte de energía detectado (${lastJsonMessage.bateria_ext ?? 0}V).`,
+            `copai-sabotage-${lastJsonMessage.vehiculo_id}`
+          );
+        }
       }
       setActiveAlert({
         id: lastJsonMessage.alerta_id,
@@ -370,6 +440,9 @@ export default function Layout() {
       });
       emitLiveSync({ type: 'entity_updated', entity: 'alertas', empresa_id: lastJsonMessage.empresa_id });
     } else if (lastJsonMessage.type === 'alert_resolved') {
+      if (lastJsonMessage.alerta_id) {
+        dismissedAlertIdsRef.current.add(Number(lastJsonMessage.alerta_id));
+      }
       setActiveAlert((curr) => {
         if (curr && Number(curr.id) === Number(lastJsonMessage.alerta_id)) {
           siren.stop();
@@ -397,18 +470,27 @@ export default function Layout() {
 
   const handleLogout = () => {
     siren.stop();
+    siren.setKeepAlive(false);
+    const savedPushPref = localStorage.getItem('copai_push_enabled');
+    const savedVapidKey = localStorage.getItem('copai_vapid_public_key');
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('empresa');
     localStorage.removeItem('last_empresa');
     localStorage.clear();
+    if (savedPushPref !== null) {
+      localStorage.setItem('copai_push_enabled', savedPushPref);
+    }
+    if (savedVapidKey !== null) {
+      localStorage.setItem('copai_vapid_public_key', savedVapidKey);
+    }
     document.title = 'COPAI';
     navigate('/login', { replace: true });
   };
 
   const handleAlertClosed = () => {
     if (activeAlert?.id) {
-      dismissedAlertIdRef.current = Number(activeAlert.id);
+      dismissedAlertIdsRef.current.add(Number(activeAlert.id));
     }
     siren.stop();
     setActiveAlert(null);
@@ -416,6 +498,9 @@ export default function Layout() {
   
   const handleAlertAttended = () => {
     const resolved = activeAlert;
+    if (resolved?.id) {
+      dismissedAlertIdsRef.current.add(Number(resolved.id));
+    }
     siren.stop();
     setActiveAlert(null);
     if (resolved) {
@@ -448,10 +533,10 @@ export default function Layout() {
         />
       )}
 
-      {/* Toast de Confirmación de Notificaciones en Segundo Plano */}
+      {/* Toast Compacto de Confirmación de Notificaciones */}
       {pushToast && (
-        <div className="fixed top-16 md:top-5 left-1/2 -translate-x-1/2 z-[150] bg-slate-900/95 text-white border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2 max-w-[92vw] animate-in fade-in">
-          <span>{pushToast}</span>
+        <div className="fixed top-14 md:top-4 left-1/2 -translate-x-1/2 z-[150] bg-slate-900/95 text-white border border-slate-700 px-3.5 py-1.5 rounded-full shadow-xl text-[11px] font-semibold flex items-center gap-2 max-w-[88vw] text-center animate-in fade-in">
+          <span className="truncate">{pushToast}</span>
         </div>
       )}
 
@@ -625,21 +710,23 @@ export default function Layout() {
             <button
               type="button"
               onClick={handleTogglePushNotifications}
-              className={`p-2 rounded-lg transition-all cursor-pointer relative ${
+              className={`p-2 rounded-lg transition-all cursor-pointer relative border ${
                 pushPermission === 'granted'
-                  ? 'text-emerald-400 hover:bg-slate-800'
-                  : 'text-amber-400 bg-amber-500/15 border border-amber-400/30 hover:bg-amber-500/25'
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/30 shadow-xs'
+                  : 'bg-slate-800/90 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-300'
               }`}
               title={
                 pushPermission === 'granted'
-                  ? 'Alertas con sonido en segundo plano activas (Toca para probar)'
-                  : 'Activar notificaciones con sonido cuando el celular esté en el bolsillo'
+                  ? 'Alertas ACTIVAS (Verde) • Toca para desactivar'
+                  : 'Alertas DESACTIVADAS (Plomo) • Toca para activar'
               }
             >
               {pushPermission === 'granted' ? <BellRing size={15} /> : <Bell size={15} />}
-              {pushPermission !== 'granted' && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-              )}
+              <span
+                className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${
+                  pushPermission === 'granted' ? 'bg-emerald-400' : 'bg-slate-500'
+                }`}
+              />
             </button>
             {!isStandalone && !isNativeApp && (
               <button

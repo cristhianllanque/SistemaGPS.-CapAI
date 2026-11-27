@@ -3,7 +3,7 @@
 // Gestión de Cache Inteligente, Soporte Standalone y Notificaciones Push
 // ==============================================================================
 
-const CACHE_NAME = 'copai-pwa-v2';
+const CACHE_NAME = 'copai-pwa-v3';
 
 // 1. Instalación del Service Worker
 self.addEventListener('install', (event) => {
@@ -28,7 +28,7 @@ self.addEventListener('push', (event) => {
     body: 'Notificación de telemetría y seguridad vehicular.',
     icon: '/copai-symbol.png',
     badge: '/copai-symbol.png',
-    url: '/'
+    url: '/monitoreo'
   };
 
   if (event.data) {
@@ -43,9 +43,8 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/copai-symbol.png',
     badge: data.badge || '/copai-symbol.png',
-    silent: false, // Garantiza reproducción del sonido de notificación nativo del teléfono (iOS y Android)
-    vibrate: [500, 120, 500, 120, 700, 120, 900],
-    // En iOS Safari WebKit, usar un tag único por evento garantiza que cada alerta nueva suene y encienda la pantalla bloqueada
+    silent: false, // Sonido de notificación nativo del teléfono (Android e iOS)
+    vibrate: data.vibrate || [600, 150, 600, 150, 800, 150, 1000],
     tag: `${data.tag || 'copai-vehicle-alert'}-${Date.now()}`,
     renotify: true,
     requireInteraction: true,
@@ -58,7 +57,22 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    Promise.all([
+      self.registration.showNotification(data.title, options),
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+        for (const client of windowClients) {
+          try {
+            client.postMessage({
+              type: 'COPAI_PUSH_RECEIVED',
+              title: data.title,
+              body: data.body,
+              tag: data.tag || '',
+              url: data.url || '/monitoreo'
+            });
+          } catch (e) {}
+        }
+      })
+    ])
   );
 });
 
@@ -70,8 +84,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Si la ventana ya está abierta, le avisamos para que active sirena + modal central y la enfocamos
-      for (let client of windowClients) {
+      for (const client of windowClients) {
         if ('focus' in client) {
           if (client.url.includes(self.location.origin)) {
             try {
@@ -82,7 +95,6 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
       }
-      // Si está cerrada, abrimos la app con parámetro alerta=1 para disparar el modal y la sirena al entrar
       if (clients.openWindow) {
         const sep = targetUrl.includes('?') ? '&' : '?';
         return clients.openWindow(`${targetUrl}${sep}alerta=1`);

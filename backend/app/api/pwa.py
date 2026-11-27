@@ -366,6 +366,10 @@ class PushSubscriptionPayload(BaseModel):
     keys: Dict[str, str]
 
 
+class PushUnsubscribePayload(BaseModel):
+    endpoint: Optional[str] = None
+
+
 @router.get("/vapid-public-key")
 def get_vapid_public_key():
     keys = get_or_create_vapid_keys()
@@ -413,6 +417,22 @@ def subscribe_push_notifications(
 
     db.commit()
     return {"status": "subscribed", "rol": current_user.rol}
+
+
+@router.post("/push/unsubscribe")
+def unsubscribe_push_notifications(
+    payload: PushUnsubscribePayload,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    endpoint = (payload.endpoint or "").strip()
+    query = db.query(PushSubscription).filter(PushSubscription.usuario_id == current_user.id)
+    if endpoint:
+        query = query.filter(PushSubscription.endpoint == endpoint)
+    deleted = query.delete(synchronize_session=False)
+    db.commit()
+    return {"status": "unsubscribed", "deleted": deleted}
+
 
 
 @router.post("/push/test")

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL, checkIsNativeApp } from '../config';
+import { siren } from './sound';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -27,41 +28,111 @@ function doesSubscriptionMatchVapidKey(sub, expectedKeyBytes) {
   }
 }
 
-function isAndroidEnvironment() {
-  if (typeof window === 'undefined') return false;
-  if (checkIsNativeApp()) return true;
-  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent.toLowerCase() : '';
-  return /android/.test(ua);
+async function getReadyServiceWorkerRegistration(timeoutMs = 3500) {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return null;
+  }
+  try {
+    let reg = await navigator.serviceWorker.getRegistration('/');
+    if (!reg) {
+      reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+    }
+    const readyPromise = navigator.serviceWorker.ready;
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(reg || null), timeoutMs));
+    return await Promise.race([readyPromise, timeoutPromise]);
+  } catch {
+    return null;
+  }
 }
 
+/**
+ * Devuelve `'granted'` cuando el usuario tiene la campana ACTIVADA (Verde),
+ * o `'default'` / `'denied'` cuando la tiene DESACTIVADA (Plomo).
+ * Si el usuario la dejó activa, permanece activa siempre entre sesiones.
+ */
 export function getNotificationPermissionState() {
   if (typeof window === 'undefined') {
     return 'unsupported';
   }
+
+  const userPreference = localStorage.getItem('copai_push_enabled');
+
+  // Si el usuario explícitamente desactivó la campanita (plomo), respetar su decisión
+  if (userPreference === 'false') {
+    return 'default';
+  }
+
   if ('Notification' in window) {
-    if (Notification.permission === 'granted') return 'granted';
-    if (isAndroidEnvironment() && localStorage.getItem('copai_push_enabled') === 'true' && Notification.permission !== 'denied') {
+    if (Notification.permission === 'denied' && !checkIsNativeApp()) {
+      return 'denied';
+    }
+    // En navegador Web / PWA (Android Chrome, iPhone Safari, PC), requiere permiso real + preferencia activa
+    if (Notification.permission === 'granted') {
+      if (userPreference === null) {
+        localStorage.setItem('copai_push_enabled', 'true');
+      }
       return 'granted';
     }
-    return Notification.permission; // 'default' | 'granted' | 'denied'
+    // En APK Nativo Android (WebView), si el usuario ya activó la campana, mantenerla verde
+    if (checkIsNativeApp() && userPreference === 'true') {
+      return 'granted';
+    }
+    return Notification.permission;
   }
-  // En el APK nativo de Android (Google Play Store / Android WebView), window.Notification
-  // no existe porque es una App nativa y no un navegador web. Soportamos alertas nativas de la App:
-  if (isAndroidEnvironment()) {
-    return localStorage.getItem('copai_push_enabled') === 'true' ? 'granted' : 'default';
+
+  // En APK Nativo Android donde window.Notification no está expuesto por el WebView
+  if (checkIsNativeApp()) {
+    return userPreference === 'true' ? 'granted' : 'default';
   }
+
   return 'unsupported';
 }
 
+/**
+ * Desactiva las notificaciones y sirena en segundo plano (cambia la campana a color PLOMO).
+ */
+export async function unsubscribeUserFromPush(token) {
+  localStorage.setItem('copai_push_enabled', 'false');
+  siren.stop();
+  siren.setKeepAlive(false);
+
+  let endpoint = null;
+  try {
+    const reg = await getReadyServiceWorkerRegistration(2000);
+    if (reg && reg.pushManager) {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        endpoint = sub.endpoint;
+        await sub.unsubscribe();
+      }
+    }
+  } catch {}
+
+  if (token) {
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/pwa/push/unsubscribe`,
+        { endpoint },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch {}
+  }
+
+  return { ok: true, active: false };
+}
+
+/**
+ * Activa las notificaciones, vibración y sirena de bolsillo (cambia la campana a color VERDE).
+ */
 export async function subscribeUserToPush(token, requestPermissionIfNeeded = true) {
   if (typeof window === 'undefined') {
     return { ok: false, reason: 'unsupported' };
   }
 
   const hasWebNotification = 'Notification' in window;
-  const isAndroidApp = isAndroidEnvironment();
+  const isNativeApk = checkIsNativeApp();
 
-  if (!hasWebNotification && !isAndroidApp) {
+  if (!hasWebNotification && !isNativeApk) {
     return { ok: false, reason: 'unsupported' };
   }
 
@@ -75,45 +146,43 @@ export async function subscribeUserToPush(token, requestPermissionIfNeeded = tru
       }
     }
 
-    if (permission !== 'granted' && !isAndroidApp) {
+    if (permission !== 'granted' && !isNativeApk) {
       return { ok: false, reason: permission };
     }
-    if (permission === 'denied' && !checkIsNativeApp()) {
-      return { ok: false, reason: 'denied' };
-    }
   }
 
-  // En APK nativo Android o dispositivo Android: activar vibración háptica de confirmación y persistir estado
-  try {
-    if (typeof navigator !== 'undefined' && navigator.vibrate && requestPermissionIfNeeded) {
-      navigator.vibrate([180, 80, 220]);
-    }
-  } catch {}
-
+  // Persistir como ACTIVA (Verde) y encender el canal de audio de bolsillo
   localStorage.setItem('copai_push_enabled', 'true');
+  siren.setKeepAlive(true);
+
+  if (requestPermissionIfNeeded) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([250, 90, 250, 90, 400]);
+      }
+    } catch {}
+  }
 
   if (!('serviceWorker' in navigator)) {
-    return { ok: true, mode: checkIsNativeApp() ? 'native-android' : 'local-only' };
+    return { ok: true, mode: isNativeApk ? 'native-android' : 'local-only' };
   }
 
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await getReadyServiceWorkerRegistration(3500);
     if (!reg || !reg.pushManager) {
-      return { ok: true, mode: checkIsNativeApp() ? 'native-android' : 'local-only' };
+      return { ok: true, mode: isNativeApk ? 'native-android' : 'local-only' };
     }
 
     const keyRes = await axios.get(`${API_BASE_URL}/api/pwa/vapid-public-key`);
     const publicKey = keyRes.data?.publicKey;
     if (!publicKey) {
-      return { ok: true, mode: checkIsNativeApp() ? 'native-android' : 'local-only' };
+      return { ok: true, mode: isNativeApk ? 'native-android' : 'local-only' };
     }
 
     const expectedKeyBytes = urlBase64ToUint8Array(publicKey);
     const savedVapidKey = localStorage.getItem('copai_vapid_public_key');
     let sub = await reg.pushManager.getSubscription();
 
-    // Si la llave VAPID del servidor rotó o el usuario tocó la campanita para forzar re-vinculación,
-    // desuscribir la llave antigua del navegador y crear una nueva firmada con la llave actual.
     if (
       sub &&
       (savedVapidKey !== publicKey || !doesSubscriptionMatchVapidKey(sub, expectedKeyBytes))
@@ -147,54 +216,65 @@ export async function subscribeUserToPush(token, requestPermissionIfNeeded = tru
       );
     }
 
-    return { ok: true, mode: checkIsNativeApp() ? 'native-android' : 'web-push' };
+    return { ok: true, mode: 'web-push' };
   } catch (err) {
     console.warn('Aviso al sincronizar Web Push:', err);
-    return { ok: true, mode: checkIsNativeApp() ? 'native-android' : 'local-fallback' };
+    return { ok: true, mode: isNativeApk ? 'native-android' : 'local-fallback' };
   }
 }
 
 export async function sendTestPushNotification(token) {
-  try {
-    if (!checkIsNativeApp()) {
-      await axios.post(
+  let sentRemote = false;
+  if (token) {
+    try {
+      const res = await axios.post(
         `${API_BASE_URL}/api/pwa/push/test`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      return true;
-    }
-  } catch {}
+      sentRemote = (res.data?.sent || 0) > 0;
+    } catch {}
+  }
 
-  // Fallback local / APK Nativo Android
-  await showSystemNotification(
-    '🔔 Alertas COPAI GPS Activas',
-    'Tu aplicativo sonará y vibrará ante Botón de Pánico, Sabotaje o Exceso de Velocidad.',
-    'copai-test-alert'
-  );
+  if (!sentRemote || checkIsNativeApp()) {
+    await showSystemNotification(
+      '🔔 Alertas COPAI GPS Activas',
+      'Tu teléfono sonará y vibrará ante Botón de Pánico, Sabotaje o Exceso de Velocidad.',
+      'copai-test-alert'
+    );
+  }
   return true;
 }
 
 export async function showSystemNotification(title, body, tag = 'copai-vehicle-alert') {
   if (typeof window === 'undefined') return;
+  if (localStorage.getItem('copai_push_enabled') === 'false') return;
+
+  const vibrationPattern = [600, 150, 600, 150, 800, 150, 1000];
 
   try {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([250, 100, 250, 100, 400]);
+      navigator.vibrate(vibrationPattern);
+    }
+  } catch {}
+
+  try {
+    if (window.CopaiAndroidNative && typeof window.CopaiAndroidNative.showAlertNotification === 'function') {
+      window.CopaiAndroidNative.showAlertNotification(title, body, tag);
     }
   } catch {}
 
   try {
     if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await getReadyServiceWorkerRegistration(2500);
       if (reg && typeof reg.showNotification === 'function') {
         await reg.showNotification(title, {
           body,
           icon: '/copai-symbol.png',
           badge: '/copai-symbol.png',
           silent: false,
-          vibrate: [250, 100, 250, 100, 400],
-          tag,
+          vibrate: vibrationPattern,
+          tag: `${tag}-${Date.now()}`,
           renotify: true,
           requireInteraction: true,
           data: { url: '/monitoreo' }
@@ -203,10 +283,14 @@ export async function showSystemNotification(title, body, tag = 'copai-vehicle-a
       }
     }
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/copai-symbol.png', tag });
+      new Notification(title, {
+        body,
+        icon: '/copai-symbol.png',
+        tag: `${tag}-${Date.now()}`,
+        vibrate: vibrationPattern
+      });
     }
   } catch (e) {
     console.warn('Aviso mostrando notificación del sistema:', e);
   }
 }
-

@@ -119,8 +119,15 @@ def atender_alerta(
     if not vehiculo or (current_user.rol != 'superadmin' and vehiculo.empresa_id != current_user.empresa_id):
         raise HTTPException(status_code=403, detail="No tienes permisos sobre esta alerta")
 
+    prev_obs = alerta.observaciones_atencion or ""
+    new_obs = (payload.observaciones_atencion or "").strip() or "Alerta verificada y atendida"
+    if "Energía restablecida" in prev_obs and "Energía restablecida" not in new_obs:
+        restored_part = [p.strip() for p in prev_obs.split("|") if "Energía restablecida" in p]
+        if restored_part:
+            new_obs = f"{new_obs} | {restored_part[-1]}"
+
     alerta.estado = payload.estado
-    alerta.observaciones_atencion = payload.observaciones_atencion
+    alerta.observaciones_atencion = new_obs
     alerta.usuario_atendio_id = current_user.id
     alerta.fecha_atencion = datetime.utcnow()
     db.commit()

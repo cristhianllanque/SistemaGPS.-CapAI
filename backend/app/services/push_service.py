@@ -129,6 +129,9 @@ def send_web_push_sync(
             "badge": "/copai-symbol.png",
             "url": url,
             "tag": tag,
+            "vibrate": [600, 150, 600, 150, 800, 150, 1000],
+            "requireInteraction": True,
+            "renotify": True,
         }
     )
 
