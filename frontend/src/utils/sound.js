@@ -1,7 +1,6 @@
 // ==============================================================================
 // Motor Híbrido de Sirena y Alarmas COPAI GPS (HTML5 <audio> WAV + Web Audio API)
-// Diseñado para sonar y vibrar en Android (APK Play Store y Chrome) e iPhone
-// incluso con el teléfono bloqueado en el bolsillo o usando otra aplicación.
+// Inicialización 100% diferida (lazy) para nunca bloquear el arranque del WebView en Android.
 // ==============================================================================
 
 function createPcmWavDataUri(sampleRate, durationSec, sampleGenerator) {
@@ -20,13 +19,13 @@ function createPcmWavDataUri(sampleRate, durationSec, sampleGenerator) {
     view.setUint32(4, 36 + numSamples * 2, true);
     writeStr(8, 'WAVE');
     writeStr(12, 'fmt ');
-    view.setUint32(16, 16, true); // PCM chunk size
-    view.setUint16(20, 1, true);  // AudioFormat = 1 (PCM)
-    view.setUint16(22, 1, true);  // Mono
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true); // ByteRate
-    view.setUint16(32, 2, true);  // BlockAlign
-    view.setUint16(34, 16, true); // BitsPerSample = 16
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
     writeStr(36, 'data');
     view.setUint32(40, numSamples * 2, true);
 
@@ -53,8 +52,6 @@ class EmergencySiren {
     this.audioCtx = null;
     this.oscillator = null;
     this.gainNode = null;
-    this.keepAliveOsc = null;
-    this.keepAliveGain = null;
     this.intervalId = null;
     this.vibrateIntervalId = null;
     this.isPlaying = false;
@@ -62,62 +59,48 @@ class EmergencySiren {
 
     this.sirenAudioEl = null;
     this.speedAudioEl = null;
-    this.keepAliveAudioEl = null;
+    this.audioElementsInitialized = false;
 
     this.unlockBound = this._handleUserGestureUnlock.bind(this);
-    this._initHtmlAudioElements();
     this._setupGlobalUnlock();
   }
 
-  _initHtmlAudioElements() {
+  _ensureHtmlAudioElements() {
+    if (this.audioElementsInitialized) return;
     if (typeof window === 'undefined' || typeof Audio === 'undefined') return;
+    this.audioElementsInitialized = true;
     try {
-      // 1. Sirena de emergencia bitonal de alta potencia (Pánico y Sabotaje)
       let phase = 0;
-      const sampleRate = 16000;
-      const sirenUri = createPcmWavDataUri(sampleRate, 2.4, (t) => {
+      const sampleRate = 12000;
+      const sirenUri = createPcmWavDataUri(sampleRate, 1.8, (t) => {
         const cycle = t % 0.6;
         const progress = cycle < 0.3 ? cycle / 0.3 : (0.6 - cycle) / 0.3;
-        const freq = 660 + progress * 540; // 660 Hz <-> 1200 Hz
+        const freq = 660 + progress * 520;
         phase += (2 * Math.PI * freq) / sampleRate;
-        // Onda rica en armónicos para escucharse fuerte desde el bolsillo
         const s1 = Math.sin(phase);
-        const s2 = Math.sin(phase * 2) * 0.45;
-        const s3 = (Math.sin(phase) >= 0 ? 0.35 : -0.35);
-        return (s1 + s2 + s3) * 0.62;
+        const s2 = (s1 >= 0 ? 0.35 : -0.35);
+        return (s1 + s2) * 0.65;
       });
       if (sirenUri) {
         this.sirenAudioEl = new Audio(sirenUri);
         this.sirenAudioEl.loop = true;
-        this.sirenAudioEl.preload = 'auto';
         this.sirenAudioEl.volume = 1.0;
       }
 
-      // 2. Alarma triple de alta visibilidad para Exceso de Velocidad
       let speedPhase = 0;
-      const speedUri = createPcmWavDataUri(sampleRate, 1.35, (t) => {
-        const inPulse1 = t >= 0.0 && t < 0.25;
-        const inPulse2 = t >= 0.35 && t < 0.60;
-        const inPulse3 = t >= 0.70 && t < 1.15;
+      const speedUri = createPcmWavDataUri(sampleRate, 1.1, (t) => {
+        const inPulse1 = t >= 0.0 && t < 0.22;
+        const inPulse2 = t >= 0.30 && t < 0.52;
+        const inPulse3 = t >= 0.60 && t < 0.98;
         if (!inPulse1 && !inPulse2 && !inPulse3) return 0;
-        const freq = inPulse3 ? 1280 : 960;
+        const freq = inPulse3 ? 1260 : 940;
         speedPhase += (2 * Math.PI * freq) / sampleRate;
-        return (Math.sin(speedPhase) + (Math.sin(speedPhase) >= 0 ? 0.35 : -0.35)) * 0.7;
+        return Math.sin(speedPhase) * 0.75;
       });
       if (speedUri) {
         this.speedAudioEl = new Audio(speedUri);
         this.speedAudioEl.loop = false;
-        this.speedAudioEl.preload = 'auto';
         this.speedAudioEl.volume = 1.0;
-      }
-
-      // 3. Canal silencioso Keep-Alive para evitar que Android duerma el WebView en segundo plano
-      const silentUri = createPcmWavDataUri(8000, 1.5, (_t, i) => (i % 2 === 0 ? 0.00004 : -0.00004));
-      if (silentUri) {
-        this.keepAliveAudioEl = new Audio(silentUri);
-        this.keepAliveAudioEl.loop = true;
-        this.keepAliveAudioEl.preload = 'auto';
-        this.keepAliveAudioEl.volume = 0.01;
       }
     } catch {}
   }
@@ -147,74 +130,22 @@ class EmergencySiren {
           if (this.isPlaying && !this.oscillator) {
             this._startOscillator();
           }
-          if (this.keepAliveEnabled) {
-            this._ensureKeepAliveRunning();
-          }
         }).catch(() => {});
-      } else {
-        if (this.isPlaying && !this.oscillator) {
-          this._startOscillator();
-        }
-        if (this.keepAliveEnabled) {
-          this._ensureKeepAliveRunning();
-        }
+      } else if (this.isPlaying && !this.oscillator) {
+        this._startOscillator();
       }
 
-      if (this.isPlaying && this.sirenAudioEl && this.sirenAudioEl.paused) {
-        this.sirenAudioEl.play().catch(() => {});
-      } else if (this.keepAliveEnabled && this.keepAliveAudioEl && this.keepAliveAudioEl.paused) {
-        this.keepAliveAudioEl.play().catch(() => {});
+      if (this.isPlaying) {
+        this._ensureHtmlAudioElements();
+        if (this.sirenAudioEl && this.sirenAudioEl.paused) {
+          this.sirenAudioEl.play().catch(() => {});
+        }
       }
     } catch {}
   }
 
   setKeepAlive(enabled) {
     this.keepAliveEnabled = Boolean(enabled);
-    if (this.keepAliveEnabled) {
-      this._ensureKeepAliveRunning();
-    } else {
-      this._stopKeepAlive();
-    }
-  }
-
-  _ensureKeepAliveRunning() {
-    try {
-      if (this.keepAliveAudioEl && this.keepAliveAudioEl.paused) {
-        this.keepAliveAudioEl.play().catch(() => {});
-      }
-      const ctx = this._getOrCreateContext();
-      if (!ctx) return;
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
-      if (!this.keepAliveOsc) {
-        this.keepAliveGain = ctx.createGain();
-        this.keepAliveGain.gain.setValueAtTime(0.00005, ctx.currentTime);
-        this.keepAliveGain.connect(ctx.destination);
-        this.keepAliveOsc = ctx.createOscillator();
-        this.keepAliveOsc.type = 'sine';
-        this.keepAliveOsc.frequency.setValueAtTime(20, ctx.currentTime);
-        this.keepAliveOsc.connect(this.keepAliveGain);
-        this.keepAliveOsc.start();
-      }
-    } catch {}
-  }
-
-  _stopKeepAlive() {
-    try {
-      if (this.keepAliveAudioEl) {
-        this.keepAliveAudioEl.pause();
-      }
-      if (this.keepAliveOsc) {
-        this.keepAliveOsc.stop();
-        this.keepAliveOsc.disconnect();
-        this.keepAliveOsc = null;
-      }
-      if (this.keepAliveGain) {
-        this.keepAliveGain.disconnect();
-        this.keepAliveGain = null;
-      }
-    } catch {}
   }
 
   _startOscillator() {
@@ -264,8 +195,8 @@ class EmergencySiren {
 
   start() {
     this.isPlaying = true;
+    this._ensureHtmlAudioElements();
 
-    // 1. Reproducir stream HTML5 <audio> WAV (suena en Android incluso en bolsillo / otra app)
     try {
       if (this.sirenAudioEl) {
         this.sirenAudioEl.currentTime = 0;
@@ -273,7 +204,6 @@ class EmergencySiren {
       }
     } catch {}
 
-    // 2. Vibración rítmica continua en Android
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([600, 140, 600, 140, 850]);
@@ -293,7 +223,6 @@ class EmergencySiren {
       }
     } catch {}
 
-    // 3. Reproducir también por Web Audio API
     this._startOscillator();
   }
 
@@ -335,8 +264,8 @@ class EmergencySiren {
     }
   }
 
-  // Alarma potente + vibración para alertas de exceso de velocidad (suena en bolsillo y segundo plano)
   playSpeedBeep() {
+    this._ensureHtmlAudioElements();
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([450, 120, 450, 120, 650]);

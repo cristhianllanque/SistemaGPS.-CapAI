@@ -54,7 +54,8 @@ export default function Layout() {
     if (!currentToken) return;
     try {
       const res = await axios.get(`${API_BASE_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${currentToken}` }
+        headers: { Authorization: `Bearer ${currentToken}` },
+        timeout: 7000
       });
       const { access_token, usuario: freshUser, empresa: freshEmp } = res.data || {};
       const prevEmpRaw = localStorage.getItem('empresa');
@@ -117,7 +118,8 @@ export default function Layout() {
     if (!activeTok) return;
     try {
       const { data } = await axios.get(`${API_BASE_URL}/api/alertas/`, {
-        headers: { Authorization: `Bearer ${activeTok}` }
+        headers: { Authorization: `Bearer ${activeTok}` },
+        timeout: 7000
       });
       const pendingList = Array.isArray(data) ? data.filter((a) => !a.estado || a.estado === 'pendiente') : [];
       if (pendingList.length === 0) return;
@@ -674,7 +676,10 @@ export default function Layout() {
             boxShadow: '0 -80px 0 80px #020617'
           }}
         >
-          <div className="flex items-center gap-2.5 overflow-hidden">
+          <div
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2.5 overflow-hidden cursor-pointer"
+          >
             {empresa?.logo_url ? (
               <img 
                 src={getAssetUrl(empresa.logo_url)} 

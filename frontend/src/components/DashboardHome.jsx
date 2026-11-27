@@ -17,15 +17,6 @@ import {
 
 export default function DashboardHome() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
-  const [empresas, setEmpresas] = useState([]);
-  const [particulares, setParticulares] = useState([]);
-  const [dispositivosSim, setDispositivosSim] = useState([]);
-  const [misVehiculos, setMisVehiculos] = useState([]);
-  const [selectedEmpresa, setSelectedEmpresa] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [suscripcionModalItem, setSuscripcionModalItem] = useState(null);
-
   const token = localStorage.getItem('token');
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
   const isSuperAdmin = usuario?.rol === 'superadmin';
@@ -37,46 +28,91 @@ export default function DashboardHome() {
   const isParticular = empresa?.tipo === 'particular';
   const primaryColor = empresa?.color_primario || '#4F46E5';
 
+  const [stats, setStats] = useState(() => {
+    try {
+      const cached = localStorage.getItem(`copai_dash_stats_${empresa?.id || 0}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [empresas, setEmpresas] = useState([]);
+  const [particulares, setParticulares] = useState([]);
+  const [dispositivosSim, setDispositivosSim] = useState([]);
+  const [misVehiculos, setMisVehiculos] = useState(() => {
+    try {
+      const fleetCache = localStorage.getItem(`copai_last_fleet_v2_${empresa?.id || 'global'}_0`);
+      if (fleetCache) {
+        const parsed = JSON.parse(fleetCache);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      const dashCache = localStorage.getItem(`copai_dash_veh_${empresa?.id || 0}`);
+      if (dashCache) {
+        const parsed = JSON.parse(dashCache);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [selectedEmpresa, setSelectedEmpresa] = useState('');
+  const [loading, setLoading] = useState(() => !isParticular);
+  const [suscripcionModalItem, setSuscripcionModalItem] = useState(null);
+
   const fetchEmpresasList = React.useCallback(() => {
-    if (isSuperAdmin) {
-      const headers = { Authorization: `Bearer ${token}` };
-      axios.get(`${API}/api/empresas/`, { headers }).then(res => setEmpresas(res.data)).catch(console.error);
-      axios.get(`${API}/api/particulares/`, { headers }).then(res => setParticulares(res.data)).catch(console.error);
-      axios.get(`${API}/api/dispositivos/`, { headers }).then(res => setDispositivosSim(res.data || [])).catch(console.error);
+    const activeTok = localStorage.getItem('token') || token;
+    if (isSuperAdmin && activeTok) {
+      const headers = { Authorization: `Bearer ${activeTok}` };
+      axios.get(`${API}/api/empresas/`, { headers, timeout: 8000 }).then(res => setEmpresas(res.data)).catch(console.error);
+      axios.get(`${API}/api/particulares/`, { headers, timeout: 8000 }).then(res => setParticulares(res.data)).catch(console.error);
+      axios.get(`${API}/api/dispositivos/`, { headers, timeout: 8000 }).then(res => setDispositivosSim(res.data || [])).catch(console.error);
     }
   }, [isSuperAdmin, token]);
 
   const fetchStats = React.useCallback(async (silent = false) => {
+    const activeTok = localStorage.getItem('token') || token;
+    if (!activeTok) {
+      setLoading(false);
+      return;
+    }
     try {
-      if (!silent) setLoading(true);
+      if (!silent && !isParticular) setLoading(true);
       const params = {};
       if (isSuperAdmin && selectedEmpresa) {
         params.empresa_id = selectedEmpresa;
       }
-      const requests = [
-        axios.get(`${API}/api/dashboard/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params
-        })
-      ];
+      const headers = { Authorization: `Bearer ${activeTok}` };
+
       if (isParticular || isOperador) {
-        requests.push(
-          axios.get(`${API}/api/vehiculos/`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }).catch(() => ({ data: [] }))
-        );
+        axios
+          .get(`${API}/api/vehiculos/`, { headers, timeout: 8000 })
+          .then((vehRes) => {
+            if (Array.isArray(vehRes?.data)) {
+              setMisVehiculos(vehRes.data);
+              try {
+                localStorage.setItem(`copai_dash_veh_${empresa?.id || 0}`, JSON.stringify(vehRes.data));
+              } catch {}
+            }
+          })
+          .catch(() => {});
       }
-      const [statsRes, vehRes] = await Promise.all(requests);
-      setStats(statsRes.data);
-      if (vehRes?.data) {
-        setMisVehiculos(vehRes.data);
+
+      const statsRes = await axios.get(`${API}/api/dashboard/stats`, {
+        headers,
+        params,
+        timeout: 8000
+      });
+      if (statsRes?.data) {
+        setStats(statsRes.data);
+        try {
+          localStorage.setItem(`copai_dash_stats_${empresa?.id || 0}`, JSON.stringify(statsRes.data));
+        } catch {}
       }
     } catch (err) {
       console.error('Error fetching stats:', err);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
-  }, [token, selectedEmpresa, isSuperAdmin, isParticular, isOperador]);
+  }, [token, selectedEmpresa, isSuperAdmin, isParticular, isOperador, empresa?.id]);
 
   useEffect(() => {
     fetchEmpresasList();

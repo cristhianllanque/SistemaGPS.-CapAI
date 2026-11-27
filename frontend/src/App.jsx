@@ -200,7 +200,7 @@ function App() {
             <Layout />
           </ProtectedRoute>
         }>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<DashboardHome />} />
           <Route path="dashboard" element={<DashboardHome />} />
           <Route path="empresas" element={<CompaniesPage />} />
           <Route path="particulares" element={<ParticularesPage />} />
@@ -214,8 +214,9 @@ function App() {
           <Route path="reportes" element={<Reportes />} />
           <Route path="usuarios" element={<UsersPage />} />
           <Route path="perfil" element={<ProfilePage />} />
+          <Route path="*" element={<DashboardHome />} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );
