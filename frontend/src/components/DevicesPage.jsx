@@ -86,7 +86,7 @@ const ESTADO_COLORS = {
 
 const emptyForm = {
   empresa_id: '', imei: '', numero_serie: '', modelo: 'FMC130', version_firmware: '',
-  numero_sim: '', operador_sim: 'Teca IoT (M2M)', iccid_sim: '',
+  numero_sim: '', operador_sim: 'Teca IoT (M2M)', iccid_sim: '', apn_sim: '',
   plan_sim: '',
   costo_sim: '',
   fecha_activacion_sim: getTodayISO(),
@@ -201,6 +201,7 @@ export default function DevicesPage() {
       imei: d.imei, numero_serie: d.numero_serie, modelo: d.modelo,
       version_firmware: d.version_firmware || '', numero_sim: d.numero_sim || '',
       operador_sim: d.operador_sim || '', iccid_sim: d.iccid_sim || '',
+      apn_sim: d.apn_sim || '',
       plan_sim: d.plan_sim || '',
       costo_sim: d.costo_sim !== null && d.costo_sim !== undefined ? String(d.costo_sim) : '',
       fecha_activacion_sim: d.fecha_activacion_sim || '',
@@ -298,11 +299,12 @@ export default function DevicesPage() {
     try {
       const payload = { ...form };
       if (!payload.fecha_compra) delete payload.fecha_compra;
-      if (!payload.version_firmware) delete payload.version_firmware;
-      if (!payload.numero_sim) delete payload.numero_sim;
-      if (!payload.operador_sim) delete payload.operador_sim;
-      if (!payload.iccid_sim) delete payload.iccid_sim;
-      if (!payload.plan_sim) delete payload.plan_sim;
+      if (!payload.version_firmware) payload.version_firmware = null;
+      payload.numero_sim = payload.numero_sim ? String(payload.numero_sim).trim() : null;
+      payload.operador_sim = payload.operador_sim ? String(payload.operador_sim).trim() : null;
+      payload.iccid_sim = payload.iccid_sim ? String(payload.iccid_sim).trim() : null;
+      payload.apn_sim = payload.apn_sim ? String(payload.apn_sim).trim() : null;
+      payload.plan_sim = payload.plan_sim ? String(payload.plan_sim).trim() : null;
       if (payload.costo_sim !== '' && payload.costo_sim !== null && payload.costo_sim !== undefined) {
         const parsedCost = parseFloat(payload.costo_sim);
         if (!isNaN(parsedCost)) payload.costo_sim = parsedCost;
@@ -363,7 +365,7 @@ export default function DevicesPage() {
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search size={16} className="absolute left-3 top-3 text-slate-400" />
-          <input type="text" placeholder="Buscar por IMEI o N° Serie..."
+          <input type="text" placeholder="Buscar por IMEI, N° Serie, ICCID, MSISDN o APN..."
             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
@@ -442,11 +444,18 @@ export default function DevicesPage() {
                     )}
                     {d.iccid_sim && (
                       <div className="text-[11px] font-mono text-slate-500">
-                        ICC: {d.iccid_sim}
+                        ICCID: {d.iccid_sim}
                       </div>
                     )}
-                    {d.numero_sim && d.operador_sim && (
-                      <div className="text-[11px] text-slate-400">N°: {d.numero_sim}</div>
+                    {d.numero_sim && (
+                      <div className="text-[11px] font-mono text-slate-600">
+                        MSISDN / SIM: {d.numero_sim}
+                      </div>
+                    )}
+                    {d.apn_sim && (
+                      <div className="text-[11px] font-mono text-teal-700">
+                        APN: {d.apn_sim}
+                      </div>
                     )}
                     {renderSimPlanSemaphore(d)}
                   </td>
@@ -613,31 +622,50 @@ export default function DevicesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Operador</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Operador / Proveedor</label>
                     <select
                       value={form.operador_sim}
                       onChange={(e) => setForm({ ...form, operador_sim: e.target.value })}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Seleccionar...</option>
+                      {form.operador_sim && !OPERADORES.includes(form.operador_sim) && (
+                        <option value={form.operador_sim}>{form.operador_sim}</option>
+                      )}
                       {OPERADORES.map((op) => (
                         <option key={op} value={op}>{op}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">N° SIM (Opcional)</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      MSISDN / Número SIM (Opcional)
+                    </label>
                     <input
                       type="text"
-                      maxLength="15"
+                      maxLength="30"
                       value={form.numero_sim}
-                      onChange={(e) => setForm({ ...form, numero_sim: e.target.value.replace(/\D/g, '') })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Opcional"
+                      onChange={(e) => setForm({ ...form, numero_sim: e.target.value.replace(/[^0-9A-Za-z+_-]/g, '') })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ej. 3197091316409 o 987654321"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    APN (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength="100"
+                    value={form.apn_sim}
+                    onChange={(e) => setForm({ ...form, apn_sim: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej. m2m.teca.pe / claro.pe / movistar.pe (para configuración Teltonika)"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

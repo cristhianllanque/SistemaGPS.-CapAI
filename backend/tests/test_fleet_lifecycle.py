@@ -355,3 +355,47 @@ class TestFleetLifecycle(unittest.TestCase):
         self.assertEqual(card["max_usuarios"], 3)
         self.assertTrue(card["usuarios"][0]["es_titular"])
         self.assertFalse(card["usuarios"][1]["es_titular"])
+
+    def test_device_registration_accepts_international_m2m_msisdn_iccid_and_apn(self):
+        from datetime import date
+
+        created = dispositivos.create_dispositivo(
+            schemas.DispositivoCreate(
+                imei="861234567890999",
+                numero_serie="SN-FMC130-M2M-01",
+                modelo="FMC130",
+                operador_sim="Teca IoT (M2M)",
+                iccid_sim="893107052537033588",
+                numero_sim="3197091316409",
+                apn_sim="m2m.teca.pe",
+                plan_sim="9) PLAN SIMCARD IOT-M2M 30MB/MES x 1AÑO (MOVISTAR, CLARO Y ENTEL)",
+                fecha_activacion_sim=date(2026, 11, 27),
+                fecha_vencimiento_sim=date(2027, 11, 27),
+            ),
+            self.db,
+            self.admin,
+        )
+        self.assertEqual(created.imei, "861234567890999")
+        self.assertEqual(created.iccid_sim, "893107052537033588")
+        self.assertEqual(created.numero_sim, "3197091316409")
+        self.assertEqual(created.apn_sim, "m2m.teca.pe")
+
+        # Búsqueda por MSISDN internacional y por APN
+        found_by_msisdn = dispositivos.list_dispositivos(None, "3197091316409", self.db, self.admin)
+        self.assertEqual(len(found_by_msisdn), 1)
+        self.assertEqual(found_by_msisdn[0].id, created.id)
+
+        found_by_apn = dispositivos.list_dispositivos(None, "m2m.teca.pe", self.db, self.admin)
+        self.assertEqual(len(found_by_apn), 1)
+        self.assertEqual(found_by_apn[0].id, created.id)
+
+        # También soporta números peruanos convencionales de 9 dígitos sin exigir +51
+        updated = dispositivos.update_dispositivo(
+            created.id,
+            schemas.DispositivoUpdate(numero_sim="987654321", apn_sim="claro.pe"),
+            self.db,
+            self.admin,
+        )
+        self.assertEqual(updated.numero_sim, "987654321")
+        self.assertEqual(updated.apn_sim, "claro.pe")
+        self.assertEqual(updated.iccid_sim, "893107052537033588")

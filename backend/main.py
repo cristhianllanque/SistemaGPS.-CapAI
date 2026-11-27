@@ -47,6 +47,10 @@ def ensure_subscription_columns():
                     conn.execute(text("ALTER TABLE dispositivos ADD COLUMN fecha_activacion_sim DATE NULL"))
                 if "fecha_vencimiento_sim" not in dcols:
                     conn.execute(text("ALTER TABLE dispositivos ADD COLUMN fecha_vencimiento_sim DATE NULL"))
+                if "apn_sim" not in dcols:
+                    conn.execute(text("ALTER TABLE dispositivos ADD COLUMN apn_sim VARCHAR(100) NULL"))
+                if engine.dialect.name in {"mysql", "mariadb"}:
+                    conn.execute(text("ALTER TABLE dispositivos MODIFY COLUMN numero_sim VARCHAR(30) NULL"))
     except Exception as exc:
         print(f"[DB MIGRATION WARN] ensure_subscription_columns: {exc}", flush=True)
 

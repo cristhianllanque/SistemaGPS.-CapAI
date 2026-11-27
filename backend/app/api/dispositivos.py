@@ -32,7 +32,8 @@ def list_dispositivos(
             (models.Dispositivo.numero_sim.contains(search)) |
             (models.Dispositivo.iccid_sim.contains(search)) |
             (models.Dispositivo.operador_sim.contains(search)) |
-            (models.Dispositivo.plan_sim.contains(search))
+            (models.Dispositivo.plan_sim.contains(search)) |
+            (models.Dispositivo.apn_sim.contains(search))
         )
     dispositivos = query.order_by(models.Dispositivo.created_at.desc()).all()
 

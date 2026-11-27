@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, PlainSerializer
+from pydantic import BaseModel, EmailStr, Field, PlainSerializer, field_validator
 from typing import Optional, List, Annotated
 from datetime import datetime, date, timezone
 
@@ -226,9 +226,10 @@ class DispositivoCreate(BaseModel):
     numero_serie: str
     modelo: str = "FMC130"
     version_firmware: Optional[str] = None
-    numero_sim: Optional[str] = None
+    numero_sim: Optional[str] = Field(None, max_length=30, description="MSISDN internacional M2M o número SIM nacional (texto de longitud variable, sin exigir +51)")
     operador_sim: Optional[str] = None
     iccid_sim: Optional[str] = Field(None, min_length=15, max_length=25, pattern=r"^\d{15,25}$")
+    apn_sim: Optional[str] = Field(None, max_length=100, description="APN de la SIM para configuración de equipos Teltonika")
     plan_sim: Optional[str] = None
     costo_sim: Optional[float] = None
     fecha_activacion_sim: Optional[date] = None
@@ -237,15 +238,24 @@ class DispositivoCreate(BaseModel):
     fecha_compra: Optional[date] = None
     notas: Optional[str] = None
 
+    @field_validator("numero_sim", "apn_sim", "iccid_sim", mode="before")
+    @classmethod
+    def normalize_optional_sim_strings(cls, value):
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        return cleaned if cleaned else None
+
 class DispositivoUpdate(BaseModel):
     empresa_id: Optional[int] = None
     imei: Optional[str] = Field(None, pattern=r"^\d{15}$")
     numero_serie: Optional[str] = None
     modelo: Optional[str] = None
     version_firmware: Optional[str] = None
-    numero_sim: Optional[str] = None
+    numero_sim: Optional[str] = Field(None, max_length=30, description="MSISDN internacional M2M o número SIM nacional (texto de longitud variable, sin exigir +51)")
     operador_sim: Optional[str] = None
     iccid_sim: Optional[str] = Field(None, min_length=15, max_length=25, pattern=r"^\d{15,25}$")
+    apn_sim: Optional[str] = Field(None, max_length=100, description="APN de la SIM para configuración de equipos Teltonika")
     plan_sim: Optional[str] = None
     costo_sim: Optional[float] = None
     fecha_activacion_sim: Optional[date] = None
@@ -254,6 +264,14 @@ class DispositivoUpdate(BaseModel):
     fecha_compra: Optional[date] = None
     notas: Optional[str] = None
     estado: Optional[str] = None
+
+    @field_validator("numero_sim", "apn_sim", "iccid_sim", mode="before")
+    @classmethod
+    def normalize_optional_sim_strings(cls, value):
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        return cleaned if cleaned else None
 
 class DispositivoOut(BaseModel):
     id: int
@@ -266,6 +284,7 @@ class DispositivoOut(BaseModel):
     numero_sim: Optional[str] = None
     operador_sim: Optional[str] = None
     iccid_sim: Optional[str] = None
+    apn_sim: Optional[str] = None
     plan_sim: Optional[str] = None
     costo_sim: Optional[float] = None
     fecha_activacion_sim: Optional[date] = None

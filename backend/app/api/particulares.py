@@ -94,7 +94,9 @@ def list_clientes_particulares(
                 "imei": vehiculo.dispositivo.imei,
                 "modelo": vehiculo.dispositivo.modelo,
                 "numero_sim": vehiculo.dispositivo.numero_sim,
-                "operador_sim": vehiculo.dispositivo.operador_sim
+                "operador_sim": vehiculo.dispositivo.operador_sim,
+                "iccid_sim": vehiculo.dispositivo.iccid_sim,
+                "apn_sim": vehiculo.dispositivo.apn_sim,
             }
 
         vehiculos_lista = []
@@ -115,7 +117,9 @@ def list_clientes_particulares(
                     "imei": d_item.imei,
                     "modelo": d_item.modelo,
                     "numero_sim": d_item.numero_sim,
-                    "operador_sim": d_item.operador_sim
+                    "operador_sim": d_item.operador_sim,
+                    "iccid_sim": d_item.iccid_sim,
+                    "apn_sim": d_item.apn_sim,
                 } if d_item else None
             })
 
