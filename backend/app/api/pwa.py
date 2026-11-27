@@ -370,6 +370,10 @@ class PushUnsubscribePayload(BaseModel):
     endpoint: Optional[str] = None
 
 
+class PushTestPayload(BaseModel):
+    endpoint: Optional[str] = None
+
+
 @router.get("/vapid-public-key")
 def get_vapid_public_key():
     keys = get_or_create_vapid_keys()
@@ -437,15 +441,18 @@ def unsubscribe_push_notifications(
 
 @router.post("/push/test")
 def test_push_notification(
+    payload: Optional[PushTestPayload] = None,
     current_user: Usuario = Depends(get_current_user),
 ):
-    target_empresa = current_user.empresa_id or 1
+    target_ep = (payload.endpoint if payload and payload.endpoint else "").strip() or None
     sent = send_web_push_sync(
-        empresa_id=target_empresa,
+        empresa_id=current_user.empresa_id,
         title="🔔 Alertas COPAI GPS Activas",
         body="Tu teléfono sonará en tu bolsillo ante Botón de Pánico, Sabotaje o Exceso de Velocidad.",
         url="/monitoreo",
         tag="copai-test-alert",
+        target_user_id=current_user.id,
+        target_endpoint=target_ep,
     )
     return {"status": "ok", "sent": sent}
 

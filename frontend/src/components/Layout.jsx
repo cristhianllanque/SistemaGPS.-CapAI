@@ -236,43 +236,79 @@ export default function Layout() {
     return () => navigator.serviceWorker.removeEventListener('message', onSwMessage);
   }, [checkPendingAlertsModal]);
 
-  // Si el usuario dejó la campana activa (Verde), mantenerla siempre activa al entrar
+  // Si el usuario tiene permiso concedido y no apagó la campana, sincronizar este dispositivo con la cuenta activa.
+  // Si entra por primera vez (permission === 'default'), solicitarle permiso al primer toque para activar alertas automáticamente.
   useEffect(() => {
     if (!token) return;
-    const state = getNotificationPermissionState();
-    setPushPermission(state);
-    if (state === 'granted') {
-      siren.setKeepAlive(true);
-      subscribeUserToPush(token, false).then(() => {
-        setPushPermission(getNotificationPermissionState());
-      });
-    } else {
+    const userPref = localStorage.getItem('copai_push_enabled');
+    if (userPref === 'false') {
+      setPushPermission('default');
       siren.setKeepAlive(false);
+      return;
     }
-  }, [token]);
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        subscribeUserToPush(token, false).then((res) => {
+          setPushPermission(getNotificationPermissionState());
+          if (res?.ok) {
+            siren.setKeepAlive(true);
+          }
+        });
+        return;
+      }
+
+      if (Notification.permission === 'default' && !localStorage.getItem('copai_push_prompted_once')) {
+        const autoPromptOnFirstInteraction = async () => {
+          window.removeEventListener('click', autoPromptOnFirstInteraction, true);
+          window.removeEventListener('touchend', autoPromptOnFirstInteraction, true);
+          localStorage.setItem('copai_push_prompted_once', 'true');
+          const activeTok = localStorage.getItem('token') || token;
+          if (!activeTok) return;
+          const res = await subscribeUserToPush(activeTok, true);
+          setPushPermission(getNotificationPermissionState());
+          if (res?.ok) {
+            siren.setKeepAlive(true);
+            await sendTestPushNotification(activeTok, res.endpoint);
+            setPushToast('🔔 ¡Notificaciones permitidas y activadas en tu teléfono!');
+            setTimeout(() => setPushToast(''), 3500);
+          }
+        };
+        window.addEventListener('click', autoPromptOnFirstInteraction, true);
+        window.addEventListener('touchend', autoPromptOnFirstInteraction, true);
+        return () => {
+          window.removeEventListener('click', autoPromptOnFirstInteraction, true);
+          window.removeEventListener('touchend', autoPromptOnFirstInteraction, true);
+        };
+      }
+    }
+
+    setPushPermission(getNotificationPermissionState());
+    siren.setKeepAlive(false);
+  }, [token, usuario?.id]);
 
   const handleTogglePushNotifications = async () => {
     const currentState = getNotificationPermissionState();
 
-    // Si la campana está VERDE (activa), el usuario puede desactivarla (pasa a PLOMO)
+    // Si la campana está VERDE (activa y registrada en servidor), el usuario puede desactivarla (pasa a PLOMO)
     if (currentState === 'granted') {
-      await unsubscribeUserFromPush(token);
+      await unsubscribeUserFromPush(token, { preservePreference: false });
       setPushPermission('default');
-      setPushToast('🔕 Alertas desactivadas (en silencio). Toca la campana cuando quieras activarlas.');
-      setTimeout(() => setPushToast(''), 3000);
+      setPushToast('🔕 Alertas desactivadas en este teléfono. Toca la campana cuando quieras activarlas.');
+      setTimeout(() => setPushToast(''), 3200);
       return;
     }
 
-    // Si la campana está PLOMO (desactivada), activarla (pasa a VERDE y queda siempre activa)
-    if (currentState === 'unsupported' && !checkIsNativeApp()) {
+    // Si la campana está PLOMO (desactivada), pedir permiso real y registrar el dispositivo en el servidor
+    if (currentState === 'unsupported') {
       if (isIOS && !isStandalone) {
         setShowPrompt(true);
-        setPushToast('En iPhone: agrega la App a Inicio para recibir alertas en el bolsillo.');
-        setTimeout(() => setPushToast(''), 3500);
+        setPushToast('En iPhone: agrega primero la App a Inicio para recibir notificaciones.');
+        setTimeout(() => setPushToast(''), 4000);
         return;
       }
-      setPushToast('Activa los permisos de notificación en los ajustes de tu teléfono.');
-      setTimeout(() => setPushToast(''), 3500);
+      setPushToast('Este visor no soporta Push en segundo plano. Abre industriascopai.com en Chrome para activar alertas con pantalla bloqueada.');
+      setTimeout(() => setPushToast(''), 4800);
       return;
     }
 
@@ -282,12 +318,15 @@ export default function Layout() {
 
     if (result.ok && nextState === 'granted') {
       siren.playSpeedBeep();
-      await sendTestPushNotification(token);
-      setPushToast('🔔 Alertas activadas (sonido y vibración listos ante Pánico, Sabotaje o Velocidad).');
-      setTimeout(() => setPushToast(''), 3200);
-    } else {
-      setPushToast('Activa el permiso de notificaciones en tu teléfono para encender la campana.');
+      await sendTestPushNotification(token, result.endpoint);
+      setPushToast('🔔 ¡Alertas activadas en este dispositivo! Recibirás sonido y vibración.');
       setTimeout(() => setPushToast(''), 3500);
+    } else if (result.reason === 'denied') {
+      setPushToast('Permiso de notificaciones bloqueado en los ajustes de tu teléfono.');
+      setTimeout(() => setPushToast(''), 4000);
+    } else {
+      setPushToast('No se pudo registrar Push en este visor. Usa Chrome o habilita el permiso de notificaciones.');
+      setTimeout(() => setPushToast(''), 4500);
     }
   };
 
@@ -486,11 +525,15 @@ export default function Layout() {
     }
   }, [empresa]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const activeTok = localStorage.getItem('token') || token;
     siren.stop();
     siren.setKeepAlive(false);
     const savedPushPref = localStorage.getItem('copai_push_enabled');
     const savedVapidKey = localStorage.getItem('copai_vapid_public_key');
+    try {
+      await unsubscribeUserFromPush(activeTok, { preservePreference: true });
+    } catch {}
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('empresa');
@@ -502,6 +545,7 @@ export default function Layout() {
     if (savedVapidKey !== null) {
       localStorage.setItem('copai_vapid_public_key', savedVapidKey);
     }
+    localStorage.setItem('copai_push_server_synced', 'false');
     document.title = 'COPAI';
     navigate('/login', { replace: true });
   };

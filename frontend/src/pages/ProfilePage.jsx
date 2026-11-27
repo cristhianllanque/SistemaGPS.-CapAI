@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { API_BASE_URL, getAssetUrl } from '../config';
 import { siren } from '../utils/sound';
+import { unsubscribeUserFromPush } from '../utils/pushNotifications';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -71,13 +72,27 @@ export default function ProfilePage() {
     }
   };
 
-  const handleCleanLogout = () => {
+  const handleCleanLogout = async () => {
+    const activeTok = localStorage.getItem('token');
     siren.stop();
+    siren.setKeepAlive(false);
+    const savedPushPref = localStorage.getItem('copai_push_enabled');
+    const savedVapidKey = localStorage.getItem('copai_vapid_public_key');
+    try {
+      await unsubscribeUserFromPush(activeTok, { preservePreference: true });
+    } catch {}
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('empresa');
     localStorage.removeItem('last_empresa');
     localStorage.clear();
+    if (savedPushPref !== null) {
+      localStorage.setItem('copai_push_enabled', savedPushPref);
+    }
+    if (savedVapidKey !== null) {
+      localStorage.setItem('copai_vapid_public_key', savedVapidKey);
+    }
+    localStorage.setItem('copai_push_server_synced', 'false');
     document.title = 'COPAI';
     navigate('/login', { replace: true });
   };

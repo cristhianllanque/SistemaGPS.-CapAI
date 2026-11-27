@@ -197,7 +197,41 @@ class TestFleetLifecycle(unittest.TestCase):
             p256dh="k1",
             auth="a1",
         )
-        self.db.add(sub)
+        superadmin_user = models.Usuario(
+            nombre="Superadmin",
+            email="superadmin@copai.com",
+            rol="superadmin",
+            empresa=None,
+            password_hash="x",
+            activo=True,
+        )
+        peer_user = models.Usuario(
+            nombre="Familiar 2",
+            email="familiar2@flota.com",
+            rol="operador",
+            empresa=self.destination,
+            password_hash="x",
+            activo=True,
+        )
+        self.db.add_all([sub, superadmin_user, peer_user])
+        self.db.flush()
+        superadmin_sub = models.PushSubscription(
+            usuario_id=superadmin_user.id,
+            empresa_id=None,
+            rol="superadmin",
+            endpoint="https://push.example/superadmin-iphone",
+            p256dh="ks",
+            auth="as",
+        )
+        peer_sub = models.PushSubscription(
+            usuario_id=peer_user.id,
+            empresa_id=self.destination.id,
+            rol="operador",
+            endpoint="https://push.example/peer-2",
+            p256dh="k2",
+            auth="a2",
+        )
+        self.db.add_all([superadmin_sub, peer_sub])
         self.db.commit()
 
         # Reasignar usuario de origin a destination mientras su PushSubscription aún apuntaba a origin
@@ -210,14 +244,26 @@ class TestFleetLifecycle(unittest.TestCase):
         with patch.object(push_service, "SessionLocal", session_factory), \
              patch.object(push_service, "get_or_create_vapid_keys", return_value={"public_key": "P", "private_key": "K"}), \
              patch.object(push_service, "_get_webpush_client", return_value=(mocked_webpush, Exception)):
-            # No debe recibir alertas de la empresa anterior (origin)
+            # No debe recibir alertas de la empresa anterior (origin) ni filtrarse al iPhone del superadmin
             sent_old = push_service.send_web_push_sync(self.origin.id, "Alerta", "Test")
             self.assertEqual(sent_old, 0)
             mocked_webpush.assert_not_called()
 
-            # Sí debe recibir alertas de su nueva empresa activa (destination)
+            # Cuando un usuario toca la campanita (target_user_id + target_endpoint), SOLO llega a su teléfono
+            # (ni al otro familiar de la misma cuenta ni al iPhone del superadmin)
+            sent_bell_test = push_service.send_web_push_sync(
+                self.destination.id,
+                "🔔 Alertas COPAI GPS Activas",
+                "Test campana",
+                target_user_id=op_user.id,
+                target_endpoint="https://push.example/1",
+            )
+            self.assertEqual(sent_bell_test, 1)
+
+            # En una alerta vehicular real de destination, llega a los 2 usuarios de destination, pero NO al superadmin
+            mocked_webpush.reset_mock()
             sent_new = push_service.send_web_push_sync(self.destination.id, "Alerta", "Test")
-            self.assertEqual(sent_new, 1)
+            self.assertEqual(sent_new, 2)
 
             # Si la empresa se suspende, se bloquea tanto el acceso como el envío de push
             self.destination.activo = False

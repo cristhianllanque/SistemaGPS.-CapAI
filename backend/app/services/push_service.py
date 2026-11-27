@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import os
+from typing import Optional
 from app.api.deps import is_company_subscription_active
 from app.db.database import SessionLocal
 from app.db import models
@@ -101,16 +102,20 @@ def _get_webpush_client():
 
 
 def send_web_push_sync(
-    empresa_id: int,
+    empresa_id: Optional[int],
     title: str,
     body: str,
     url: str = "/monitoreo",
     tag: str = "copai-alert",
+    target_user_id: Optional[int] = None,
+    target_endpoint: Optional[str] = None,
 ) -> int:
     """
-    Envía notificación Web Push en segundo plano exclusivamente a los dispositivos suscritos
-    cuyos usuarios siguen activos, pertenecen actualmente a la empresa correspondiente
-    (con suscripción activa) o son superadministradores activos.
+    Envía notificación Web Push en segundo plano respetando aislamiento estricto:
+    - Si se indica `target_endpoint` o `target_user_id` (ej. confirmación al activar la campana),
+      se envía ÚNICAMENTE a ese dispositivo/usuario individual (nunca a otros usuarios ni al superadmin).
+    - Si es una alerta vehicular de `empresa_id`, se envía ÚNICAMENTE a los usuarios activos
+      asignados a esa `empresa_id` específica (con suscripción activa). Cada cuenta es 100% independiente.
     """
     webpush, WebPushException = _get_webpush_client()
     if webpush is None:
@@ -134,6 +139,8 @@ def send_web_push_sync(
             "renotify": True,
         }
     )
+
+    clean_target_ep = (target_endpoint or "").strip()
 
     sent_count = 0
     with SessionLocal() as db:
@@ -160,11 +167,20 @@ def send_web_push_sync(
                 sub.empresa_id = user.empresa_id
                 dirty_subs = True
 
-            # Verificar autorización real de la cuenta antes de enviar
-            if user.rol != "superadmin":
-                if user.empresa_id is None or int(user.empresa_id) != int(empresa_id):
+            # Caso 1: Envío dirigido a un dispositivo o usuario específico (ej. prueba de campanita)
+            if clean_target_ep or target_user_id is not None:
+                if clean_target_ep and sub.endpoint != clean_target_ep:
                     continue
-                if not is_company_subscription_active(user.empresa):
+                if target_user_id is not None and int(user.id) != int(target_user_id):
+                    continue
+                if user.rol != "superadmin" and not is_company_subscription_active(user.empresa):
+                    continue
+            else:
+                # Caso 2: Alerta vehicular de una empresa o cliente particular específico
+                # Aislamiento estricto: solo reciben la alerta los usuarios que pertenecen a esa empresa_id
+                if empresa_id is None or user.empresa_id is None or int(user.empresa_id) != int(empresa_id):
+                    continue
+                if user.rol != "superadmin" and not is_company_subscription_active(user.empresa):
                     continue
 
             subscription_info = {
