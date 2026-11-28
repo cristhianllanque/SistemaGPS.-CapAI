@@ -247,6 +247,17 @@ export default function Layout() {
       return;
     }
 
+    const isAndroidApp = checkIsNativeApp() || (typeof window !== 'undefined' && Boolean(window.CopaiAndroidBridge));
+    if (isAndroidApp) {
+      subscribeUserToPush(token, false).then((res) => {
+        setPushPermission(getNotificationPermissionState());
+        if (res?.ok) {
+          siren.setKeepAlive(true);
+        }
+      });
+      return;
+    }
+
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         subscribeUserToPush(token, false).then((res) => {

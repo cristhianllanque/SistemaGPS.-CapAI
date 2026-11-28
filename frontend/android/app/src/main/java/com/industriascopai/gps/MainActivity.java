@@ -1,11 +1,20 @@
 package com.industriascopai.gps;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -14,11 +23,13 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.CapConfig;
 import com.getcapacitor.WebViewListener;
+import com.google.firebase.messaging.FirebaseMessaging;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
 
     private static final int DARK_SLATE_BG = Color.parseColor("#020617");
+    private static final int REQ_POST_NOTIFICATIONS = 5001;
 
     @Override
     protected void load() {
@@ -43,6 +54,11 @@ public class MainActivity extends BridgeActivity {
         super.load();
 
         if (this.bridge != null) {
+            if (this.bridge.getWebView() != null) {
+                try {
+                    this.bridge.getWebView().addJavascriptInterface(new CopaiJsBridge(), "CopaiAndroidBridge");
+                } catch (Exception ignored) {}
+            }
             this.bridge.addWebViewListener(new WebViewListener() {
                 @Override
                 public void onPageCommitVisible(WebView view, String url) {
@@ -59,6 +75,85 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    public class CopaiJsBridge {
+        @JavascriptInterface
+        public void showNotification(String title, String body, String tag) {
+            CopaiNotificationHelper.showHighPriorityNotification(
+                getApplicationContext(),
+                title,
+                body,
+                tag
+            );
+        }
+
+        @JavascriptInterface
+        public void requestNotificationPermission() {
+            runOnUiThread(() -> promptPostNotificationsPermissionIfNeeded());
+        }
+
+        @JavascriptInterface
+        public boolean areNotificationsEnabled() {
+            try {
+                return NotificationManagerCompat.from(getApplicationContext()).areNotificationsEnabled();
+            } catch (Exception e) {
+                return true;
+            }
+        }
+
+        @JavascriptInterface
+        public String getFcmToken() {
+            try {
+                SharedPreferences prefs = getApplicationContext().getSharedPreferences(
+                    CopaiFirebaseMessagingService.PREFS_NAME,
+                    Context.MODE_PRIVATE
+                );
+                return prefs.getString(CopaiFirebaseMessagingService.KEY_FCM_TOKEN, "");
+            } catch (Exception e) {
+                return "";
+            }
+        }
+
+        @JavascriptInterface
+        public void setBackgroundProtection(boolean enabled) {
+            try {
+                SharedPreferences prefs = getApplicationContext().getSharedPreferences(
+                    CopaiFirebaseMessagingService.PREFS_NAME,
+                    Context.MODE_PRIVATE
+                );
+                prefs.edit().putBoolean("bg_protection_enabled", enabled).apply();
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void promptPostNotificationsPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    new String[] { Manifest.permission.POST_NOTIFICATIONS },
+                    REQ_POST_NOTIFICATIONS
+                );
+            }
+        }
+    }
+
+    private void initFirebaseTokenIfConfigured() {
+        try {
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+                if (!task.isSuccessful()) return;
+                String token = task.getResult();
+                if (token != null && !token.isEmpty()) {
+                    SharedPreferences prefs = getApplicationContext().getSharedPreferences(
+                        CopaiFirebaseMessagingService.PREFS_NAME,
+                        Context.MODE_PRIVATE
+                    );
+                    prefs.edit().putString(CopaiFirebaseMessagingService.KEY_FCM_TOKEN, token).apply();
+                }
+            });
+        } catch (Exception ignored) {}
+    }
+
     private void markNativeFramedInWebView(WebView view) {
         if (view == null) return;
         view.evaluateJavascript(
@@ -71,6 +166,10 @@ public class MainActivity extends BridgeActivity {
     @SuppressWarnings("deprecation")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        CopaiNotificationHelper.ensureNotificationChannel(this);
+        promptPostNotificationsPermissionIfNeeded();
+        initFirebaseTokenIfConfigured();
 
         Window window = getWindow();
         WindowCompat.setDecorFitsSystemWindows(window, false);

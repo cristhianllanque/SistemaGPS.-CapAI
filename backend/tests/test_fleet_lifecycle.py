@@ -399,3 +399,54 @@ class TestFleetLifecycle(unittest.TestCase):
         self.assertEqual(updated.numero_sim, "987654321")
         self.assertEqual(updated.apn_sim, "claro.pe")
         self.assertEqual(updated.iccid_sim, "893107052537033588")
+
+    def test_android_native_and_fcm_subscriptions_respect_user_isolation(self):
+        from app.services import push_service
+
+        u_android = models.Usuario(
+            nombre="Usuaria Android",
+            email="android@particular.com",
+            rol="operador",
+            empresa=self.destination,
+            password_hash="x",
+            activo=True,
+        )
+        self.db.add(u_android)
+        self.db.flush()
+        sub_android = models.PushSubscription(
+            usuario_id=u_android.id,
+            empresa_id=self.destination.id,
+            rol="operador",
+            endpoint="copai-android://and-device-001",
+            p256dh="android-native-bridge",
+            auth="android-native-bridge",
+        )
+        sub_fcm = models.PushSubscription(
+            usuario_id=u_android.id,
+            empresa_id=self.destination.id,
+            rol="operador",
+            endpoint="fcm://token-fcm-android-001",
+            p256dh="android-native-bridge",
+            auth="android-native-bridge",
+        )
+        self.db.add_all([sub_android, sub_fcm])
+        self.db.commit()
+
+        session_factory = sessionmaker(bind=self.db.get_bind())
+        with patch.object(push_service, "SessionLocal", session_factory), \
+             patch.object(push_service, "get_or_create_vapid_keys", return_value={"public_key": "P", "private_key": "K"}):
+            # Alerta de otra empresa (origin) no se envía a los canales Android de destination
+            self.assertEqual(push_service.send_web_push_sync(self.origin.id, "Alerta", "Test"), 0)
+            # Confirmación de campana solo llega al endpoint específico
+            self.assertEqual(
+                push_service.send_web_push_sync(
+                    self.destination.id,
+                    "🔔 Alertas COPAI GPS Activas",
+                    "Test",
+                    target_user_id=u_android.id,
+                    target_endpoint="copai-android://and-device-001",
+                ),
+                1,
+            )
+            # Alerta vehicular de destination llega a las suscripciones Android registradas de destination
+            self.assertEqual(push_service.send_web_push_sync(self.destination.id, "Alerta", "Test"), 2)

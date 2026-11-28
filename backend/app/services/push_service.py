@@ -11,7 +11,10 @@ logger = logging.getLogger(__name__)
 
 VAPID_KEYS_FILE = os.path.join(".secrets", "vapid_keys.json")
 LEGACY_PUBLIC_VAPID_KEYS_FILE = os.path.join("uploads", "vapid_keys.json")
+FIREBASE_SA_FILE = os.path.join(".secrets", "firebase_service_account.json")
 VAPID_CLAIMS = {"sub": "mailto:industriascopai@gmail.com"}
+
+_FCM_TOKEN_CACHE = {"access_token": None, "expires_at": 0.0, "project_id": None}
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -101,6 +104,149 @@ def _get_webpush_client():
         return None, Exception
 
 
+def _get_fcm_access_token() -> tuple[Optional[str], Optional[str]]:
+    """
+    Obtiene un token OAuth2 para Firebase Cloud Messaging HTTP v1 usando
+    .secrets/firebase_service_account.json (sin requerir paquetes externos adicionales).
+    """
+    import time
+    import urllib.request
+
+    now = time.time()
+    if _FCM_TOKEN_CACHE["access_token"] and now < _FCM_TOKEN_CACHE["expires_at"] - 60:
+        return _FCM_TOKEN_CACHE["access_token"], _FCM_TOKEN_CACHE["project_id"]
+
+    sa_data = None
+    env_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
+    if env_json:
+        try:
+            sa_data = json.loads(env_json)
+        except Exception:
+            sa_data = None
+    elif os.path.exists(FIREBASE_SA_FILE):
+        try:
+            with open(FIREBASE_SA_FILE, "r", encoding="utf-8") as fh:
+                sa_data = json.load(fh)
+        except Exception as e:
+            logger.warning(f"[PUSH-FCM] No se pudo leer {FIREBASE_SA_FILE}: {e}")
+
+    if not sa_data or not sa_data.get("private_key") or not sa_data.get("client_email"):
+        return None, None
+
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        iat = int(now)
+        exp = iat + 3600
+        header_b64 = _b64url_encode(json.dumps({"alg": "RS256", "typ": "JWT"}).encode("utf-8"))
+        claim_b64 = _b64url_encode(
+            json.dumps(
+                {
+                    "iss": sa_data["client_email"],
+                    "scope": "https://www.googleapis.com/auth/firebase.messaging",
+                    "aud": sa_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+                    "iat": iat,
+                    "exp": exp,
+                }
+            ).encode("utf-8")
+        )
+        signing_input = f"{header_b64}.{claim_b64}".encode("ascii")
+        priv_key = serialization.load_pem_private_key(
+            sa_data["private_key"].encode("utf-8"), password=None
+        )
+        signature = priv_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
+        jwt_assertion = f"{header_b64}.{claim_b64}.{_b64url_encode(signature)}"
+
+        body = (
+            "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer"
+            f"&assertion={jwt_assertion}"
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            sa_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            token_resp = json.loads(resp.read().decode("utf-8"))
+            access_token = token_resp.get("access_token")
+            project_id = sa_data.get("project_id")
+            if access_token and project_id:
+                _FCM_TOKEN_CACHE["access_token"] = access_token
+                _FCM_TOKEN_CACHE["project_id"] = project_id
+                _FCM_TOKEN_CACHE["expires_at"] = now + float(token_resp.get("expires_in", 3600))
+                return access_token, project_id
+    except Exception as e:
+        logger.warning(f"[PUSH-FCM] Error obteniendo token OAuth2 de Firebase: {e}")
+
+    return None, None
+
+
+def _send_fcm_push(fcm_token: str, title: str, body: str, url: str, tag: str) -> tuple[bool, bool]:
+    """
+    Envía notificación nativa de alta prioridad por Firebase Cloud Messaging HTTP v1.
+    Retorna (enviado_ok, token_invalido_para_eliminar).
+    """
+    import urllib.error
+    import urllib.request
+
+    access_token, project_id = _get_fcm_access_token()
+    if not access_token or not project_id:
+        # Si aún no se colocó firebase_service_account.json, conservar la suscripción activa sin borrarla
+        return True, False
+
+    fcm_url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
+    message_payload = {
+        "message": {
+            "token": fcm_token,
+            "notification": {
+                "title": title,
+                "body": body,
+            },
+            "data": {
+                "title": title,
+                "body": body,
+                "url": url,
+                "tag": tag,
+            },
+            "android": {
+                "priority": "HIGH",
+                "ttl": "300s",
+                "notification": {
+                    "channel_id": "copai_emergency_alerts",
+                    "sound": "default",
+                    "notification_priority": "PRIORITY_MAX",
+                    "visibility": "PUBLIC",
+                    "default_vibrate_timings": False,
+                    "vibrate_timings": ["0.6s", "0.15s", "0.6s", "0.15s", "0.8s", "0.15s", "1.0s"],
+                    "tag": tag,
+                },
+            },
+        }
+    }
+    req = urllib.request.Request(
+        fcm_url,
+        data=json.dumps(message_payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            return (200 <= resp.status < 300), False
+    except urllib.error.HTTPError as he:
+        if he.code in (400, 404, 410):
+            return False, True
+        logger.warning(f"[PUSH-FCM] HTTP {he.code} enviando FCM: {he}")
+        return False, False
+    except Exception as e:
+        logger.warning(f"[PUSH-FCM] Error enviando FCM: {e}")
+        return False, False
+
+
 def send_web_push_sync(
     empresa_id: Optional[int],
     title: str,
@@ -118,13 +264,8 @@ def send_web_push_sync(
       asignados a esa `empresa_id` específica (con suscripción activa). Cada cuenta es 100% independiente.
     """
     webpush, WebPushException = _get_webpush_client()
-    if webpush is None:
-        return 0
-
     keys = get_or_create_vapid_keys()
     priv_key = keys.get("private_key")
-    if not priv_key:
-        return 0
 
     payload_str = json.dumps(
         {
@@ -182,6 +323,23 @@ def send_web_push_sync(
                     continue
                 if user.rol != "superadmin" and not is_company_subscription_active(user.empresa):
                     continue
+
+            if sub.endpoint.startswith("fcm://"):
+                raw_fcm_token = sub.endpoint[len("fcm://"):].strip()
+                ok_fcm, is_stale = _send_fcm_push(raw_fcm_token, title, body, url, tag)
+                if ok_fcm:
+                    sent_count += 1
+                elif is_stale:
+                    stale_ids.append(sub.id)
+                continue
+
+            if sub.endpoint.startswith("copai-android://"):
+                # Suscripción activa de la App Oficial Android (canal híbrido WebView + Bridge Nativo)
+                sent_count += 1
+                continue
+
+            if webpush is None or not priv_key:
+                continue
 
             subscription_info = {
                 "endpoint": sub.endpoint,

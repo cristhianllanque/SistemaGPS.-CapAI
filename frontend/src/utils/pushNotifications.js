@@ -1,6 +1,39 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, checkIsNativeApp } from '../config';
 import { siren } from './sound';
+
+function isAndroidNativeOrWebView() {
+  if (typeof window === 'undefined') return false;
+  if (window.CopaiAndroidBridge || window.__COPAI_NATIVE_FRAMED) return true;
+  if (checkIsNativeApp()) return true;
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+  if (/Android/i.test(ua) && (/; wv\)/i.test(ua) || !('Notification' in window))) {
+    return true;
+  }
+  return false;
+}
+
+function getOrCreateAndroidDeviceEndpoint() {
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      window.CopaiAndroidBridge &&
+      typeof window.CopaiAndroidBridge.getFcmToken === 'function'
+    ) {
+      const fcmTok = String(window.CopaiAndroidBridge.getFcmToken() || '').trim();
+      if (fcmTok) {
+        return `fcm://${fcmTok}`;
+      }
+    }
+  } catch {}
+
+  let devId = localStorage.getItem('copai_android_device_id');
+  if (!devId) {
+    devId = `and-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem('copai_android_device_id', devId);
+  }
+  return `copai-android://${devId}`;
+}
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -64,6 +97,19 @@ export function getNotificationPermissionState() {
     return 'default';
   }
 
+  if (isAndroidNativeOrWebView()) {
+    try {
+      if (
+        window.CopaiAndroidBridge &&
+        typeof window.CopaiAndroidBridge.areNotificationsEnabled === 'function' &&
+        !window.CopaiAndroidBridge.areNotificationsEnabled()
+      ) {
+        return 'default';
+      }
+    } catch {}
+    return serverSynced ? 'granted' : 'default';
+  }
+
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
     return 'unsupported';
   }
@@ -95,6 +141,15 @@ export async function unsubscribeUserFromPush(token, options = {}) {
   localStorage.setItem('copai_push_server_synced', 'false');
   siren.stop();
   siren.setKeepAlive(false);
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      window.CopaiAndroidBridge &&
+      typeof window.CopaiAndroidBridge.setBackgroundProtection === 'function'
+    ) {
+      window.CopaiAndroidBridge.setBackgroundProtection(false);
+    }
+  } catch {}
 
   let endpoint = localStorage.getItem('copai_push_endpoint') || null;
   try {
@@ -139,6 +194,77 @@ export async function subscribeUserToPush(token, requestPermissionIfNeeded = tru
     return { ok: false, reason: 'unsupported' };
   }
 
+  if (!token) {
+    localStorage.setItem('copai_push_server_synced', 'false');
+    return { ok: false, reason: 'no_token' };
+  }
+
+  const registerAndroidNativeSubscription = async () => {
+    try {
+      if (
+        requestPermissionIfNeeded &&
+        window.CopaiAndroidBridge &&
+        typeof window.CopaiAndroidBridge.requestNotificationPermission === 'function'
+      ) {
+        window.CopaiAndroidBridge.requestNotificationPermission();
+      }
+    } catch {}
+
+    try {
+      const endpoint = getOrCreateAndroidDeviceEndpoint();
+      const subRes = await axios.post(
+        `${API_BASE_URL}/api/pwa/push/subscribe`,
+        {
+          endpoint,
+          keys: {
+            p256dh: 'android-native-bridge',
+            auth: 'android-native-bridge'
+          }
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 6000
+        }
+      );
+
+      if (subRes.data?.status !== 'subscribed') {
+        localStorage.setItem('copai_push_server_synced', 'false');
+        return { ok: false, reason: 'server_rejected' };
+      }
+
+      localStorage.setItem('copai_push_endpoint', endpoint);
+      localStorage.setItem('copai_push_enabled', 'true');
+      localStorage.setItem('copai_push_server_synced', 'true');
+      siren.setKeepAlive(true);
+      try {
+        if (
+          window.CopaiAndroidBridge &&
+          typeof window.CopaiAndroidBridge.setBackgroundProtection === 'function'
+        ) {
+          window.CopaiAndroidBridge.setBackgroundProtection(true);
+        }
+      } catch {}
+
+      if (requestPermissionIfNeeded) {
+        try {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([250, 90, 250, 90, 400]);
+          }
+        } catch {}
+      }
+
+      return { ok: true, mode: endpoint.startsWith('fcm://') ? 'fcm-native' : 'android-native', endpoint };
+    } catch (err) {
+      console.warn('Error registrando suscripción Android en el servidor:', err);
+      localStorage.setItem('copai_push_server_synced', 'false');
+      return { ok: false, reason: 'server_error' };
+    }
+  };
+
+  if (isAndroidNativeOrWebView()) {
+    return await registerAndroidNativeSubscription();
+  }
+
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
     localStorage.setItem('copai_push_server_synced', 'false');
     return { ok: false, reason: 'unsupported' };
@@ -158,14 +284,12 @@ export async function subscribeUserToPush(token, requestPermissionIfNeeded = tru
     return { ok: false, reason: permission };
   }
 
-  if (!token) {
-    localStorage.setItem('copai_push_server_synced', 'false');
-    return { ok: false, reason: 'no_token' };
-  }
-
   try {
     const reg = await getReadyServiceWorkerRegistration(3000);
     if (!reg || !reg.pushManager) {
+      if (/Android/i.test((typeof navigator !== 'undefined' && navigator.userAgent) || '')) {
+        return await registerAndroidNativeSubscription();
+      }
       localStorage.setItem('copai_push_server_synced', 'false');
       return { ok: false, reason: 'push_manager_unavailable' };
     }
@@ -246,6 +370,13 @@ export async function subscribeUserToPush(token, requestPermissionIfNeeded = tru
 export async function sendTestPushNotification(token, endpoint = null) {
   const targetEndpoint = endpoint || localStorage.getItem('copai_push_endpoint') || null;
   if (!token) return false;
+  if (targetEndpoint && targetEndpoint.startsWith('copai-android://')) {
+    await showSystemNotification(
+      '🔔 Alertas COPAI GPS Activas',
+      'Tu teléfono sonará y vibrará ante Botón de Pánico, Sabotaje o Exceso de Velocidad.',
+      'copai-test-alert'
+    );
+  }
   try {
     const res = await axios.post(
       `${API_BASE_URL}/api/pwa/push/test`,
@@ -266,6 +397,16 @@ export async function showSystemNotification(title, body, tag = 'copai-vehicle-a
   if (localStorage.getItem('copai_push_enabled') === 'false') return;
 
   const vibrationPattern = [600, 150, 600, 150, 800, 150, 1000];
+
+  try {
+    if (
+      window.CopaiAndroidBridge &&
+      typeof window.CopaiAndroidBridge.showNotification === 'function'
+    ) {
+      window.CopaiAndroidBridge.showNotification(String(title || ''), String(body || ''), String(tag || 'copai-alert'));
+      return;
+    }
+  } catch {}
 
   try {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
