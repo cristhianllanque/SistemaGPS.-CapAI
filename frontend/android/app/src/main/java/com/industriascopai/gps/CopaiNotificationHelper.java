@@ -16,12 +16,15 @@ import android.os.Vibrator;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class CopaiNotificationHelper {
 
     public static final String CHANNEL_ID = "copai_emergency_alerts";
     public static final String CHANNEL_NAME = "Alertas Críticas CopAI GPS";
     private static final long[] VIBRATION_PATTERN = new long[] { 0, 600, 150, 600, 150, 800, 150, 1000 };
+    private static final long DEDUP_WINDOW_MS = 8000L;
+    private static final ConcurrentHashMap<String, Long> LAST_SHOWN_BY_TAG = new ConcurrentHashMap<>();
 
     private CopaiNotificationHelper() {}
 
@@ -56,6 +59,13 @@ public final class CopaiNotificationHelper {
 
     public static void showHighPriorityNotification(Context context, String title, String body, String tag) {
         if (context == null) return;
+        String safeTag = (tag != null && !tag.trim().isEmpty()) ? tag.trim() : "copai-alert";
+        long now = System.currentTimeMillis();
+        Long prevShown = LAST_SHOWN_BY_TAG.put(safeTag, now);
+        if (prevShown != null && (now - prevShown) < DEDUP_WINDOW_MS) {
+            // Evitar notificación duplicada si llega simultáneamente por FCM y por canal en vivo
+            return;
+        }
         ensureNotificationChannel(context);
 
         // Vibración física inmediata para que se sienta en el bolsillo
@@ -103,8 +113,8 @@ public final class CopaiNotificationHelper {
                 .setSound(soundUri)
                 .setContentIntent(pendingIntent);
 
-            int notificationId = (tag != null ? tag.hashCode() : (int) System.currentTimeMillis());
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build());
+            int notificationId = Math.abs(safeTag.hashCode());
+            NotificationManagerCompat.from(context).notify(safeTag, notificationId, builder.build());
         } catch (Exception ignored) {}
     }
 }

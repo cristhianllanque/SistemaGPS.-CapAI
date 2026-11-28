@@ -211,7 +211,20 @@ export async function subscribeUserToPush(token, requestPermissionIfNeeded = tru
     } catch {}
 
     try {
+      const prevEndpoint = localStorage.getItem('copai_push_endpoint') || '';
       const endpoint = getOrCreateAndroidDeviceEndpoint();
+      if (prevEndpoint && prevEndpoint !== endpoint) {
+        try {
+          await axios.post(
+            `${API_BASE_URL}/api/pwa/push/unsubscribe`,
+            { endpoint: prevEndpoint },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 4000
+            }
+          );
+        } catch {}
+      }
       const subRes = await axios.post(
         `${API_BASE_URL}/api/pwa/push/subscribe`,
         {

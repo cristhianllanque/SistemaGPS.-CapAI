@@ -89,8 +89,9 @@ async def maintenance_cleanup_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     manager.set_loop(asyncio.get_running_loop())
-    from app.services.push_service import get_or_create_vapid_keys
+    from app.services.push_service import get_or_create_vapid_keys, init_firebase_admin
     get_or_create_vapid_keys()
+    init_firebase_admin()
     # Start the Teltonika TCP Server in the background
     tcp_task = asyncio.create_task(start_tcp_server(host='0.0.0.0', port=5000))
     cleanup_task = asyncio.create_task(maintenance_cleanup_loop())

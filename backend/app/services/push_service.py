@@ -11,10 +11,76 @@ logger = logging.getLogger(__name__)
 
 VAPID_KEYS_FILE = os.path.join(".secrets", "vapid_keys.json")
 LEGACY_PUBLIC_VAPID_KEYS_FILE = os.path.join("uploads", "vapid_keys.json")
-FIREBASE_SA_FILE = os.path.join(".secrets", "firebase_service_account.json")
+FIREBASE_SA_CANDIDATES = [
+    "/home/ubuntu/.copai-secrets/firebase_service_account.json",
+    r"D:\CopAI-Secrets\firebase_service_account.json",
+    os.path.join(".secrets", "firebase_service_account.json"),
+]
 VAPID_CLAIMS = {"sub": "mailto:industriascopai@gmail.com"}
 
 _FCM_TOKEN_CACHE = {"access_token": None, "expires_at": 0.0, "project_id": None}
+_FIREBASE_ADMIN_APP = None
+
+
+def resolve_firebase_service_account_path() -> Optional[str]:
+    """
+    Resuelve la ruta segura de la credencial Firebase Admin fuera del repositorio
+    y fuera del directorio público de Nginx. Nunca registra el contenido de la clave.
+    """
+    for env_var in ("FIREBASE_SERVICE_ACCOUNT_PATH", "GOOGLE_APPLICATION_CREDENTIALS"):
+        custom_path = (os.environ.get(env_var) or "").strip()
+        if custom_path and os.path.exists(custom_path):
+            return custom_path
+    for candidate in FIREBASE_SA_CANDIDATES:
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def init_firebase_admin() -> dict:
+    """
+    Inicializa Firebase Admin SDK (si está instalado) y valida la credencial de servicio
+    para Firebase Cloud Messaging HTTP v1 sin exponer jamás la clave privada en logs.
+    """
+    global _FIREBASE_ADMIN_APP
+    sa_path = resolve_firebase_service_account_path()
+    if not sa_path:
+        logger.info("[PUSH-FCM] Credencial Firebase no encontrada aún; FCM en espera de configuración.")
+        return {"initialized": False, "project_id": None, "mode": "unconfigured"}
+
+    project_id = None
+    try:
+        with open(sa_path, "r", encoding="utf-8") as fh:
+            meta = json.load(fh)
+            project_id = meta.get("project_id")
+            if not meta.get("private_key") or not meta.get("client_email"):
+                logger.warning("[PUSH-FCM] El archivo de credencial Firebase no contiene los campos requeridos.")
+                return {"initialized": False, "project_id": project_id, "mode": "invalid_file"}
+    except Exception as exc:
+        logger.warning(f"[PUSH-FCM] No se pudo verificar metadatos de credencial Firebase: {exc}")
+        return {"initialized": False, "project_id": None, "mode": "read_error"}
+
+    mode = "http_v1_oauth2"
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(sa_path)
+            _FIREBASE_ADMIN_APP = firebase_admin.initialize_app(cred)
+        else:
+            _FIREBASE_ADMIN_APP = firebase_admin.get_app()
+        mode = "firebase_admin_sdk"
+    except ImportError:
+        mode = "http_v1_oauth2"
+    except Exception as exc:
+        logger.warning(f"[PUSH-FCM] Aviso inicializando firebase_admin SDK ({exc}); usando cliente HTTP v1 directo.")
+
+    print(
+        f"[PUSH-FCM] Firebase Cloud Messaging inicializado correctamente (project_id={project_id}, mode={mode})",
+        flush=True,
+    )
+    return {"initialized": True, "project_id": project_id, "mode": mode}
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -118,17 +184,18 @@ def _get_fcm_access_token() -> tuple[Optional[str], Optional[str]]:
 
     sa_data = None
     env_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
+    sa_path = resolve_firebase_service_account_path()
     if env_json:
         try:
             sa_data = json.loads(env_json)
         except Exception:
             sa_data = None
-    elif os.path.exists(FIREBASE_SA_FILE):
+    elif sa_path:
         try:
-            with open(FIREBASE_SA_FILE, "r", encoding="utf-8") as fh:
+            with open(sa_path, "r", encoding="utf-8") as fh:
                 sa_data = json.load(fh)
         except Exception as e:
-            logger.warning(f"[PUSH-FCM] No se pudo leer {FIREBASE_SA_FILE}: {e}")
+            logger.warning(f"[PUSH-FCM] No se pudo leer la credencial Firebase en ruta configurada: {e}")
 
     if not sa_data or not sa_data.get("private_key") or not sa_data.get("client_email"):
         return None, None

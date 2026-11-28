@@ -25,6 +25,9 @@ dist-ssr/
 .secrets/
 backend/.secrets/
 vapid_keys.json
+firebase_service_account.json
+*firebase-adminsdk*.json
+**/google-services.json
 *.pem
 *.key
 *.cert

@@ -194,7 +194,13 @@ export default function Layout() {
               : critical.tipo === 'exceso_velocidad'
               ? `Circula a ${critical.velocidad || 0} km/h (Límite: ${critical.limite || 90} km/h).`
               : `Emergencia SOS activada en unidad ${critical.placa || ''}.`;
-          showSystemNotification(title, body, `copai-bg-${critical.tipo}-${critical.vehiculo_id}`);
+          const unifiedTag =
+            critical.tipo === 'sabotaje'
+              ? `copai-sabotage-${critical.vehiculo_id}`
+              : critical.tipo === 'exceso_velocidad'
+              ? `copai-speed-${critical.vehiculo_id}`
+              : `copai-panic-${critical.vehiculo_id}`;
+          showSystemNotification(title, body, unifiedTag);
         }
       }
     } catch {}
@@ -255,7 +261,15 @@ export default function Layout() {
           siren.setKeepAlive(true);
         }
       });
-      return;
+      const onFcmTokenReady = () => {
+        const currentTok = localStorage.getItem('token') || token;
+        if (!currentTok || localStorage.getItem('copai_push_enabled') === 'false') return;
+        subscribeUserToPush(currentTok, false).then(() => {
+          setPushPermission(getNotificationPermissionState());
+        });
+      };
+      window.addEventListener('copai:fcm-token', onFcmTokenReady);
+      return () => window.removeEventListener('copai:fcm-token', onFcmTokenReady);
     }
 
     if (typeof window !== 'undefined' && 'Notification' in window) {

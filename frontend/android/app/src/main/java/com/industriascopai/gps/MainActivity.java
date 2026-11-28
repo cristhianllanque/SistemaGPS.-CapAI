@@ -149,9 +149,25 @@ public class MainActivity extends BridgeActivity {
                         Context.MODE_PRIVATE
                     );
                     prefs.edit().putString(CopaiFirebaseMessagingService.KEY_FCM_TOKEN, token).apply();
+                    notifyWebViewFcmToken(token);
                 }
             });
         } catch (Exception ignored) {}
+    }
+
+    private void notifyWebViewFcmToken(String token) {
+        if (token == null || token.isEmpty()) return;
+        runOnUiThread(() -> {
+            try {
+                if (bridge != null && bridge.getWebView() != null) {
+                    String escaped = token.replace("\\", "\\\\").replace("'", "\\'");
+                    bridge.getWebView().evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('copai:fcm-token',{detail:'" + escaped + "'}));",
+                        null
+                    );
+                }
+            } catch (Exception ignored) {}
+        });
     }
 
     private void markNativeFramedInWebView(WebView view) {
