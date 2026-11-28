@@ -1,9 +1,15 @@
 // ==============================================================================
 // Motor Persistente de Sirena y Alarmas de Bolsillo COPAI GPS (Android & iOS)
-// Mantiene activo el canal de audio en segundo plano mediante onda sub-audible
-// de 18 Hz (inaudible al oído humano y altavoz, pero evita que Android congele
-// el WebView o suspenda el AudioContext al bloquear pantalla o cambiar de App).
+// En Android mantiene activo el WebView con pantalla apagada mediante una señal
+// PCM ultra-silenciosa (-90 dB, cero zumbido incluso en parlantes externos).
+// En PC y iPhone NO mantiene audio de fondo para no mostrar reproductor en el
+// Notch / Dynamic Island del iPhone ni generar ruido en parlantes de escritorio.
 // ==============================================================================
+
+function isAndroidDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent || '');
+}
 
 function createPcmWavDataUri(sampleRate, durationSec, sampleGenerator) {
   try {
@@ -83,13 +89,15 @@ class EmergencySiren {
     try {
       const sampleRate = 12000;
 
-      // 1. Onda sub-audible de 18 Hz para Keep-Alive en Android (supera el SilentSinkSuspender de Chromium
-      // manteniendo vivo el WebView, el WebSocket y los timers cuando el usuario está en otra App o bloquea el celular)
-      const keepAliveUri = createPcmWavDataUri(8000, 1.0, (t) => Math.sin(2 * Math.PI * 18 * t) * 0.18);
-      if (keepAliveUri) {
-        this.keepAliveAudioEl = new Audio(keepAliveUri);
-        this.keepAliveAudioEl.loop = true;
-        this.keepAliveAudioEl.volume = 0.25;
+      // 1. Señal PCM ultra-silenciosa (-90 dB) SOLO para Android (evita que Android congele
+      // el WebView al apagar la pantalla, sin producir ningún zumbido ni activar el Notch en iPhone/PC)
+      if (isAndroidDevice()) {
+        const keepAliveUri = createPcmWavDataUri(8000, 1.0, (t) => Math.sin(2 * Math.PI * 1 * t) * 0.00005);
+        if (keepAliveUri) {
+          this.keepAliveAudioEl = new Audio(keepAliveUri);
+          this.keepAliveAudioEl.loop = true;
+          this.keepAliveAudioEl.volume = 0.01;
+        }
       }
 
       // 2. Sirena de emergencia bitonal de máxima potencia (Pánico y Sabotaje)
@@ -151,15 +159,15 @@ class EmergencySiren {
         ctx.resume().catch(() => {});
       }
 
-      // 1. Oscilador Keep-Alive de 18 Hz permanente en el AudioContext
-      if (!this.keepAliveOsc) {
+      // 1. Oscilador Keep-Alive ultra-silencioso SOLO en Android (0.00002 de ganancia = silencio total en parlantes)
+      if (isAndroidDevice() && !this.keepAliveOsc) {
         this.keepAliveGain = ctx.createGain();
-        this.keepAliveGain.gain.setValueAtTime(0.08, ctx.currentTime);
+        this.keepAliveGain.gain.setValueAtTime(0.00002, ctx.currentTime);
         this.keepAliveGain.connect(ctx.destination);
 
         this.keepAliveOsc = ctx.createOscillator();
         this.keepAliveOsc.type = 'sine';
-        this.keepAliveOsc.frequency.setValueAtTime(18, ctx.currentTime);
+        this.keepAliveOsc.frequency.setValueAtTime(1, ctx.currentTime);
         this.keepAliveOsc.connect(this.keepAliveGain);
         this.keepAliveOsc.start();
       }
@@ -202,10 +210,8 @@ class EmergencySiren {
       this._ensureHtmlAudioElements();
       this._ensurePersistentAudioGraph();
 
-      if (this.keepAliveEnabled && this.keepAliveAudioEl && this.keepAliveAudioEl.paused) {
-        this.keepAliveAudioEl.play().then(() => {
-          this._registerMediaSession();
-        }).catch(() => {});
+      if (isAndroidDevice() && this.keepAliveEnabled && this.keepAliveAudioEl && this.keepAliveAudioEl.paused) {
+        this.keepAliveAudioEl.play().catch(() => {});
       }
 
       if (this.isPlaying && this.sirenAudioEl && this.sirenAudioEl.paused) {
@@ -227,7 +233,7 @@ class EmergencySiren {
   }
 
   setKeepAlive(enabled) {
-    this.keepAliveEnabled = Boolean(enabled);
+    this.keepAliveEnabled = Boolean(enabled) && isAndroidDevice();
     if (!this.keepAliveEnabled) {
       try {
         if (this.keepAliveAudioEl && !this.keepAliveAudioEl.paused) {
